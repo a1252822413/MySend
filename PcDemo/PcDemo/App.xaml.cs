@@ -80,17 +80,14 @@ public partial class App : Application, IRecipient<DeviceDiscoveredMessage>
             // 3.1 订阅 UDP 发现消息（首次收到时触发 Kestrel 延迟启动）
             WeakReferenceMessenger.Default.Register(this);
 
-            // 4. 启动网络（调试期：不做延迟启动，立刻全开 UDP + Kestrel + 公告，
-            //    先保证"手机能看到 PC"的基本稳定性。
-            //    等稳定后再恢复延迟启动。）
-            _multicast ??= Services.GetRequiredService<MulticastDiscoveryService>();
-            if (!_multicast.IsRunning) _multicast.Start();
-            _http ??= Services.GetRequiredService<LocalSendHttpServer>();
-            if (!_http.IsRunning) _http.Start();
-            _kestrelStarted = true;
-            _ = _multicast.AnnounceOnceAsync();
-            _multicast.StartPeriodicAnnounce(TimeSpan.FromSeconds(3));
-            LogDiag($"HTTP server started on port {_http.RunningPort} + UDP multicast (no-deferred)");
+            // 4. 启动网络：恢复延迟启动架构——只开 UDP 被动监听，
+            //    Kestrel + 公告在首次发现设备时由 EnsureKestrelRunning 启动。
+            //    （此前 no-deferred 是为绕过 Messenger 分裂导致延迟启动失效，已修复，故恢复）
+            StartUdpOnly();
+
+            // 4.1 空闲检查：每 15s 一次，无设备 + 无会话持续 60s → 停 Kestrel 省内存
+            _idleCheckTimer ??= new Timer(_ => CheckAndStopIfIdle(), null,
+                IdleCheckIntervalMs, IdleCheckIntervalMs);
 
             // 4.5 加载传输历史（JSON 持久化）
             Services.GetRequiredService<TransferHistoryService>().Load();
@@ -197,20 +194,24 @@ public partial class App : Application, IRecipient<DeviceDiscoveredMessage>
     }
 
     /// <summary>DeviceDiscoveredMessage 处理：收到设备公告 = 对方在找我们。
-    /// 1) 立刻回一次 UDP 公告（AnnounceOnce）——官方协议约定双向可见的核心，跟 Kestrel 是否启动无关
-    /// 2) 如果 Kestrel 未启动，启动 Kestrel（避免后续 prepare-upload 端点 404）+ 开周期公告
-    /// 这样避免"手机先开 → PC 只监听不回播 → 手机看不到 PC"的死锁。</summary>
+    /// 1) Kestrel 未启动（延迟启动/空闲已停）：先 EnsureKestrelRunning（启动 HTTP → 回播公告 → 开周期公告）
+    /// 2) Kestrel 已运行：立即回播公告（官方双向可见机制的核心）
+    /// 保证"手机先开 → PC 回播 → 手机看得到 PC"，且回播时 prepare-upload 端点一定就绪。</summary>
     public void Receive(DeviceDiscoveredMessage message)
     {
-        // 1) 无论 Kestrel 是否启动，立刻回 UDP 公告（让对方立刻看到我们）
-        // UDP socket 在 StartUdpOnly 时已经启动，AnnounceOnce 只走 UDP，跟 HTTP server 无关。
         _multicast ??= Services.GetRequiredService<MulticastDiscoveryService>();
-        _ = _multicast.AnnounceOnceAsync();
 
         if (!_kestrelStarted)
         {
+            // 首次发现：先启动 Kestrel（内部随后回播公告 + 开周期公告），
+            // 保证对方收到公告、发 prepare-upload 时端口已就绪
             LogDiag($"[Kestrel] first device discovered ({message.Message.Alias}), triggering deferred start");
             EnsureKestrelRunning();
+        }
+        else
+        {
+            // 已在运行：立即回播公告（官方双向可见机制的核心）
+            _ = _multicast.AnnounceOnceAsync();
         }
     }
 

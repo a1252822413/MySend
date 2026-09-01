@@ -54,7 +54,12 @@ public sealed class SettingsService : ISettingsService
                 var dir = PathHelper.AppDataDir;
                 Directory.CreateDirectory(dir);
                 var json = JsonSerializer.Serialize(settings, JsonOptions.Default);
-                File.WriteAllText(PathHelper.SettingsFilePath, json);
+                // 原子写：先写临时文件再替换，避免进程崩溃留下损坏的 JSON
+                var path = PathHelper.SettingsFilePath;
+                var tmp = path + ".tmp";
+                File.WriteAllText(tmp, json);
+                if (File.Exists(path)) File.Replace(tmp, path, null);
+                else File.Move(tmp, path);
             }
             catch
             {

@@ -1,8 +1,10 @@
 // UDP 多播发现服务：对应 packages/core/src/multicast/mod.rs
-// - 绑定 UdpClient 到 0.0.0.0:53317，JoinMulticastGroup(224.0.0.167)，TTL=1
-// - 接收循环解析 MulticastMessageV2，过滤自身 fingerprint，发 DeviceDiscoveredMessage
-// - AnnounceOnce 重复 3 次：100ms / 500ms / 2000ms 后
+// - 接收：绑定 0.0.0.0:53317，JoinMulticastGroup(224.0.0.167)
+// - 发送：为每个可多播的 IPv4 接口建独立 socket 逐接口发送
+//   （Windows 多网卡下单 socket 多播可能走错默认接口，导致手机收不到公告）
+// - AnnounceOnce 重复 3 次：100ms / 500ms / 2000ms 后（启动/手动刷新）；周期公告为单发
 using System.Net;
+using System.Net.NetworkInformation;
 using System.Net.Sockets;
 using System.Text.Json;
 using CommunityToolkit.Mvvm.Messaging;
@@ -26,6 +28,7 @@ public sealed class MulticastDiscoveryService : IDisposable
     private readonly object _refreshGate = new();
 
     private UdpClient? _udp;
+    private readonly List<UdpClient> _sendSockets = new();
     private CancellationTokenSource? _cts;
     private Task? _receiveTask;
     private PeriodicTimer? _periodicAnnounceTimer;
@@ -63,6 +66,7 @@ public sealed class MulticastDiscoveryService : IDisposable
 
         _cts = new CancellationTokenSource();
         _receiveTask = Task.Run(() => ReceiveLoopAsync(_cts.Token));
+        CreateSendSockets();
     }
 
     public void Stop()
@@ -71,9 +75,98 @@ public sealed class MulticastDiscoveryService : IDisposable
         try { _cts?.Cancel(); } catch { }
         try { _udp?.Dispose(); } catch { }
         _udp = null;
+        DisposeSendSockets();
         _cts?.Dispose();
         _cts = null;
         _receiveTask = null;
+    }
+
+    /// <summary>
+    /// 多网卡支持：为每个可多播的 IPv4 接口建一个发送 socket（绑定接口地址 + MulticastInterface）。
+    /// Windows 多网卡（WiFi + 以太网 + Hyper-V/WSL 虚拟网卡）下，单 socket 多播可能走错默认接口，
+    /// 导致手机收不到本机公告。官方 LocalSend 同样按接口逐个发送。
+    /// </summary>
+    private void CreateSendSockets()
+    {
+        DisposeSendSockets();
+        try
+        {
+            foreach (var ni in NetworkInterface.GetAllNetworkInterfaces())
+            {
+                if (ni.OperationalStatus != OperationalStatus.Up) continue;
+                if (ni.NetworkInterfaceType == NetworkInterfaceType.Loopback) continue;
+                if (!ni.SupportsMulticast) continue;
+
+                var props = ni.GetIPProperties();
+                var ipv4 = props.UnicastAddresses
+                    .FirstOrDefault(a => a.Address.AddressFamily == AddressFamily.InterNetwork)?.Address;
+                var index = props.GetIPv4Properties()?.Index;
+                if (ipv4 is null || index is null) continue;
+
+                try
+                {
+                    var send = new UdpClient();
+                    send.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
+                    send.Client.Bind(new IPEndPoint(ipv4, 0));
+                    // MulticastInterface 需要 network byte order 的接口索引
+                    send.Client.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.MulticastInterface,
+                        IPAddress.HostToNetworkOrder(index.Value));
+                    send.Client.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.MulticastTimeToLive, 1);
+                    _sendSockets.Add(send);
+                    App.LogDiag($"[Multicast] send socket bound to {ipv4} ({ni.Name})");
+                }
+                catch (Exception ex)
+                {
+                    App.LogDiag($"[Multicast] bind {ipv4} failed: {ex.Message}");
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            App.LogDiag($"[Multicast] CreateSendSockets failed: {ex.Message}");
+        }
+
+        if (_sendSockets.Count == 0)
+            App.LogDiag("[Multicast] no per-interface socket, fallback to default routing socket");
+    }
+
+    private void DisposeSendSockets()
+    {
+        foreach (var s in _sendSockets)
+        {
+            try { s.Dispose(); } catch { }
+        }
+        _sendSockets.Clear();
+    }
+
+    /// <summary>向所有多播接口各发一条公告；全部失败时重建发送 socket（应对 WiFi 切换等接口变化）。</summary>
+    private async Task SendAnnounceToAllAsync()
+    {
+        var s = _settings.Current;
+        var target = new IPEndPoint(IPAddress.Parse(s.MulticastGroup), s.Port);
+        var payload = JsonSerializer.SerializeToUtf8Bytes(_info.BuildAnnouncedMessage(), JsonOptions.Default);
+
+        var sent = false;
+        foreach (var socket in _sendSockets)
+        {
+            try { await socket.SendAsync(payload, target); sent = true; }
+            catch { /* 单个接口失败不影响其余 */ }
+        }
+
+        // 无逐接口 socket → 回退默认路由 socket（接收用）
+        if (!sent && _sendSockets.Count == 0)
+        {
+            var udp = _udp;
+            if (udp is not null)
+            {
+                try { await udp.SendAsync(payload, target); sent = true; }
+                catch { }
+            }
+        }
+
+        // 有接口 socket 但全部失败 → 接口列表可能过期（WiFi 切换/断开重连），重建后由下一轮公告生效
+        if (!sent && _sendSockets.Count > 0)
+            CreateSendSockets();
     }
 
     /// <summary>
@@ -90,7 +183,7 @@ public sealed class MulticastDiscoveryService : IDisposable
             {
                 while (await _periodicAnnounceTimer.WaitForNextTickAsync())
                 {
-                    try { await AnnounceOnceAsync(); }
+                    try { await AnnounceSingleAsync(); }
                     catch { /* 网络抖动忽略 */ }
                 }
             }
@@ -147,24 +240,24 @@ public sealed class MulticastDiscoveryService : IDisposable
         }
     }
 
-    /// <summary>发送一轮公告：重复 3 次（100/500/2000ms 后），每次发一个数据报到组:port。</summary>
+    /// <summary>发送一轮公告：重复 3 次（100/500/2000ms 后），每次向所有多播接口各发一个数据报。用于启动/手动刷新。</summary>
     public async Task AnnounceOnceAsync(CancellationToken ct = default)
     {
-        var s = _settings.Current;
-        var group = IPAddress.Parse(s.MulticastGroup);
-        var target = new IPEndPoint(group, s.Port);
-        var payload = JsonSerializer.SerializeToUtf8Bytes(_info.BuildAnnouncedMessage(), JsonOptions.Default);
-        var udp = _udp;
-
         foreach (var delay in AnnounceDelays)
         {
             if (ct.IsCancellationRequested) return;
             try { await Task.Delay(delay, ct); }
             catch (OperationCanceledException) { return; }
-            if (udp is null) return;
-            try { await udp.SendAsync(payload, target); }
-            catch { /* 单个接口失败不影响其余 */ }
+            if (_udp is null) return;
+            await SendAnnounceToAllAsync();
         }
+    }
+
+    /// <summary>立即单发一轮公告（周期公告专用），避免 3 连发与 3s 周期重叠放大流量。</summary>
+    public async Task AnnounceSingleAsync()
+    {
+        if (_udp is null) return;
+        await SendAnnounceToAllAsync();
     }
 
     /// <summary>

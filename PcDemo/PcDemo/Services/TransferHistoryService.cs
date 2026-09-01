@@ -58,7 +58,11 @@ public sealed class TransferHistoryService
     {
         try
         {
-            File.WriteAllText(_filePath, JsonSerializer.Serialize(Items.ToList(), _jsonOptions));
+            // 原子写：先写临时文件再替换，避免进程崩溃留下损坏的 JSON
+            var tmp = _filePath + ".tmp";
+            File.WriteAllText(tmp, JsonSerializer.Serialize(Items.ToList(), _jsonOptions));
+            if (File.Exists(_filePath)) File.Replace(tmp, _filePath, null);
+            else File.Move(tmp, _filePath);
         }
         catch (Exception ex)
         {
