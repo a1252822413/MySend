@@ -9,6 +9,7 @@ using System.Threading;
 using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
+using PcDemo.Helpers;
 using PcDemo.Messages;
 using PcDemo.Models;
 using PcDemo.Networking;
@@ -16,6 +17,7 @@ using PcDemo.Services;
 using PcDemo.ViewModels;
 using PcDemo.Views;
 using Windows.Storage;
+using Windows.UI.Notifications;
 
 namespace PcDemo;
 
@@ -35,6 +37,9 @@ public partial class App : Application, IRecipient<DeviceDiscoveredMessage>
 
     // 空闲最后时间戳（设备数变 0 时开始计时）
     private static long _idleSinceTicks;
+
+    // 托盘常驻：关窗隐藏到托盘，后台继续接收；「退出」才真正结束进程
+    private static TrayIconManager? _tray;
 
     public App()
     {
@@ -97,6 +102,33 @@ public partial class App : Application, IRecipient<DeviceDiscoveredMessage>
             MainWindow.Closed += OnWindowClosed;
             MainWindow.Activate();
             LogDiag("OnLaunched: window activated");
+
+            // 6. 托盘常驻：创建成功才启用"关窗隐藏"；失败降级为关窗即退出，绝不阻断启动
+            try
+            {
+                _tray = new TrayIconManager("PcDemo - LocalSend（后台接收中）");
+                _tray.OpenRequested += ShowMainWindow;
+                _tray.ExitRequested += ExitApplication;
+                _tray.Create();
+                LogDiag("[Tray] tray icon created");
+
+                // 关窗 ≠ 退出：拦截标题栏关闭 → 隐藏到托盘，后台继续接收
+                MainWindow.AppWindow.Closing += (s, e) =>
+                {
+                    e.Cancel = true;
+                    s.Hide();
+                    LogDiag("[Tray] window closed by user → hidden to tray (still receiving)");
+                };
+            }
+            catch (Exception ex)
+            {
+                LogDiag($"[Tray] init failed, fallback to close-to-exit: {ex.Message}");
+                _tray?.Dispose();
+                _tray = null;
+            }
+
+            // Toast 通知改用 WinRT 原生 ToastNotificationManager（MSIX 免 manifest COM 声明），
+            // 在 ShowTransferToast 内按需调用；此处无需注册
         }
         catch (Exception ex)
         {
@@ -210,8 +242,8 @@ public partial class App : Application, IRecipient<DeviceDiscoveredMessage>
         }
         else
         {
-            // 已在运行：立即回播公告（官方双向可见机制的核心）
-            _ = _multicast.AnnounceOnceAsync();
+            // 已在运行：立即回播公告（单发，官方双向可见机制的核心）
+            _ = _multicast.AnnounceSingleAsync();
         }
     }
 
@@ -277,6 +309,10 @@ public partial class App : Application, IRecipient<DeviceDiscoveredMessage>
             // MSIX 沙箱下用 ApplicationData.Current.LocalFolder，确保可写
             var folder = ApplicationData.Current.LocalFolder;
             var logPath = System.IO.Path.Combine(folder.Path, "diag.log");
+            // 防止无限增长：超过 1MB 直接清空重新开始（诊断日志可丢）
+            var info = new System.IO.FileInfo(logPath);
+            if (info.Exists && info.Length > 1024 * 1024)
+                info.Delete();
             System.IO.File.AppendAllText(logPath, $"{DateTime.Now:yyyy-MM-dd HH:mm:ss} {message}{Environment.NewLine}");
         }
         catch { /* 诊断日志写盘失败不影响主流程 */ }
@@ -285,6 +321,7 @@ public partial class App : Application, IRecipient<DeviceDiscoveredMessage>
     private static async void OnSettingsChanged(object? sender, AppSettings e)
     {
         // 设置变更 → 先全停再重启
+        var wasRunning = _kestrelStarted;
         try
         {
             _multicast?.Stop();
@@ -293,8 +330,58 @@ public partial class App : Application, IRecipient<DeviceDiscoveredMessage>
         }
         catch { /* ignore */ }
 
-        // 只重启 UDP 被动监听；Kestrel 等下次收到 DeviceDiscoveredMessage 再启动
+        // 重启 UDP 被动监听（端口可能已变）
         StartUdpOnly();
+
+        // 之前 Kestrel 在跑（本机对外可见）→ 立即拉起并补发公告，
+        // 让局域网设备马上用新别名/端口看到我们；空闲态则保持被动（不主动唤醒 Kestrel）
+        if (wasRunning)
+            EnsureKestrelRunning();
+    }
+
+    /// <summary>托盘「打开」/左键点击：显示并激活主窗口。</summary>
+    private static void ShowMainWindow()
+    {
+        if (!TryGetMainWindow(out var window)) return;
+        window.AppWindow.Show();
+        window.Activate();
+    }
+
+    /// <summary>托盘「退出」：清理资源后真正退出进程（关窗只是隐藏，不走这里）。</summary>
+    private static void ExitApplication()
+    {
+        try
+        {
+            LogDiag("[Tray] exit requested, cleaning up");
+            _tray?.Dispose();
+            _tray = null;
+            WeakReferenceMessenger.Default.UnregisterAll(CurrentApp);
+            _idleCheckTimer?.Dispose();
+            _multicast?.Stop();
+            _ = _http?.StopAsync();
+        }
+        catch { /* 退出清理失败不阻断 */ }
+        Current.Exit();
+    }
+
+    /// <summary>传输完成 Toast（窗口隐藏到托盘时才弹，前台可见时不打扰）。系统提示音随之播放。
+    /// 用 WinRT 原生 ToastNotificationManager：MSIX 打包应用免 manifest COM 声明，稳定可靠。</summary>
+    internal static void ShowTransferToast(string title, string body)
+    {
+        try
+        {
+            // 主窗口可见（用户正盯着界面）时静默跳过，避免干扰
+            if (MainWindow?.AppWindow.IsVisible == true) return;
+            var xml = ToastNotificationManager.GetTemplateContent(ToastTemplateType.ToastText02);
+            var texts = xml.GetElementsByTagName("text");
+            texts[0].AppendChild(xml.CreateTextNode(title));
+            texts[1].AppendChild(xml.CreateTextNode(body));
+            ToastNotificationManager.CreateToastNotifier().Show(new ToastNotification(xml));
+        }
+        catch (Exception ex)
+        {
+            LogDiag($"[Toast] failed: {ex.Message}");
+        }
     }
 
     private static async void OnWindowClosed(object sender, WindowEventArgs args)

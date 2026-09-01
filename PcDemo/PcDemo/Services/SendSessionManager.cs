@@ -50,6 +50,8 @@ public partial class SendSessionManager : ObservableObject, ISendSessionManager
         _speedLastTicks = 0;
         _speedLastBytes = 0;
         _speedEma = 0;
+        _progressLastBytes = 0;
+        _progressLastTimestamp = 0;
         var session = new SendSession { Target = target };
         foreach (var f in files) session.Files.Add(f);
         // 监控每个文件 BytesSent → 推高会话 TotalBytesSent
@@ -139,6 +141,7 @@ public partial class SendSessionManager : ObservableObject, ISendSessionManager
                             f.Path, f.Size,
                             bytes => SetFileProgress(f, bytes),
                             ct);
+                        SetFileProgress(f, f.Size, force: true); // 补推最终字节，保证进度收尾准确
                         SetFileStatus(f, SendFileStatus.Done);
                         sentCount++;
                         break;
@@ -169,7 +172,7 @@ public partial class SendSessionManager : ObservableObject, ISendSessionManager
                         if (attempt == 1)
                         {
                             App.LogDiag($"[Send] ↻ upload retry: {f.FileName}: {ex.Message}");
-                            SetFileProgress(f, 0);
+                            SetFileProgress(f, 0, force: true);
                             SetFileStatus(f, SendFileStatus.Uploading);
                             continue;
                         }
@@ -188,6 +191,9 @@ public partial class SendSessionManager : ObservableObject, ISendSessionManager
             // 完成
             SetState(session, SendSessionState.Completed);
             App.LogDiag($"[Send] ✓ completed {sentCount}/{session.Files.Count} files");
+            // 窗口隐藏在托盘时提醒用户（前台可见时静默）
+            App.ShowTransferToast("发送完成",
+                $"已向 {session.Target.Alias} 发送 {sentCount}/{session.Files.Count} 个文件");
             NotifySendFinished(session);
         }
         catch (SendCancelledException)
@@ -243,8 +249,35 @@ public partial class SendSessionManager : ObservableObject, ISendSessionManager
         _dispatcher.TryEnqueue(() => f.Status = status);
     }
 
-    private void SetFileProgress(SendFileItem f, long bytes)
+    // 进度节流：ProgressStreamContent 每 64KB 块回调一次，千兆网 ~1600 块/秒，
+    // 若每块都 TryEnqueue + 全量 Sum 会造成 UI 队列洪水。对齐接收端 FileSaver 策略：
+    // ≥512KB 或 ≥250ms 才推一次（回调线程直接判断，不入队）。
+    private const long ProgressMinBytesDelta = 512 * 1024;
+    private const int ProgressMinIntervalMs = 250;
+    private readonly object _progressGate = new();
+    private long _progressLastBytes;
+    private long _progressLastTimestamp;
+
+    private void SetFileProgress(SendFileItem f, long bytes, bool force = false)
     {
+        var now = Stopwatch.GetTimestamp();
+        if (!force)
+        {
+            lock (_progressGate)
+            {
+                var delta = bytes - _progressLastBytes;
+                var elapsedMs = (now - _progressLastTimestamp) * 1000 / Stopwatch.Frequency;
+                if (delta < ProgressMinBytesDelta && elapsedMs < ProgressMinIntervalMs)
+                    return; // 吞掉本次，保留最新值到下一次达标回调
+                _progressLastBytes = bytes;
+                _progressLastTimestamp = now;
+            }
+        }
+        else
+        {
+            _progressLastBytes = bytes;
+            _progressLastTimestamp = now;
+        }
         _dispatcher.TryEnqueue(() => f.BytesSent = bytes);
     }
 

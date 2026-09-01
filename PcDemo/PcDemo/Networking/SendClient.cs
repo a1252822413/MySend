@@ -67,6 +67,12 @@ public class SendClient
     // ----- 协议探测 -----
     private const int DetectTimeoutMs = 2500;
 
+    // ----- 短请求超时（upload 不设短超时，走 HttpClient 全局 30 分钟）-----
+    private const int RegisterTimeoutMs = 10_000;
+    private const int CancelTimeoutMs = 10_000;
+    // prepare-upload 对方要等其用户决策（我方接收端决策窗口 60s），超时须覆盖该窗口
+    private const int PrepareUploadTimeoutMs = 75_000;
+
     /// <summary>
     /// 探测对方协议。对方可能 HTTPS-only、或端口 53318(HTTPS)/53317(HTTP) 不一致。
     /// 优先使用 Device.Protocol/Port 声明的方案，失败再 fallback 到常见组合：
@@ -258,7 +264,7 @@ public class SendClient
         req.Content = new StringContent(
             JsonSerializer.Serialize(payload, JsonOptions.Default),
             Encoding.UTF8, "application/json");
-        using var res = await SendAsync(req, ct);
+        using var res = await SendAsync(req, ct, RegisterTimeoutMs);
         if (!res.IsSuccessStatusCode) await ThrowNonSuccess(res, ct);
         var body = await res.Content.ReadAsByteArrayAsync(ct);
         var dto = JsonSerializer.Deserialize(body, typeof(RegisterResponseDtoV2), JsonOptions.Default) as RegisterResponseDtoV2;
@@ -287,7 +293,7 @@ public class SendClient
         var usedScheme = scheme;
         try
         {
-            res = await SendAsync(req, ct);
+            res = await SendAsync(req, ct, PrepareUploadTimeoutMs);
         }
         catch (OperationCanceledException)
         {
@@ -344,9 +350,14 @@ public class SendClient
         {
             res = await SendAsync(req, ct);
         }
-        catch (OperationCanceledException)
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {
             throw new SendCancelledException();
+        }
+        catch (OperationCanceledException)
+        {
+            // 30 分钟全局超时（对端无响应/连接挂死）→ 按失败处理而非"用户取消"
+            throw new SendClientException("上传超时：对方设备长时间无响应");
         }
         if (!res.IsSuccessStatusCode)
         {
@@ -370,7 +381,7 @@ public class SendClient
             var uri = BuildUri(BaseUrl(scheme, ip, port, "/cancel"),
                 new Dictionary<string, string> { ["sessionId"] = sessionId });
             using var req = new HttpRequestMessage(HttpMethod.Post, uri);
-            using var res = await SendAsync(req, ct);
+            using var res = await SendAsync(req, ct, CancelTimeoutMs);
         }
         catch (SendCancelledException) { throw; }
         catch
@@ -396,10 +407,26 @@ public class SendClient
         => CancelAsync(proto.Scheme, ip, proto.Port, sessionId, ct);
 
     // ---------- helpers ----------
-    private async Task<HttpResponseMessage> SendAsync(HttpRequestMessage req, CancellationToken ct)
+    /// <summary>发送请求；timeoutMs 非空时施加单请求超时（超时转为 SendClientException，与用户取消区分）。</summary>
+    private async Task<HttpResponseMessage> SendAsync(HttpRequestMessage req, CancellationToken ct, int? timeoutMs = null)
     {
         try
         {
+            if (timeoutMs is not null)
+            {
+                using var cts = ct.CanBeCanceled
+                    ? CancellationTokenSource.CreateLinkedTokenSource(ct)
+                    : new CancellationTokenSource();
+                cts.CancelAfter(timeoutMs.Value);
+                try
+                {
+                    return await _http.SendAsync(req, HttpCompletionOption.ResponseContentRead, cts.Token);
+                }
+                catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+                {
+                    throw new SendClientException($"请求超时（{timeoutMs.Value / 1000}s）：对方设备可能已离线或无响应");
+                }
+            }
             return await _http.SendAsync(req, HttpCompletionOption.ResponseContentRead, ct);
         }
         catch (HttpRequestException ex)

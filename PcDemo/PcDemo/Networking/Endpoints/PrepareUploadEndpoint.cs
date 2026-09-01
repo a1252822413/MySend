@@ -20,7 +20,8 @@ public static class PrepareUploadEndpoint
 
     public static async Task<IResult> Handle(
         HttpContext ctx,
-        IReceiveSessionManager sessions)
+        IReceiveSessionManager sessions,
+        ISettingsService settings)
     {
         PrepareUploadRequestDtoV2? req;
         try
@@ -39,6 +40,21 @@ public static class PrepareUploadEndpoint
             return Results.Json(new ErrorResponse { Message = "No files provided" },
                 JsonOptions.Default, contentType: "application/json", statusCode: 400);
         }
+
+        // 磁盘空间预检：目标盘剩余空间不足时提前拒绝（507），避免传一半失败
+        try
+        {
+            ulong totalBytes = 0;
+            foreach (var f in req.Files.Values) totalBytes += f.Size;
+            var drive = new DriveInfo(System.IO.Path.GetPathRoot(settings.Current.Destination)!);
+            if (drive.IsReady && totalBytes > (ulong)Math.Max(0L, drive.AvailableFreeSpace))
+            {
+                App.LogDiag($"[PrepareUpload] insufficient disk space: need {totalBytes}, free {drive.AvailableFreeSpace}");
+                return Results.Json(new ErrorResponse { Message = "Insufficient disk space" },
+                    JsonOptions.Default, contentType: "application/json", statusCode: 507);
+            }
+        }
+        catch { /* 预检失败不阻断正常流程 */ }
 
         var senderIp = ctx.Connection.RemoteIpAddress?.ToString() ?? string.Empty;
         var result = await sessions.HandlePrepareUploadAsync(senderIp, req);

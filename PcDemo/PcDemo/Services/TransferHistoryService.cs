@@ -1,7 +1,9 @@
 // TransferHistoryService：传输历史（内存 ObservableCollection + JSON 持久化到 LocalState）。
-// 全部方法要求在 UI 线程调用（SessionFinished 处理器与页面加载均在 UI 线程）。
+// Add/Clear 要求在 UI 线程调用（SessionFinished 处理器与页面加载均在 UI 线程）；
+// 落盘带 1.5s 合并窗口（debounce），多文件传输结束只写一次盘，Timer 线程通过锁安全快照。
 using System.Collections.ObjectModel;
 using System.Text.Json;
+using System.Threading;
 using PcDemo.Models;
 
 namespace PcDemo.Services;
@@ -9,8 +11,11 @@ namespace PcDemo.Services;
 public sealed class TransferHistoryService
 {
     private const int MaxItems = 50;
+    private const int PersistDelayMs = 1500;
     private readonly string _filePath;
     private static readonly JsonSerializerOptions _jsonOptions = new() { WriteIndented = true };
+    private readonly object _itemsGate = new();
+    private Timer? _persistTimer;
 
     /// <summary>历史列表（最新在前）。</summary>
     public ObservableCollection<TransferHistoryItem> Items { get; } = new();
@@ -39,28 +44,54 @@ public sealed class TransferHistoryService
         }
     }
 
-    /// <summary>新增一条记录（插到最前，超出上限裁剪，异步落盘）。</summary>
+    /// <summary>新增一条记录（插到最前，超出上限裁剪，1.5s 内合并落盘一次）。</summary>
     public void Add(TransferHistoryItem item)
     {
-        Items.Insert(0, item);
-        while (Items.Count > MaxItems) Items.RemoveAt(Items.Count - 1);
+        lock (_itemsGate)
+        {
+            Items.Insert(0, item);
+            while (Items.Count > MaxItems) Items.RemoveAt(Items.Count - 1);
+        }
+        SchedulePersist();
+    }
+
+    /// <summary>清空历史并删除持久化文件（用户操作，立即落盘）。</summary>
+    public void Clear()
+    {
+        lock (_itemsGate)
+        {
+            Items.Clear();
+        }
+        CancelPendingPersist();
         Persist();
     }
 
-    /// <summary>清空历史并删除持久化文件。</summary>
-    public void Clear()
+    /// <summary>1.5s 合并窗口：窗口内多次 Add 只在最后一次触发后落盘一次。</summary>
+    private void SchedulePersist()
     {
-        Items.Clear();
-        Persist();
+        CancelPendingPersist();
+        _persistTimer = new Timer(_ => Persist(), null, PersistDelayMs, Timeout.Infinite);
+    }
+
+    private void CancelPendingPersist()
+    {
+        _persistTimer?.Dispose();
+        _persistTimer = null;
     }
 
     private void Persist()
     {
+        CancelPendingPersist();
         try
         {
+            List<TransferHistoryItem> snapshot;
+            lock (_itemsGate)
+            {
+                snapshot = Items.ToList();
+            }
             // 原子写：先写临时文件再替换，避免进程崩溃留下损坏的 JSON
             var tmp = _filePath + ".tmp";
-            File.WriteAllText(tmp, JsonSerializer.Serialize(Items.ToList(), _jsonOptions));
+            File.WriteAllText(tmp, JsonSerializer.Serialize(snapshot, _jsonOptions));
             if (File.Exists(_filePath)) File.Replace(tmp, _filePath, null);
             else File.Move(tmp, _filePath);
         }

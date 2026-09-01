@@ -1,4 +1,5 @@
-// 接收确认对话框 codebehind：静态 ShowDialogAsync 返回 PrepareUploadDecision?。
+// 接收确认对话框 codebehind：实例化后 ShowDialogAsync 返回 PrepareUploadDecision?。
+// 外部可调用 Hide()（如决策超时自动关闭），ShowAsync 将返回 None → 视为拒绝。
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using PcDemo.Messages;
@@ -17,20 +18,20 @@ public sealed partial class ReceiveRequestDialog : ContentDialog
         this.DataContext = vm;
     }
 
-    /// <summary>静态弹出对话框；返回用户决策（接受时附 fileId 列表，拒绝时 Accepted=false）。</summary>
-    public static async Task<PrepareUploadDecision?> ShowDialogAsync(XamlRoot root, ReceiveSession session)
+    /// <summary>由会话创建对话框（VM 从 session 构建）。</summary>
+    public ReceiveRequestDialog(ReceiveSession session)
+        : this(ReceiveRequestViewModel.FromSession(session))
     {
-        App.LogDiag($"[Dialog] ShowDialogAsync 开始，root={(root is null ? "null" : "ok")} 文件数={session.Files.Count}");
-        var vm = ReceiveRequestViewModel.FromSession(session);
-        var dialog = new ReceiveRequestDialog(vm)
-        {
-            XamlRoot = root,
-        };
-        var result = await dialog.ShowAsync();
+    }
+
+    /// <summary>弹出对话框；返回用户决策（接受时附 fileId 列表，拒绝/被外部关闭时 Accepted=false）。</summary>
+    public async Task<PrepareUploadDecision?> ShowDialogAsync()
+    {
+        var result = await ShowAsync();
         App.LogDiag($"[Dialog] ShowAsync 返回 {result}，Accepted={result == ContentDialogResult.Primary}");
         return result switch
         {
-            ContentDialogResult.Primary => vm.ToDecision(),
+            ContentDialogResult.Primary => ((ReceiveRequestViewModel)DataContext).ToDecision(),
             _ => new PrepareUploadDecision { Accepted = false },
         };
     }

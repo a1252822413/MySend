@@ -1,4 +1,4 @@
-﻿﻿// SendViewModel：发送 Tab 业务状态与命令。
+// SendViewModel：发送 Tab 业务状态与命令。
 using System.Collections.ObjectModel;
 using System.IO;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -6,6 +6,7 @@ using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml.Controls;
+using PcDemo.Helpers;
 using PcDemo.Messages;
 using PcDemo.Models;
 using PcDemo.Models.Dto;
@@ -27,7 +28,7 @@ public partial class SendViewModel : ViewModelBase,
     private DispatcherQueue? _dispatcher;
 
     public ObservableCollection<Device> Devices { get; } = new();
-    public ObservableCollection<SendFileItem> PendingFiles { get; } = new();
+    public BatchObservableCollection<SendFileItem> PendingFiles { get; } = new();
 
     /// <summary>当前/最近一次会话（UI 绑定进度）。</summary>
     [ObservableProperty] private SendSession? _current;
@@ -169,17 +170,19 @@ public partial class SendViewModel : ViewModelBase,
     [RelayCommand]
     private Task RefreshDevicesAsync() => _discovery.RefreshAsync();
 
-    /// <summary>由 UI 调用（FileOpenPicker 选取），把本地路径加入 PendingFiles。</summary>
+    /// <summary>由 UI 调用（FileOpenPicker 选取），把本地路径加入 PendingFiles（批量去重后一次入列）。</summary>
     public void AddFiles(IEnumerable<string> paths)
     {
+        var existing = new HashSet<string>(PendingFiles.Select(f => f.Path), StringComparer.OrdinalIgnoreCase);
+        var batch = new List<SendFileItem>();
         foreach (var p in paths)
         {
             try
             {
                 var fi = new FileInfo(p);
-                if (!fi.Exists) continue;
+                if (!fi.Exists || !existing.Add(p)) continue;
                 var ext = fi.Extension;
-                PendingFiles.Add(new SendFileItem
+                batch.Add(new SendFileItem
                 {
                     FileName = fi.Name,
                     Path = p,
@@ -193,6 +196,7 @@ public partial class SendViewModel : ViewModelBase,
                 // 忽略不可访问文件
             }
         }
+        if (batch.Count > 0) PendingFiles.AddRange(batch);
     }
 
     /// <summary>
@@ -201,7 +205,7 @@ public partial class SendViewModel : ViewModelBase,
     public async Task AddStorageItemsAsync(IReadOnlyList<Windows.Storage.IStorageItem> items)
     {
         var existingPaths = new HashSet<string>(PendingFiles.Select(f => f.Path), StringComparer.OrdinalIgnoreCase);
-        var added = 0;
+        var batch = new List<SendFileItem>();
         foreach (var item in items)
         {
             try
@@ -213,7 +217,7 @@ public partial class SendViewModel : ViewModelBase,
                     var props = await file.GetBasicPropertiesAsync();
                     var size = (long)props.Size;
                     var ext = System.IO.Path.GetExtension(path);
-                    PendingFiles.Add(new SendFileItem
+                    batch.Add(new SendFileItem
                     {
                         FileName = file.Name,
                         Path = path,
@@ -221,7 +225,6 @@ public partial class SendViewModel : ViewModelBase,
                         FileKind = FileKindMapper.FromExtension(ext),
                         Extension = ext.TrimStart('.'),
                     });
-                    added++;
                 }
                 else if (item is Windows.Storage.StorageFolder folder)
                 {
@@ -229,7 +232,7 @@ public partial class SendViewModel : ViewModelBase,
                     await foreach (var f in EnumerateFilesAsync(folder))
                     {
                         if (!existingPaths.Add(f.Path)) continue;
-                        PendingFiles.Add(new SendFileItem
+                        batch.Add(new SendFileItem
                         {
                             FileName = f.Name,
                             Path = f.Path,
@@ -237,7 +240,6 @@ public partial class SendViewModel : ViewModelBase,
                             FileKind = FileKindMapper.FromExtension(f.Ext),
                             Extension = f.Ext.TrimStart('.'),
                         });
-                        added++;
                     }
                 }
             }
@@ -246,7 +248,8 @@ public partial class SendViewModel : ViewModelBase,
                 // 忽略不可访问项
             }
         }
-        App.LogDiag($"[SendVM] 拖拽添加完成：新增 {added} 个文件");
+        if (batch.Count > 0) PendingFiles.AddRange(batch);
+        App.LogDiag($"[SendVM] 拖拽添加完成：新增 {batch.Count} 个文件");
     }
 
     /// <summary>递归遍历文件夹，返回 (Path, Name, Size, Ext)。</summary>

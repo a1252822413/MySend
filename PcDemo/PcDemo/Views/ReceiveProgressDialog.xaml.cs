@@ -1,5 +1,7 @@
 // 接收进度对话框：绑定 ReceiveSession.Progress（环形进度/阶段/速度/剩余时间），取消需二次确认。
-// 由 ReceivePage 在 ViewModel.TransferAccepted 事件中弹出；SessionFinished → ProgressFinished → dialog.Hide。
+// 由 ReceivePage 在 ViewModel.TransferAccepted 事件中弹出。
+// 接收全部完成 → 切换完成态：Title 变"接收完成"，按钮区变为 [打开文件夹(accent)] [关闭]，
+// 对话框保持打开等用户操作（不再被 SessionFinished 自动 Hide）。
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using PcDemo.Converters;
@@ -14,18 +16,36 @@ public sealed partial class ReceiveProgressDialog : ContentDialog
 
     private readonly ReceiveSession _session;
     private readonly Action _onCancel;
+    private readonly Action _onOpenFolder;
+    private bool _completed;
 
-    internal ReceiveProgressDialog(ReceiveSession session, Action onCancel)
+    internal ReceiveProgressDialog(ReceiveSession session, Action onCancel, Action onOpenFolder)
     {
         _session = session;
         P = session.Progress;
         _onCancel = onCancel;
+        _onOpenFolder = onOpenFolder;
         // 派生类不匹配 TargetType="ContentDialog" 的隐式样式，必须显式应用新版模板
         // （否则 fallback 外观：无圆角/无内容区与按钮区的色带分层）
         this.Style = Application.Current.Resources["DefaultContentDialogStyle"] as Style;
         this.InitializeComponent();
-        // RingValue 是 P 的计算属性（不触发通知），订阅后手动刷新
-        P.PropertyChanged += (_, _) => this.Bindings.Update();
+        // RingValue 是 P 的计算属性（不触发通知），订阅后手动刷新；IsCompleted 变化时切换完成态
+        P.PropertyChanged += (_, _) => OnProgressChanged();
+    }
+
+    private void OnProgressChanged()
+    {
+        this.Bindings.Update();
+        if (P.IsCompleted && !_completed)
+        {
+            _completed = true;
+            _confirming = false;
+            Title = "接收完成";
+            PrimaryButtonText = "打开文件夹";
+            SecondaryButtonText = "关闭";
+            // 主动作用官方强调色（accent 蓝底白字）
+            PrimaryButtonStyle = (Style)Application.Current.Resources["AccentButtonStyle"];
+        }
     }
 
     // ---------- x:Bind 绑定源 ----------
@@ -50,6 +70,13 @@ public sealed partial class ReceiveProgressDialog : ContentDialog
 
     private void OnCancelClick(ContentDialog sender, ContentDialogButtonClickEventArgs args)
     {
+        if (_completed)
+        {
+            // 完成态 Primary = 打开文件夹（对话框随后默认关闭）
+            _onOpenFolder();
+            return;
+        }
+
         if (!_confirming)
         {
             // 第一次点击：不关闭，把按钮区切换为 [确认取消(accent)] [继续接收]
@@ -69,6 +96,8 @@ public sealed partial class ReceiveProgressDialog : ContentDialog
 
     private void OnContinueClick(ContentDialog sender, ContentDialogButtonClickEventArgs args)
     {
+        if (_completed) return; // 完成态 Secondary = 关闭（默认关闭行为）
+
         // 继续接收：不关闭，恢复按钮区为 [取消接收]
         if (_confirming)
         {
@@ -77,20 +106,6 @@ public sealed partial class ReceiveProgressDialog : ContentDialog
             PrimaryButtonText = "取消接收";
             SecondaryButtonText = string.Empty;
             PrimaryButtonStyle = null; // 恢复默认按钮样式
-        }
-    }
-
-    /// <summary>弹出接收进度对话框；会话结束由外部 Hide（ShowAsync 返回）。</summary>
-    public static async Task ShowAsync(Microsoft.UI.Xaml.XamlRoot root, ReceiveSession session, Action onCancel)
-    {
-        var dialog = new ReceiveProgressDialog(session, onCancel) { XamlRoot = root };
-        try
-        {
-            await dialog.ShowAsync();
-        }
-        catch (Exception ex)
-        {
-            App.LogDiag($"[ReceiveDialog] ShowAsync 异常：{ex.Message}");
         }
     }
 }

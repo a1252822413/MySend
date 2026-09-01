@@ -76,37 +76,21 @@ public sealed partial class SendPage : Page
     // ---------- 拖拽支持：文件 / 文件夹 ----------
     private void OnDragOver(object sender, DragEventArgs e)
     {
-        // 列出 DataView 实际包含的所有格式 ID（WinUI 3 中从资源管理器拖文件时未必是 "StorageItems"）
-        var formats = string.Join(",", e.DataView.AvailableFormats);
-        App.LogDiag($"[SendPage] DragOver fired, AvailableFormats=[{formats}]");
-        // 含 StorageItems 才接受
-        if (e.DataView.Contains("StorageItems"))
-        {
-            e.AcceptedOperation = DataPackageOperation.Copy;
-            e.DragUIOverride.Caption = "拖放到此处添加文件";
-            e.DragUIOverride.IsCaptionVisible = true;
-            e.DragUIOverride.IsContentVisible = true;
-            DropHighlightBorder.Opacity = 0.18;
-        }
-        else
-        {
-            // 即使格式不对，先标记为 Copy 让 Drop 至少触发（后续在 Drop 里再用 GetDataAsync 兜底取）
-            e.AcceptedOperation = DataPackageOperation.Copy;
-            e.DragUIOverride.Caption = "拖放到此处添加文件";
-            e.DragUIOverride.IsCaptionVisible = true;
-            DropHighlightBorder.Opacity = 0.18;
-        }
+        // 统一标记 Copy：含 StorageItems 走标准路径；否则 Drop 里再按 AvailableFormats 兜底取
+        e.AcceptedOperation = DataPackageOperation.Copy;
+        e.DragUIOverride.Caption = "拖放到此处添加文件";
+        e.DragUIOverride.IsCaptionVisible = true;
+        e.DragUIOverride.IsContentVisible = true;
+        DropHighlightBorder.Opacity = 0.18;
     }
 
     private void OnDragLeave(object sender, DragEventArgs e)
     {
-        App.LogDiag("[SendPage] DragLeave fired");
         DropHighlightBorder.Opacity = 0;
     }
 
     private async void OnDrop(object sender, DragEventArgs e)
     {
-        App.LogDiag("[SendPage] Drop fired");
         DropHighlightBorder.Opacity = 0;
         var def = e.GetDeferral();
         try
@@ -121,7 +105,6 @@ public sealed partial class SendPage : Page
             {
                 foreach (var fmt in e.DataView.AvailableFormats)
                 {
-                    App.LogDiag($"[SendPage] Drop: try format {fmt}");
                     var data = await e.DataView.GetDataAsync(fmt);
                     if (data is IReadOnlyList<Windows.Storage.IStorageItem> list)
                     {

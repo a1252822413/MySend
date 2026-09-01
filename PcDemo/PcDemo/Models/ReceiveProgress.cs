@@ -29,6 +29,9 @@ public partial class ReceiveProgress : ObservableObject
     /// <summary>当前阶段文字（等待/正在接收 xx/接收完成）。</summary>
     [ObservableProperty] private string _phaseText = "等待对方发送…";
 
+    /// <summary>会话是否已全部接收完成（进度对话框据此切换为「打开文件夹/关闭」完成态）。</summary>
+    [ObservableProperty] private bool _isCompleted;
+
     /// <summary>总进度 0.0~1.0。</summary>
     public double Progress => TotalBytes == 0 ? 0.0 : Math.Clamp((double)ReceivedBytes / TotalBytes, 0.0, 1.0);
 }

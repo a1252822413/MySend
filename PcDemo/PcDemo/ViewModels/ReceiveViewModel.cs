@@ -35,6 +35,12 @@ public partial class ReceiveViewModel : ViewModelBase,
     /// <summary>UI 订阅：会话结束（成功/失败/取消）时关闭进度对话框（UI 线程触发）。</summary>
     public event Action? ProgressFinished;
 
+    /// <summary>UI 订阅：等待用户决策期间会话被服务端清理（60s 决策超时/发送方取消）→ 关闭请求对话框。</summary>
+    public event Action? DecisionExpired;
+
+    /// <summary>当前正在等待 UI 决策的会话（单槽约束下至多一个）。</summary>
+    private string? _awaitingDecisionSessionId;
+
     public ObservableCollection<Device> Devices { get; } = new();
 
     /// <summary>空状态切换（x:Bind 自动 bool→Visibility）。</summary>
@@ -187,6 +193,7 @@ public partial class ReceiveViewModel : ViewModelBase,
         App.LogDiag($"[ReceiveVM] PrepareUpload 入队 UI 决策，sessionId={session.SessionId[..8]}，文件数={session.Files.Count}");
         _dispatcher.TryEnqueue(async () =>
         {
+            _awaitingDecisionSessionId = session.SessionId;
             PrepareUploadDecision? decision = null;
             try
             {
@@ -198,6 +205,8 @@ public partial class ReceiveViewModel : ViewModelBase,
                 // 这里捕获后降级 Decline，确保 tcs 被 SetResult，prepare-upload 端点能返回 403
                 App.LogDiag($"[ReceiveVM] RequestUserDecision 抛异常：{ex.GetType().Name}: {ex.Message}");
             }
+            if (_awaitingDecisionSessionId == session.SessionId)
+                _awaitingDecisionSessionId = null;
             if (decision is null || !decision.Accepted)
             {
                 _sessions.Decline(session.SessionId);
@@ -219,8 +228,18 @@ public partial class ReceiveViewModel : ViewModelBase,
             var fileCount = session.Files.Count;
             var dest = _settings.Current.Destination;
 
-            // 会话结束 → 关闭进度对话框（若开着）
-            ProgressFinished?.Invoke();
+            // 等待决策期间会话被清理（60s 决策超时/发送方取消）→ 关闭仍开着的请求对话框，
+            // 避免用户对已死会话点"接收"后 Accept 静默无效、再弹出卡死的进度对话框
+            if (_awaitingDecisionSessionId == session.SessionId)
+            {
+                _awaitingDecisionSessionId = null;
+                DecisionExpired?.Invoke();
+            }
+
+            // 会话结束 → 关闭进度对话框（若开着）；
+            // 接收成功例外：进度对话框自行切换"打开文件夹/关闭"完成态，保持打开等用户操作
+            if (session.Status != ReceiveSessionStatus.Completed)
+                ProgressFinished?.Invoke();
 
             // 记录传输历史
             var result = session.Status switch
@@ -241,6 +260,10 @@ public partial class ReceiveViewModel : ViewModelBase,
                 FirstFileName = fileCount == 1 ? session.Files.Values.FirstOrDefault()?.Metadata.FileName : null,
             });
 
+            // 决策超时特判：Failed 且所有文件仍 Pending → 60s 内未做出决策
+            var decisionTimeout = session.Status == ReceiveSessionStatus.Failed
+                && session.Files.Values.All(f => f.Status == ReceiveFileStatus.Pending);
+
             // 根据 Status 区分成功/失败/取消
             switch (session.Status)
             {
@@ -254,10 +277,12 @@ public partial class ReceiveViewModel : ViewModelBase,
                     CanOpenFolder = true; // InfoBar 显示「打开文件夹」按钮
                     break;
                 case ReceiveSessionStatus.Failed:
-                    NotificationTitle = "接收失败";
-                    NotificationMessage = $"会话异常终止（{fileCount} 个文件未完成）";
+                    NotificationTitle = decisionTimeout ? "接收请求已超时" : "接收失败";
+                    NotificationMessage = decisionTimeout
+                        ? "60 秒内未做出决策，请求已失效"
+                        : $"会话异常终止（{fileCount} 个文件未完成）";
                     NotificationSeverity = InfoBarSeverity.Error;
-                    StatusText = "接收失败";
+                    StatusText = decisionTimeout ? "请求超时" : "接收失败";
                     CanOpenFolder = false;
                     break;
                 case ReceiveSessionStatus.Canceled:

@@ -218,6 +218,7 @@ public sealed class ReceiveSessionManager : IReceiveSessionManager, IDisposable
                 {
                     p.PhaseText = "接收完成";
                     p.IsIndeterminate = false;
+                    p.IsCompleted = true;
                 }
                 else
                 {
@@ -233,6 +234,10 @@ public sealed class ReceiveSessionManager : IReceiveSessionManager, IDisposable
                     session.Status = ReceiveSessionStatus.Completed;
                     if (_current == session) _current = null;
                 }
+                // 窗口隐藏在托盘时提醒用户（前台可见时静默）
+                var savedCount = session.Files.Values.Count(f => f.Status == ReceiveFileStatus.Completed);
+                App.ShowTransferToast("接收完成",
+                    $"来自 {session.Sender.Alias} 的 {savedCount} 个文件已保存到 {_settings.Current.Destination}");
                 _messenger.Send(new SessionFinishedMessage { Session = session });
             }
             return new UploadResult { StatusCode = 200 };

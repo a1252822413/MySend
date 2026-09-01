@@ -63,7 +63,8 @@ public sealed class LocalSendHttpServer : IAsyncDisposable
             app.MapPost(RegisterEndpoint.Path,
                 (HttpContext ctx, IDeviceInfoBuilder info, IDeviceRegistry devices) => RegisterEndpoint.Handle(ctx, info, devices));
             app.MapPost(PrepareUploadEndpoint.Path,
-                (HttpContext ctx, IReceiveSessionManager sessions) => PrepareUploadEndpoint.Handle(ctx, sessions));
+                (HttpContext ctx, IReceiveSessionManager sessions, ISettingsService settings) =>
+                    PrepareUploadEndpoint.Handle(ctx, sessions, settings));
             app.MapPost(UploadEndpoint.Path,
                 (HttpContext ctx, IReceiveSessionManager sessions) => UploadEndpoint.Handle(ctx, sessions));
             app.MapPost(CancelEndpoint.Path,
