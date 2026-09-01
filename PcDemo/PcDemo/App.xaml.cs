@@ -89,7 +89,7 @@ public partial class App : Application, IRecipient<DeviceDiscoveredMessage>
             if (!_http.IsRunning) _http.Start();
             _kestrelStarted = true;
             _ = _multicast.AnnounceOnceAsync();
-            _multicast.StartPeriodicAnnounce(TimeSpan.FromSeconds(20));
+            _multicast.StartPeriodicAnnounce(TimeSpan.FromSeconds(3));
             LogDiag($"HTTP server started on port {_http.RunningPort} + UDP multicast (no-deferred)");
 
             // 4.5 加载传输历史（JSON 持久化）
@@ -112,7 +112,10 @@ public partial class App : Application, IRecipient<DeviceDiscoveredMessage>
     {
         // 服务层
         services.AddSingleton<ISettingsService, SettingsService>();
-        services.AddSingleton<IMessenger, WeakReferenceMessenger>();
+        // 必须统一使用 WeakReferenceMessenger.Default 静态单例：
+        // 若由容器自建实例，DeviceRegistry 发布的消息 App（注册在 Default 上）将收不到，
+        // "收到公告→立即回播"失效，手机端只能等周期公告才能发现本机
+        services.AddSingleton<IMessenger>(_ => WeakReferenceMessenger.Default);
         services.AddSingleton<IDeviceInfoBuilder, DeviceInfoBuilder>();
         services.AddSingleton<IFileSaver, FileSaver>();
         services.AddSingleton<IReceiveSessionManager, ReceiveSessionManager>();
@@ -185,7 +188,7 @@ public partial class App : Application, IRecipient<DeviceDiscoveredMessage>
             // Kestrel 就绪后才能发公告——否则其他设备收到公告后发 prepare-upload 会连不上
             _multicast ??= Services.GetRequiredService<MulticastDiscoveryService>();
             _ = _multicast.AnnounceOnceAsync();
-            _multicast.StartPeriodicAnnounce(TimeSpan.FromSeconds(20));
+            _multicast.StartPeriodicAnnounce(TimeSpan.FromSeconds(3));
 
             _kestrelStarted = true;
             _idleSinceTicks = long.MaxValue; // 重置空闲计时

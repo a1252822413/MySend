@@ -1,2 +1,14 @@
 /.trae
 /localsend-main
+
+# Visual Studio / Rider 缓存
+.vs/
+.idea/
+
+# 构建产物
+bin/
+obj/
+
+# 用户本地配置
+*.user
+*.suo
