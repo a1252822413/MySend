@@ -5,10 +5,12 @@
 //   收到第一个 DeviceDiscoveredMessage → EnsureKestrelRunningAsync（Start Kestrel → AnnounceOnce → StartPeriodicAnnounce）
 //   空闲 60s（无设备 + 无收发会话）→ Stop Kestrel + StopPeriodicAnnounce，只保留 UDP 监听
 // 这样空闲态省掉 Kestrel 运行时 50-80MB 的常驻内存。
+using System.Linq;
 using System.Threading;
 using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
+using Microsoft.Windows.AppLifecycle;
 using PcDemo.Helpers;
 using PcDemo.Messages;
 using PcDemo.Models;
@@ -51,6 +53,56 @@ public partial class App : Application, IRecipient<DeviceDiscoveredMessage>
         LogDiag("OnLaunched: enter");
         try
         {
+            // 0. 单实例：已有实例运行时，把本次激活（重复启动图标 / 点击 toast 通知）重定向过去，
+            //    由已有实例响应（显示主窗口）并退出自身，避免多开端口冲突
+            var current = AppInstance.GetCurrent();
+            var existing = AppInstance.GetInstances().FirstOrDefault(i => !i.IsCurrent);
+            if (existing is not null)
+            {
+                LogDiag("[SingleInstance] redirecting activation to existing instance");
+                try
+                {
+                    existing.RedirectActivationToAsync(current.GetActivatedEventArgs())
+                        .AsTask().Wait(500);
+                }
+                catch { /* 重定向失败就退出自身，不破坏已有实例 */ }
+                Current.Exit();
+                return;
+            }
+
+            // 已有实例收到重定向激活（toast 点击 / 重复启动）→ 显示主窗口。
+            // 注意：Activated 在非 UI 线程（RPC）触发，必须切回 UI 线程才能操作 XAML 窗口
+            current.Activated += (s, e) =>
+            {
+                try
+                {
+                    var dq = MainWindow?.DispatcherQueue;
+                    if (dq is null)
+                    {
+                        LogDiag("[SingleInstance] DispatcherQueue not ready");
+                        return;
+                    }
+                    var enqueued = dq.TryEnqueue(() =>
+                    {
+                        try
+                        {
+                            LogDiag("[SingleInstance] activation redirected in, showing main window");
+                            ShowMainWindow();
+                        }
+                        catch (Exception ex)
+                        {
+                            LogDiag($"[SingleInstance] show window failed: {ex}");
+                        }
+                    });
+                    if (!enqueued)
+                        LogDiag("[SingleInstance] TryEnqueue failed");
+                }
+                catch (Exception ex)
+                {
+                    LogDiag($"[SingleInstance] redirect handler failed: {ex}");
+                }
+            };
+
             // 1. 构建 DI 容器
             var services = new ServiceCollection();
             ConfigureServices(services);
