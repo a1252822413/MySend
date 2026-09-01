@@ -1,0 +1,13 @@
+{
+  "profiles": {
+    "PcDemo (Package)": {
+      "commandName": "MsixPackage",
+      "alwaysReinstallApp": true,
+      "remoteDebuggingMode": false,
+      "allowLocalNetwork": true
+    },
+    "PcDemo (Unpackaged)": {
+      "commandName": "Project"
+    }
+  }
+}
