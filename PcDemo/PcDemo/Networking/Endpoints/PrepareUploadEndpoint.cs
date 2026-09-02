@@ -41,6 +41,19 @@ public static class PrepareUploadEndpoint
                 JsonOptions.Default, contentType: "application/json", statusCode: 400);
         }
 
+        // PIN 校验：接收端开启了 PIN（settings.Pin 非空）时，请求必须带 ?pin= 精确匹配 → 否则 401
+        var expectedPin = settings.Current.Pin;
+        if (!string.IsNullOrWhiteSpace(expectedPin))
+        {
+            var gotPin = ctx.Request.Query["pin"].ToString();
+            if (!string.Equals(gotPin, expectedPin, StringComparison.Ordinal))
+            {
+                App.LogDiag("[PrepareUpload] invalid or missing pin");
+                return Results.Json(new ErrorResponse { Message = "Invalid PIN" },
+                    JsonOptions.Default, contentType: "application/json", statusCode: 401);
+            }
+        }
+
         // 磁盘空间预检：目标盘剩余空间不足时提前拒绝（507），避免传一半失败
         try
         {

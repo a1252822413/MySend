@@ -23,6 +23,7 @@ public partial class SettingsViewModel : ViewModelBase
     [ObservableProperty] private int _themeMode;           // 0=跟随系统 / 1=浅色 / 2=深色
     [ObservableProperty] private bool _autoLaunchEnabled; // 开机自启
     [ObservableProperty] private string _autoLaunchInfo = string.Empty;
+    [ObservableProperty] private string _pin = string.Empty; // 接收 PIN（空=不启用）
 
     [ObservableProperty] private string _saveStatus = string.Empty;
 
@@ -44,6 +45,7 @@ public partial class SettingsViewModel : ViewModelBase
         DeviceType = s.DeviceType ?? Models.Dto.DeviceType.Desktop;
         Fingerprint = s.Fingerprint;
         ThemeMode = s.ThemeMode;
+        Pin = s.Pin;
     }
 
     [RelayCommand]
@@ -62,6 +64,7 @@ public partial class SettingsViewModel : ViewModelBase
             s.DeviceModel = string.IsNullOrWhiteSpace(DeviceModel) ? "Windows" : DeviceModel.Trim();
             s.DeviceType = DeviceType;
             s.ThemeMode = Math.Clamp(ThemeMode, 0, 2);
+            s.Pin = Pin?.Trim() ?? string.Empty;
         });
 
         // 主题即时切换

@@ -31,8 +31,8 @@ public sealed partial class ShellWindow : Window
         NavView.SelectedItem = NavView.MenuItems[0];
         ContentFrame.Navigate(typeof(ReceivePage));
 
-        // 默认窗口大小 800x600（按 DPI 缩放，可拖动缩放）
-        TrySetInitialSize(800, 600);
+        // 默认窗口大小 900x750（按 DPI 缩放，可拖动缩放）
+        TrySetInitialSize(900, 750);
 
         // 系统按钮（最小化/最大化/关闭）高度对齐 48px 自定义顶栏
         AlignTitleBarHeight();

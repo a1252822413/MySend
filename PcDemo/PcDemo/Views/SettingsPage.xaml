@@ -10,7 +10,7 @@
             <!-- 页面标题 -->
             <StackPanel Spacing="2" Margin="0,0,0,8">
                 <TextBlock Text="设置" FontSize="22" FontWeight="SemiBold"/>
-                <TextBlock Text="调整 PcDemo 的传输参数和外观偏好" FontSize="12" Opacity="0.6"/>
+                <TextBlock Text="调整 LocalSend PC 的传输参数和外观偏好" FontSize="12" Opacity="0.6"/>
             </StackPanel>
 
             <!-- 设备身份 -->
@@ -66,6 +66,14 @@
                             <Button Grid.Column="1" Content="浏览..." Click="OnBrowseDestinationClick" Margin="8,0,0,0"/>
                         </Grid>
                     </Grid>
+                    <Grid ColumnDefinitions="160,*,Auto" VerticalAlignment="Center">
+                        <StackPanel Grid.Column="0" Spacing="1">
+                            <TextBlock Text="接收 PIN 码" VerticalAlignment="Center"/>
+                            <TextBlock Text="对方发送文件时必须输入此 PIN 才能发起请求。" Opacity="0.5" FontSize="11"/>
+                        </StackPanel>
+                        <TextBox Grid.Column="1" Text="{x:Bind ViewModel.Pin, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                 PlaceholderText="留空 = 不启用，任何设备都可直接发送"/>
+                    </Grid>
                 </StackPanel>
             </Border>
 
@@ -98,7 +106,7 @@
                     <Grid ColumnDefinitions="160,*,Auto" VerticalAlignment="Center">
                         <StackPanel Grid.Column="0" Spacing="1">
                             <TextBlock Text="开机自启" VerticalAlignment="Center"/>
-                            <TextBlock Text="登录 Windows 后自动启动 PcDemo。" Opacity="0.5" FontSize="11"/>
+                            <TextBlock Text="登录 Windows 后自动启动 LocalSend PC。" Opacity="0.5" FontSize="11"/>
                         </StackPanel>
                         <StackPanel Grid.Column="1" Spacing="4" VerticalAlignment="Center">
                             <ToggleSwitch IsOn="{x:Bind ViewModel.AutoLaunchEnabled, Mode=TwoWay}"

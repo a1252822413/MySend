@@ -158,7 +158,7 @@ public partial class App : Application, IRecipient<DeviceDiscoveredMessage>
             // 6. 托盘常驻：创建成功才启用"关窗隐藏"；失败降级为关窗即退出，绝不阻断启动
             try
             {
-                _tray = new TrayIconManager("PcDemo - LocalSend（后台接收中）");
+                _tray = new TrayIconManager("LocalSend PC（后台接收中）");
                 _tray.OpenRequested += ShowMainWindow;
                 _tray.ExitRequested += ExitApplication;
                 _tray.Create();
@@ -230,6 +230,12 @@ public partial class App : Application, IRecipient<DeviceDiscoveredMessage>
     /// 只开 UDP 多播被动监听——Kestrel HTTP server 在首次收到其他设备的公告时才启动。
     /// 这样空闲态省掉 ASP.NET Core 运行时 50-80MB 的常驻内存。
     /// </summary>
+    /// <summary>网络身份签名：只有这些设置变化才需要重启网络。</summary>
+    private static string _lastNetSig = string.Empty;
+
+    private static string NetSig(AppSettings s)
+        => $"{s.Alias}|{s.Port}|{s.Fingerprint}|{s.MulticastGroup}";
+
     private static void StartUdpOnly()
     {
         try
@@ -241,6 +247,7 @@ public partial class App : Application, IRecipient<DeviceDiscoveredMessage>
                 // 注意：不调用 AnnounceOnceAsync，避免其他设备认为我们在线但 /prepare-upload 不可达
                 LogDiag("Multicast UDP passive listener started (Kestrel deferred)");
             }
+            _lastNetSig = NetSig(Services.GetRequiredService<ISettingsService>().Current);
         }
         catch (Exception ex)
         {
@@ -372,6 +379,16 @@ public partial class App : Application, IRecipient<DeviceDiscoveredMessage>
 
     private static async void OnSettingsChanged(object? sender, AppSettings e)
     {
+        // 只有网络身份（别名/端口/指纹/多播组）变化才重启网络；
+        // 主题/下载目录/开机自启等变更直接跳过，避免无谓的 socket 抖动
+        var sig = NetSig(e);
+        if (sig == _lastNetSig)
+        {
+            LogDiag("[Settings] non-network change, skip network restart");
+            return;
+        }
+        LogDiag($"[Settings] network identity changed, restarting network");
+
         // 设置变更 → 先全停再重启
         var wasRunning = _kestrelStarted;
         try

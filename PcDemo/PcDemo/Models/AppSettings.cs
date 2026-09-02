@@ -39,4 +39,7 @@ public sealed class AppSettings
 
     /// <summary>主题偏好：0=跟随系统（默认）/1=浅色/2=深色。</summary>
     public int ThemeMode { get; set; } = 0;
+
+    /// <summary>接收 PIN 码。空 = 不启用；非空时对方 prepare-upload 必须带 ?pin= 精确匹配。</summary>
+    public string Pin { get; set; } = string.Empty;
 }

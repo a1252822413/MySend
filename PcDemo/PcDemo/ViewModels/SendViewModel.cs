@@ -31,7 +31,12 @@ public partial class SendViewModel : ViewModelBase,
     public BatchObservableCollection<SendFileItem> PendingFiles { get; } = new();
 
     /// <summary>当前/最近一次会话（UI 绑定进度）。</summary>
-    [ObservableProperty] private SendSession? _current;
+    [ObservableProperty]
+    private SendSession? _current;
+
+    /// <summary>发送 PIN：目标设备开启了 PIN 校验时必填（prepare-upload ?pin=）。</summary>
+    [ObservableProperty]
+    private string _pin = string.Empty;
 
     /// <summary>UI 订阅：发送会话创建后弹出发送进度对话框（UI 线程触发）。</summary>
     public event Action<SendSession>? TransferStarted;
@@ -315,13 +320,16 @@ public partial class SendViewModel : ViewModelBase,
         Current = session;
         OnPropertyChanged(nameof(CanSend));
 
+        // 目标设备开启 PIN 校验时，把输入的 PIN 传给 prepare-upload（官方协议 ?pin=）
+        var pin = string.IsNullOrWhiteSpace(Pin) ? null : Pin.Trim();
+
         // UI 订阅：弹出发送进度对话框（UI 线程触发）
         TransferStarted?.Invoke(session);
 
         // 后台跑（不阻塞 UI 线程）
         _ = Task.Run(async () =>
         {
-            await _sendMgr.RunAsync(session, null, CancellationToken.None);
+            await _sendMgr.RunAsync(session, pin, CancellationToken.None);
         }, CancellationToken.None);
     }
 

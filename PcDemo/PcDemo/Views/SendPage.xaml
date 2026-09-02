@@ -148,8 +148,7 @@
                                             Background="{ThemeResource AccentFillColorDefaultBrush}"
                                             VerticalAlignment="Center">
                                         <TextBlock Text="{Binding DeviceType, Converter={StaticResource DeviceTypeGlyph}}"
-                                                   FontSize="19"
-                                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                   FontSize="19" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                     </Border>
                                     <StackPanel Grid.Column="1" Margin="12,0,0,0" Spacing="3" VerticalAlignment="Center">
                                         <TextBlock Text="{Binding Alias}" FontWeight="SemiBold" FontSize="14"
@@ -247,59 +246,67 @@
                         MaxHeight="320">
                     <Grid>
                         <ListView ItemsSource="{x:Bind ViewModel.PendingFiles}" SelectionMode="None"
+                                  Padding="0,0,8,0"
                                   Visibility="{x:Bind ViewModel.HasFiles, Mode=OneWay}">
                             <ListView.ItemContainerStyle>
                                 <Style TargetType="ListViewItem">
                                     <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
                                     <Setter Property="Padding" Value="0"/>
-                                    <Setter Property="Margin" Value="0,4,0,4"/>
-                                    <Setter Property="MinHeight" Value="0"/>
+                                    <Setter Property="Margin" Value="0,3,0,3"/>
+                                    <Setter Property="MinHeight" Value="48"/>
                                 </Style>
                             </ListView.ItemContainerStyle>
                             <ListView.ItemTemplate>
                                 <DataTemplate>
-                                    <Grid ColumnDefinitions="Auto,40,*,Auto,Auto,Auto">
-                                        <Border Grid.Column="0" Width="4" CornerRadius="2" MaxHeight="32"
-                                                VerticalAlignment="Center"
-                                                Background="{Binding Status, Converter={StaticResource StatusColor}}"/>
-                                        <Border Grid.Column="1" Width="40" Height="40" CornerRadius="10"
-                                                Background="{ThemeResource LayerFillColorDefaultBrush}"
-                                                HorizontalAlignment="Left" VerticalAlignment="Center" Margin="6,0">
-                                            <TextBlock Text="{Binding FileKind, Converter={StaticResource FileKindGlyph}}"
-                                                       FontSize="18" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                        </Border>
-                                        <StackPanel Grid.Column="2" VerticalAlignment="Center" Spacing="3">
-                                            <TextBlock Text="{Binding FileName}" FontSize="13" TextTrimming="CharacterEllipsis"/>
-                                            <Grid>
-                                                <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="*"/>
-                                                    <ColumnDefinition Width="Auto"/>
-                                                    <ColumnDefinition Width="Auto"/>
-                                                </Grid.ColumnDefinitions>
-                                                <ProgressBar Grid.Column="0" Margin="0,4,12,0" Height="4" CornerRadius="2"
+                                    <Border Padding="12,8,12,8" CornerRadius="10"
+                                            Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                                            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1">
+                                        <Grid ColumnDefinitions="Auto,40,*" VerticalAlignment="Center">
+                                            <Border Grid.Column="0" Width="4" CornerRadius="2" MaxHeight="32"
+                                                    VerticalAlignment="Center"
+                                                    Background="{Binding Status, Converter={StaticResource StatusColor}}"/>
+                                            <Border Grid.Column="1" Width="40" Height="40" CornerRadius="10"
+                                                    Background="{ThemeResource LayerFillColorDefaultBrush}"
+                                                    HorizontalAlignment="Left" VerticalAlignment="Center" Margin="6,0,0,0">
+                                                <TextBlock Text="{Binding FileKind, Converter={StaticResource FileKindGlyph}}"
+                                                           FontSize="28" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                            </Border>
+                                            <Grid Grid.Column="2" Margin="10,0,0,0">
+                                                <Grid.RowDefinitions>
+                                                    <RowDefinition Height="*"/>
+                                                    <RowDefinition Height="Auto"/>
+                                                </Grid.RowDefinitions>
+                                                <Grid Grid.Row="0">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*"/>
+                                                        <ColumnDefinition Width="120"/>
+                                                        <ColumnDefinition Width="70"/>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <TextBlock Grid.Column="0" Text="{Binding FileName}"
+                                                               FontSize="13" FontWeight="SemiBold"
+                                                               VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                                                    <TextBlock Grid.Column="1" FontSize="11" Opacity="0.6" VerticalAlignment="Center">
+                                                        <Run Text="{Binding BytesSent, Mode=OneWay, Converter={StaticResource BytesToString}}"/>
+                                                        <Run Text=" / "/>
+                                                        <Run Text="{Binding Size, Mode=OneWay, Converter={StaticResource BytesToString}}"/>
+                                                    </TextBlock>
+                                                    <TextBlock Grid.Column="2" FontSize="11" Opacity="0.65"
+                                                               Text="{Binding Status}" VerticalAlignment="Center"/>
+                                                    <Button Grid.Column="3" FontSize="12" Padding="10,4" CornerRadius="6"
+                                                            Content="移除" VerticalAlignment="Center" Margin="0,0,10,0"
+                                                            ToolTipService.ToolTip="从列表移除"
+                                                            Click="OnRemoveFileClick"
+                                                            Visibility="{Binding Status, Converter={StaticResource PendingOnlyToVisible}}"/>
+                                                </Grid>
+                                                <ProgressBar Grid.Row="1" Margin="0,4,0,0" Height="4" CornerRadius="2"
                                                              Maximum="{Binding Size}"
                                                              Value="{Binding BytesSent, Mode=OneWay}"
                                                              Foreground="{Binding Status, Converter={StaticResource ProgressColor}}"
                                                              Visibility="{Binding Status, Converter={StaticResource ShowProgress}}"/>
-                                                <TextBlock Grid.Column="1" FontSize="11" Opacity="0.6" VerticalAlignment="Center" Margin="0,0,10,0">
-                                                    <Run Text="{Binding BytesSent, Mode=OneWay, Converter={StaticResource BytesToString}}"/>
-                                                    <Run Text=" / "/>
-                                                    <Run Text="{Binding Size, Mode=OneWay, Converter={StaticResource BytesToString}}"/>
-                                                </TextBlock>
-                                                <TextBlock Grid.Column="2" FontSize="11" Opacity="0.65"
-                                                           Text="{Binding Status}" VerticalAlignment="Center"/>
                                             </Grid>
-                                        </StackPanel>
-                                        <TextBlock Grid.Column="3" Text="{Binding ErrorMessage, Mode=OneWay}"
-                                                   FontSize="11" Foreground="#D13438" Opacity="0.9"
-                                                   VerticalAlignment="Center" Margin="0,0,10,0"
-                                                   Visibility="{Binding Status, Converter={StaticResource FailedToVisible}}"/>
-                                        <Button Grid.Column="4" FontSize="12" Padding="8,4" CornerRadius="6"
-                                                Content="移除"
-                                                ToolTipService.ToolTip="从列表移除"
-                                                Click="OnRemoveFileClick"
-                                                Visibility="{Binding Status, Converter={StaticResource PendingOnlyToVisible}}"/>
-                                    </Grid>
+                                        </Grid>
+                                    </Border>
                                 </DataTemplate>
                             </ListView.ItemTemplate>
                         </ListView>
@@ -341,6 +348,9 @@
                                    Text="{x:Bind ViewModel.SendDisabledHint, Mode=OneWay}"/>
                     </Grid>
                     <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+                        <TextBox PlaceholderText="PIN（对方启用时必填）"
+                                 Text="{x:Bind ViewModel.Pin, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                 Width="170" Padding="10,6" CornerRadius="8" VerticalAlignment="Center"/>
                         <Button Content="🚀 开始发送"
                                 Command="{x:Bind ViewModel.StartSendCommand}"
                                 Padding="20,10" CornerRadius="10"

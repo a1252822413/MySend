@@ -44,4 +44,10 @@ public sealed class TransferHistoryItem
     [JsonIgnore] public string SizeText => ByteFormatter.Format(TotalBytes);
     [JsonIgnore] public string FilesText => $"{FileCount} 个文件";
     [JsonIgnore] public string TimeText => FinishedAt.ToString("MM-dd HH:mm");
+
+    /// <summary>接收成功的条目显示"打开位置"按钮。</summary>
+    [JsonIgnore] public Microsoft.UI.Xaml.Visibility OpenFolderVisibility =>
+        Direction == TransferDirection.Receive && Result == TransferResult.Success
+            ? Microsoft.UI.Xaml.Visibility.Visible
+            : Microsoft.UI.Xaml.Visibility.Collapsed;
 }

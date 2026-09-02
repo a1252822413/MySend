@@ -12,12 +12,12 @@
   <Identity
     Name="c1b0de1d-dbd6-43b1-9777-234c7e2828ef"
     Publisher="CN=xiaoxiao"
-    Version="1.0.0.0" />
+    Version="1.1.0.0" />
 
   <mp:PhoneIdentity PhoneProductId="c1b0de1d-dbd6-43b1-9777-234c7e2828ef" PhonePublisherId="00000000-0000-0000-0000-000000000000"/>
 
   <Properties>
-    <DisplayName>PcDemo</DisplayName>
+    <DisplayName>LocalSend PC</DisplayName>
     <PublisherDisplayName>xiaoxiao</PublisherDisplayName>
     <Logo>Assets\StoreLogo.png</Logo>
   </Properties>
@@ -36,8 +36,8 @@
       Executable="$targetnametoken$.exe"
       EntryPoint="$targetentrypoint$">
       <uap:VisualElements
-        DisplayName="PcDemo"
-        Description="LocalSend 协议 v2.2 接收端"
+        DisplayName="LocalSend PC"
+        Description="LocalSend 协议 v2.2 局域网文件互传"
         BackgroundColor="transparent"
         Square150x150Logo="Assets\Square150x150Logo.png"
         Square44x44Logo="Assets\Square44x44Logo.png">
@@ -47,7 +47,7 @@
       <!-- 开机自启：MSIX StartupTask（desktop 扩展，对应 Windows.ApplicationModel.StartupTask.Id=PcDemoStartup） -->
       <Extensions>
         <desktop:Extension Category="windows.startupTask" Executable="$targetnametoken$.exe" EntryPoint="$targetentrypoint$">
-          <desktop:StartupTask TaskId="PcDemoStartup" DisplayName="PcDemo 开机启动" Enabled="false"/>
+          <desktop:StartupTask TaskId="PcDemoStartup" DisplayName="LocalSend PC 开机启动" Enabled="false"/>
         </desktop:Extension>
       </Extensions>
     </Application>
