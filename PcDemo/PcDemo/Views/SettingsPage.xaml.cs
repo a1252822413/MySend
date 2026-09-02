@@ -45,5 +45,43 @@ public sealed partial class SettingsPage : Page
             ViewModel.Destination = folder.Path;
         }
     }
+
+    private bool _pinSyncing;
+
+    private void OnPinPasswordChanged(object sender, RoutedEventArgs e)
+    {
+        if (_pinSyncing) return;
+        _pinSyncing = true;
+        ViewModel.Pin = PinPasswordBox.Password;
+        _pinSyncing = false;
+    }
+
+    private void OnPinTextChanged(object sender, TextChangedEventArgs e)
+    {
+        if (_pinSyncing) return;
+        _pinSyncing = true;
+        ViewModel.Pin = PinVisibleBox.Text;
+        _pinSyncing = false;
+    }
+
+    private void OnPinToggleClick(object sender, RoutedEventArgs e)
+    {
+        _pinSyncing = true;
+        if (PinPasswordBox.Visibility == Visibility.Visible)
+        {
+            // → 显示明文
+            PinVisibleBox.Text = PinPasswordBox.Password;
+            PinPasswordBox.Visibility = Visibility.Collapsed;
+            PinVisibleBox.Visibility = Visibility.Visible;
+        }
+        else
+        {
+            // → 隐藏为密码
+            PinPasswordBox.Password = PinVisibleBox.Text;
+            PinPasswordBox.Visibility = Visibility.Visible;
+            PinVisibleBox.Visibility = Visibility.Collapsed;
+        }
+        _pinSyncing = false;
+    }
 }
 

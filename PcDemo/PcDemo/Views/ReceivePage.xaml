@@ -101,19 +101,17 @@
                         <Border Padding="14" CornerRadius="12"
                                 Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                                 BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1">
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="42"/>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-                                <Border Grid.Column="0" Width="42" Height="42" CornerRadius="21"
-                                            Background="{ThemeResource AccentFillColorDefaultBrush}"
-                                            VerticalAlignment="Center">
-                                        <TextBlock Text="{Binding DeviceType, Converter={StaticResource DeviceTypeGlyph}}"
-                                                   FontSize="19" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                    </Border>
-                                <StackPanel Grid.Column="1" Margin="12,0,0,0" Spacing="3" VerticalAlignment="Center">
+                            <Grid ColumnDefinitions="3,42,*,Auto" VerticalAlignment="Center">
+                                <Border Grid.Column="0" Width="3" Height="42" CornerRadius="1.5"
+                                        VerticalAlignment="Center" Margin="0,0,10,0"
+                                        Background="{Binding IsOnline, Converter={StaticResource BoolToOnlineDot}}"/>
+                                <Border Grid.Column="1" Width="42" Height="42" CornerRadius="21"
+                                        Background="{ThemeResource AccentFillColorDefaultBrush}"
+                                        VerticalAlignment="Center">
+                                    <TextBlock Text="{Binding DeviceType, Converter={StaticResource DeviceTypeGlyph}}"
+                                               FontSize="19" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Border>
+                                <StackPanel Grid.Column="2" Margin="12,0,0,0" Spacing="3" VerticalAlignment="Center">
                                     <TextBlock Text="{Binding Alias}" FontWeight="SemiBold" FontSize="14" TextTrimming="CharacterEllipsis"/>
                                     <StackPanel Orientation="Horizontal" Spacing="5">
                                         <TextBlock Text="🌐" FontSize="10" Opacity="0.7" VerticalAlignment="Center"/>
@@ -123,10 +121,12 @@
                                     </StackPanel>
                                     <TextBlock Text="{Binding DeviceModel}" Opacity="0.5" FontSize="11" TextTrimming="CharacterEllipsis"/>
                                 </StackPanel>
-                                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4"
+                                <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="4"
                                             VerticalAlignment="Top" Margin="0,2,0,0">
-                                    <Ellipse Width="7" Height="7" Fill="#3FB668"/>
-                                    <TextBlock Text="在线" FontSize="10" Opacity="0.6"/>
+                                    <Ellipse Width="7" Height="7"
+                                             Fill="{Binding IsOnline, Converter={StaticResource BoolToOnlineDot}}"/>
+                                    <TextBlock Text="{Binding IsOnline, Converter={StaticResource BoolToOnlineLabel}}"
+                                               FontSize="10" Opacity="0.7"/>
                                 </StackPanel>
                             </Grid>
                         </Border>

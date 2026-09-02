@@ -138,19 +138,17 @@
                                     Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                                     BorderBrush="{Binding IsPicked, Mode=OneWay, Converter={StaticResource PickBrush}}"
                                     BorderThickness="1.5">
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="42"/>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                    </Grid.ColumnDefinitions>
-                                    <Border Grid.Column="0" Width="42" Height="42" CornerRadius="21"
+                                <Grid ColumnDefinitions="3,42,*,Auto" VerticalAlignment="Center">
+                                    <Border Grid.Column="0" Width="3" Height="42" CornerRadius="1.5"
+                                            VerticalAlignment="Center" Margin="0,0,10,0"
+                                            Background="{Binding IsOnline, Converter={StaticResource BoolToOnlineDot}}"/>
+                                    <Border Grid.Column="1" Width="42" Height="42" CornerRadius="21"
                                             Background="{ThemeResource AccentFillColorDefaultBrush}"
                                             VerticalAlignment="Center">
                                         <TextBlock Text="{Binding DeviceType, Converter={StaticResource DeviceTypeGlyph}}"
                                                    FontSize="19" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                     </Border>
-                                    <StackPanel Grid.Column="1" Margin="12,0,0,0" Spacing="3" VerticalAlignment="Center">
+                                    <StackPanel Grid.Column="2" Margin="12,0,0,0" Spacing="3" VerticalAlignment="Center">
                                         <TextBlock Text="{Binding Alias}" FontWeight="SemiBold" FontSize="14"
                                                    TextTrimming="CharacterEllipsis"/>
                                         <StackPanel Orientation="Horizontal" Spacing="5">
@@ -163,7 +161,7 @@
                                         <TextBlock Text="{Binding DeviceModel}" Opacity="0.5" FontSize="11"
                                                    TextTrimming="CharacterEllipsis"/>
                                     </StackPanel>
-                                    <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4"
+                                    <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="4"
                                                 VerticalAlignment="Top" Margin="0,2,0,0">
                                         <Ellipse Width="7" Height="7"
                                                  Fill="{Binding IsOnline, Converter={StaticResource BoolToOnlineDot}}"/>
@@ -347,10 +345,19 @@
                                    Foreground="{x:Bind ViewModel.CanSend, Mode=OneWay, Converter={StaticResource BoolToHintColor}}"
                                    Text="{x:Bind ViewModel.SendDisabledHint, Mode=OneWay}"/>
                     </Grid>
-                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
-                        <TextBox PlaceholderText="PIN（对方启用时必填）"
-                                 Text="{x:Bind ViewModel.Pin, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                 Width="170" Padding="10,6" CornerRadius="8" VerticalAlignment="Center"/>
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                        <Grid Width="170">
+                            <PasswordBox x:Name="PinPasswordBox" PlaceholderText="PIN（对方启用时必填）"
+                                         Height="32" Padding="10,6" CornerRadius="8"
+                                         PasswordChanged="OnPinPasswordChanged"/>
+                            <TextBox x:Name="PinVisibleBox" Visibility="Collapsed"
+                                     Height="32" Padding="10,6" CornerRadius="8"
+                                     TextChanged="OnPinTextChanged"/>
+                        </Grid>
+                        <Button x:Name="PinToggleBtn" Width="36" Height="32" Padding="0" Click="OnPinToggleClick"
+                                ToolTipService.ToolTip="显示/隐藏 PIN" VerticalAlignment="Center">
+                            <FontIcon Glyph="&#xE8D4;" FontSize="16"/>
+                        </Button>
                         <Button Content="🚀 开始发送"
                                 Command="{x:Bind ViewModel.StartSendCommand}"
                                 Padding="20,10" CornerRadius="10"

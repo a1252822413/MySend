@@ -71,8 +71,18 @@
                             <TextBlock Text="接收 PIN 码" VerticalAlignment="Center"/>
                             <TextBlock Text="对方发送文件时必须输入此 PIN 才能发起请求。" Opacity="0.5" FontSize="11"/>
                         </StackPanel>
-                        <TextBox Grid.Column="1" Text="{x:Bind ViewModel.Pin, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                 PlaceholderText="留空 = 不启用，任何设备都可直接发送"/>
+                        <Grid Grid.Column="1" ColumnDefinitions="*,Auto" VerticalAlignment="Center">
+                            <PasswordBox x:Name="PinPasswordBox" Grid.Column="0" Height="32"
+                                         PlaceholderText="留空 = 不启用，任何设备都可直接发送"
+                                         PasswordChanged="OnPinPasswordChanged"/>
+                            <TextBox x:Name="PinVisibleBox" Grid.Column="0" Height="32" Visibility="Collapsed"
+                                     TextChanged="OnPinTextChanged"/>
+                            <Button Grid.Column="1" x:Name="PinToggleBtn" Width="36" Height="32"
+                                    Padding="0" Margin="8,0,0,0" Click="OnPinToggleClick"
+                                    ToolTipService.ToolTip="显示/隐藏">
+                                <FontIcon Glyph="&#xE8D4;" FontSize="16"/>
+                            </Button>
+                        </Grid>
                     </Grid>
                 </StackPanel>
             </Border>
