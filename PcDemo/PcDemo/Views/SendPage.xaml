@@ -53,19 +53,6 @@
             </StackPanel>
         </Grid>
 
-            <InfoBar
-                Grid.Row="0"
-                Grid.RowSpan="3"
-                VerticalAlignment="Top"
-                HorizontalAlignment="Stretch"
-                IsOpen="{x:Bind ViewModel.IsNotificationOpen, Mode=OneWay}"
-                Title="{x:Bind ViewModel.NotificationTitle, Mode=OneWay}"
-                Message="{x:Bind ViewModel.NotificationMessage, Mode=OneWay}"
-                Severity="{x:Bind ViewModel.NotificationSeverity, Mode=OneWay}"
-                IsClosable="True"
-                Margin="0,0,0,0"
-                CornerRadius="8"/>
-
             <Grid Grid.Row="1" Margin="0,24,0,0" RowDefinitions="Auto,Auto,*">
                 <Grid Grid.Row="0" ColumnDefinitions="*,Auto">
                     <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">

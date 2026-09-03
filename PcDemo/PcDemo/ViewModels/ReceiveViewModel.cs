@@ -109,10 +109,6 @@ public partial class ReceiveViewModel : ViewModelBase,
     }
 
     // 通知（接收成功/失败提示）
-    [ObservableProperty] private bool _isNotificationOpen;
-    [ObservableProperty] private string _notificationTitle = string.Empty;
-    [ObservableProperty] private string _notificationMessage = string.Empty;
-    [ObservableProperty] private InfoBarSeverity _notificationSeverity = InfoBarSeverity.Informational;
     [ObservableProperty] private bool _canOpenFolder;
 
     public ReceiveViewModel(ISettingsService settings, IReceiveSessionManager sessions, IMessenger messenger,
@@ -356,58 +352,40 @@ public partial class ReceiveViewModel : ViewModelBase,
                 && session.Files.Values.All(f => f.Status == ReceiveFileStatus.Pending);
 
             // 根据 Status 区分成功/失败/取消
-            switch (session.Status)
+            (string title, string body, ToastKind kind) = session.Status switch
             {
-                case ReceiveSessionStatus.Completed:
-                    NotificationTitle = "接收成功";
-                    NotificationMessage = fileCount > 0
-                        ? $"已接收 {fileCount} 个文件到：{dest}"
-                        : $"接收完成：{dest}";
-                    NotificationSeverity = InfoBarSeverity.Success;
-                    StatusText = "接收成功";
-                    CanOpenFolder = true; // InfoBar 显示「打开文件夹」按钮
-                    break;
-                case ReceiveSessionStatus.Failed:
-                    NotificationTitle = decisionTimeout ? "接收请求已超时" : "接收失败";
-                    NotificationMessage = decisionTimeout
-                        ? "60 秒内未做出决策，请求已失效"
-                        : $"会话异常终止（{fileCount} 个文件未完成）";
-                    NotificationSeverity = InfoBarSeverity.Error;
-                    StatusText = decisionTimeout ? "请求超时" : "接收失败";
-                    CanOpenFolder = false;
-                    break;
-                case ReceiveSessionStatus.Canceled:
-                    NotificationTitle = "传输已取消";
-                    NotificationMessage = "发送方已取消本次传输";
-                    NotificationSeverity = InfoBarSeverity.Warning;
-                    StatusText = "已取消";
-                    CanOpenFolder = false;
-                    break;
-                case ReceiveSessionStatus.Rejected:
-                    NotificationTitle = "已拒绝";
-                    NotificationMessage = "你已拒绝本次文件请求";
-                    NotificationSeverity = InfoBarSeverity.Warning;
-                    StatusText = "已拒绝";
-                    CanOpenFolder = false;
-                    break;
-                default:
-                    NotificationTitle = "会话结束";
-                    NotificationMessage = $"状态：{session.Status}";
-                    NotificationSeverity = InfoBarSeverity.Informational;
-                    StatusText = "服务运行中";
-                    CanOpenFolder = false;
-                    break;
-            }
-            IsNotificationOpen = true;
-
-            // 5 秒后自动关闭通知（成功/取消/拒绝），失败不自动关（让用户看清错误）
-            if (session.Status != ReceiveSessionStatus.Failed)
+                ReceiveSessionStatus.Completed =>
+                    ("接收成功",
+                     fileCount > 0
+                         ? $"{fileCount} 个文件\n已保存到：{dest}"
+                         : $"已保存到：{dest}",
+                     ToastKind.Success),
+                ReceiveSessionStatus.Failed when decisionTimeout =>
+                    ("接收请求已超时", "60 秒内未做出决策，请求已失效", ToastKind.Warning),
+                ReceiveSessionStatus.Failed =>
+                    ("接收失败", $"会话异常终止\n{fileCount} 个文件未完成", ToastKind.Error),
+                ReceiveSessionStatus.Canceled =>
+                    ("传输已取消", "发送方已取消本次传输", ToastKind.Warning),
+                ReceiveSessionStatus.Rejected =>
+                    ("已拒绝", "你已拒绝本次文件请求", ToastKind.Warning),
+                _ =>
+                    ("会话结束", $"状态：{session.Status}", ToastKind.Info),
+            };
+            StatusText = session.Status switch
             {
-                _ = Task.Delay(TimeSpan.FromSeconds(5)).ContinueWith(_ =>
-                {
-                    _dispatcher?.TryEnqueue(() => IsNotificationOpen = false);
-                });
-            }
+                ReceiveSessionStatus.Completed => "接收成功",
+                ReceiveSessionStatus.Failed when decisionTimeout => "请求超时",
+                ReceiveSessionStatus.Failed => "接收失败",
+                ReceiveSessionStatus.Canceled => "已取消",
+                ReceiveSessionStatus.Rejected => "已拒绝",
+                _ => "服务运行中",
+            };
+            CanOpenFolder = session.Status == ReceiveSessionStatus.Completed;
+            _messenger.Send(new ShowToastMessage
+            {
+                Kind = kind,
+                Message = $"{title}\n{body}",
+            });
         });
     }
 }

@@ -4,6 +4,7 @@ using Microsoft.UI;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using PcDemo.Controls;
 using PcDemo.ViewModels;
 using Windows.Graphics;
 using WinRT.Interop;
@@ -13,6 +14,7 @@ namespace PcDemo.Views;
 public sealed partial class ShellWindow : Window
 {
     private readonly ShellViewModel _viewModel;
+    private CenteredToast? _toast;
 
     public ShellWindow(ShellViewModel viewModel)
     {
@@ -26,6 +28,10 @@ public sealed partial class ShellWindow : Window
 
         // 自定义标题栏区域（图标+应用名）可拖动窗口
         SetTitleBar(AppTitleBar);
+
+        // ---- 全局居中 Toast：挂在 RootGrid 最上层（ZIndex 999），覆盖所有页面/侧边栏 ----
+        _toast = CenteredToast.AttachTo(RootGrid);
+        _toast.EnsureRegistered();
 
         // 默认导航到接收页
         NavView.SelectedItem = NavView.MenuItems[0];

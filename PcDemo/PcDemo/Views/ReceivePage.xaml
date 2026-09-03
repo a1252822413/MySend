@@ -163,38 +163,5 @@
                 <TextBlock Text="确保手机与电脑连接同一 Wi-Fi 网络" FontSize="12" Opacity="0.6" HorizontalAlignment="Center"/>
             </StackPanel>
         </Grid>
-
-        <InfoBar Grid.RowSpan="4"
-                 IsOpen="{x:Bind ViewModel.IsNotificationOpen, Mode=TwoWay}"
-                 Title="{x:Bind ViewModel.NotificationTitle, Mode=OneWay}"
-                 Message="{x:Bind ViewModel.NotificationMessage, Mode=OneWay}"
-                 Severity="{x:Bind ViewModel.NotificationSeverity, Mode=OneWay}"
-                 IsClosable="True"
-                 HorizontalAlignment="Stretch"
-                 VerticalAlignment="Top">
-            <InfoBar.ActionButton>
-                <Button Content="打开文件夹" Click="OnOpenFolderClick" CornerRadius="6"
-                        Visibility="{x:Bind ViewModel.CanOpenFolder, Mode=OneWay}"/>
-            </InfoBar.ActionButton>
-        </InfoBar>
-
-        <!-- 居中 Toast：轻巧提示卡片，淡入→停留→淡出，不阻塞，不和 InfoBar 冲突 -->
-        <Border x:Name="ToastBorder"
-                Grid.RowSpan="4"
-                HorizontalAlignment="Center"
-                VerticalAlignment="Center"
-                Padding="20,13"
-                CornerRadius="12"
-                Background="{ThemeResource SolidBackgroundFillColorBaseBrush}"
-                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                BorderThickness="1"
-                Visibility="Collapsed"
-                Opacity="0"
-                MinWidth="260">
-            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12" VerticalAlignment="Center">
-                <FontIcon x:Name="ToastIcon" FontSize="20" VerticalAlignment="Center"/>
-                <TextBlock Grid.Column="1" x:Name="ToastText" FontSize="13" VerticalAlignment="Center" TextWrapping="Wrap"/>
-            </Grid>
-        </Border>
     </Grid>
 </Page>

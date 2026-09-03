@@ -6,7 +6,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     Title="LocalSend PC">
 
-    <Grid RowDefinitions="48,*">
+    <Grid x:Name="RootGrid" RowDefinitions="48,*">
         <!-- 自定义标题栏：汉堡按钮（收起/展开侧边栏）+ 应用图标 + 名称 -->
         <Grid x:Name="AppTitleBar" Grid.Row="0"
               Background="{ThemeResource LayerFillColorDefaultBrush}"

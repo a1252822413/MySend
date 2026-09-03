@@ -73,16 +73,8 @@ public partial class SendViewModel : ViewModelBase,
     public bool HasFiles => PendingFiles.Count > 0;
     public bool HasNoFiles => PendingFiles.Count == 0;
 
-    // 成功/失败浮动提示（InfoBar）
-    [ObservableProperty] private bool _isNotificationOpen;
-    [ObservableProperty] private string _notificationTitle = string.Empty;
-    [ObservableProperty] private string _notificationMessage = string.Empty;
-    [ObservableProperty] private InfoBarSeverity _notificationSeverity = InfoBarSeverity.Informational;
-
     /// <summary>公共刷新状态：从 MulticastDiscoveryService 镜像（绑定 XAML 刷新按钮转圈/禁用）。</summary>
     [ObservableProperty] private bool _isRefreshing;
-
-    private DispatcherQueueTimer? _closeTimer;
 
     public SendViewModel(ISendSessionManager sendMgr, IDeviceRegistry registry,
         MulticastDiscoveryService discovery, IMessenger messenger, TransferHistoryService history,
@@ -146,12 +138,6 @@ public partial class SendViewModel : ViewModelBase,
             foreach (var d in Devices) d.RefreshOnlineState();
         };
         heartbeat.Start();
-
-        // InfoBar 自动关闭定时器
-        _closeTimer = dq.CreateTimer();
-        _closeTimer.Interval = TimeSpan.FromSeconds(5);
-        _closeTimer.IsRepeating = false;
-        _closeTimer.Tick += (_, _) => IsNotificationOpen = false;
     }
 
     partial void OnSelectedTargetChanged(Device? value)
@@ -410,45 +396,24 @@ public partial class SendViewModel : ViewModelBase,
         });
 
         var info = $"{s.CompletedFiles}/{s.Files.Count} 个文件 · {FormatBytes(s.TotalBytesSent)}";
-        switch (s.State)
+        (string title, string message, ToastKind kind) = s.State switch
         {
-            case SendSessionState.Completed:
-                NotificationTitle = "发送成功";
-                NotificationMessage = $"{info} 已发送到 {s.Target.Alias}";
-                NotificationSeverity = InfoBarSeverity.Success;
-                break;
-            case SendSessionState.Rejected:
-                NotificationTitle = "对方拒绝";
-                NotificationMessage = s.ErrorMessage ?? "对方拒绝了所有文件";
-                NotificationSeverity = InfoBarSeverity.Warning;
-                break;
-            case SendSessionState.Cancelled:
-                NotificationTitle = "已取消";
-                NotificationMessage = s.ErrorMessage ?? "你已取消本次发送";
-                NotificationSeverity = InfoBarSeverity.Warning;
-                break;
-            case SendSessionState.CancelledByPeer:
-                NotificationTitle = "会话被打断";
-                NotificationMessage = s.ErrorMessage ?? "对方终止了会话";
-                NotificationSeverity = InfoBarSeverity.Warning;
-                break;
-            case SendSessionState.Failed:
-            default:
-                NotificationTitle = "发送失败";
-                NotificationMessage = s.ErrorMessage ?? "未知错误";
-                NotificationSeverity = InfoBarSeverity.Error;
-                break;
-        }
-        IsNotificationOpen = true;
-        // 成功/警告 5 秒自动关；错误不关
-        if (NotificationSeverity != InfoBarSeverity.Error)
+            SendSessionState.Completed =>
+                ("发送成功", $"{info}\n已发送到 {s.Target.Alias}", ToastKind.Success),
+            SendSessionState.Rejected =>
+                ("对方拒绝", s.ErrorMessage ?? "对方拒绝了所有文件", ToastKind.Warning),
+            SendSessionState.Cancelled =>
+                ("已取消", s.ErrorMessage ?? "你已取消本次发送", ToastKind.Warning),
+            SendSessionState.CancelledByPeer =>
+                ("会话被打断", s.ErrorMessage ?? "对方终止了会话", ToastKind.Warning),
+            _ =>
+                ("发送失败", s.ErrorMessage ?? "未知错误", ToastKind.Error),
+        };
+        _messenger.Send(new ShowToastMessage
         {
-            if (_closeTimer is not null)
-            {
-                _closeTimer.Stop();
-                _closeTimer.Start();
-            }
-        }
+            Message = title == message ? message : $"{title}\n{message}",
+            Kind = kind,
+        });
     }
 
     private static string FormatBytes(long b)
