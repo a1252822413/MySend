@@ -194,18 +194,50 @@
             </Grid>
 
             <Grid Grid.Row="2" Margin="0,28,0,0" RowDefinitions="Auto,Auto,*,Auto">
-                <Grid Grid.Row="0" ColumnDefinitions="*,Auto,Auto">
+                <Grid Grid.Row="0" ColumnDefinitions="*,Auto,Auto,Auto,Auto,Auto">
                     <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
                         <TextBlock Text="待发送文件" FontSize="16" FontWeight="SemiBold"/>
-                        <Border Padding="8,2" CornerRadius="10" Background="{ThemeResource CardStrokeColorDefaultBrush}">
+                        <Border Padding="8,2" CornerRadius="10" Background="{ThemeResource CardStrokeColorDefaultBrush}"
+                                VerticalAlignment="Center">
                             <TextBlock Text="{x:Bind ViewModel.PendingFiles.Count, Mode=OneWay}" FontSize="11" Opacity="0.7"/>
                         </Border>
                     </StackPanel>
                     <Button Grid.Column="1" Content="📁 添加文件" Click="OnPickFilesClick"
-                            Padding="14,7" CornerRadius="8" Margin="0,0,8,0"/>
+                            Padding="14,0" Height="36" CornerRadius="8" Margin="0,0,8,0"
+                            VerticalAlignment="Center"/>
                     <Button Grid.Column="2" Content="清空" Command="{x:Bind ViewModel.ClearFilesCommand}"
-                            Padding="10,7" CornerRadius="8"
+                            Padding="12,0" Height="36" CornerRadius="8" Margin="0,0,16,0"
+                            VerticalAlignment="Center"
                             Visibility="{x:Bind ViewModel.HasFiles, Mode=OneWay}"/>
+                    <!-- PIN + 发送：与添加文件同一行右对齐 -->
+                    <Grid Grid.Column="3" Width="180" VerticalAlignment="Center">
+                        <PasswordBox x:Name="PinPasswordBox" PlaceholderText="PIN（对方启用时必填）"
+                                     Height="36" Padding="12,8" CornerRadius="8" FontSize="13"
+                                     PasswordChanged="OnPinPasswordChanged"/>
+                        <TextBox x:Name="PinVisibleBox" Visibility="Collapsed"
+                                 Height="36" Padding="12,8" CornerRadius="8" FontSize="13"
+                                 TextChanged="OnPinTextChanged"/>
+                    </Grid>
+                    <Button Grid.Column="4" x:Name="PinToggleBtn" Width="40" Height="36" Padding="0"
+                            Click="OnPinToggleClick" CornerRadius="8" Margin="8,0,8,0"
+                            ToolTipService.ToolTip="显示/隐藏 PIN" VerticalAlignment="Center">
+                        <FontIcon Glyph="&#xE8D4;" FontSize="16"/>
+                    </Button>
+                    <Button Grid.Column="5" Content="开始发送"
+                            Command="{x:Bind ViewModel.StartSendCommand}"
+                            Padding="24,0" Height="36" CornerRadius="10"
+                            FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center"
+                            Background="{ThemeResource AccentFillColorDefaultBrush}"
+                            Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}">
+                        <Button.ContentTemplate>
+                            <DataTemplate>
+                                <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                                    <TextBlock Text="🚀" FontSize="15"/>
+                                    <TextBlock Text="{Binding}" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </DataTemplate>
+                        </Button.ContentTemplate>
+                    </Button>
                 </Grid>
 
                 <Border Grid.Row="1" Margin="0,12,0,12" Padding="14,12" CornerRadius="12"
@@ -327,54 +359,36 @@
                     </Grid>
                 </Border>
 
-                <Grid Grid.Row="3" Margin="0,20,0,0" ColumnDefinitions="*,Auto">
-                    <Grid Grid.Column="0" ColumnDefinitions="Auto,*">
-                        <StackPanel Orientation="Vertical" Spacing="4" VerticalAlignment="Center">
-                            <StackPanel Orientation="Horizontal" Spacing="6">
-                                <Ellipse Width="10" Height="10"
+                <Grid Grid.Row="3" Margin="0,20,0,0">
+
+                    <!-- 状态卡：三条件横向并列（绿/红小圆点 + 文字），对齐项目记忆卡片风格 -->
+                    <Border Padding="16,12" CornerRadius="12"
+                            Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1">
+                        <Grid ColumnDefinitions="*,*,*" ColumnSpacing="12">
+                            <Grid Grid.Column="0" ColumnDefinitions="Auto,*">
+                                <Ellipse Grid.Column="0" Width="10" Height="10" VerticalAlignment="Center"
                                          Fill="{x:Bind ViewModel.HasSelectedTarget, Mode=OneWay, Converter={StaticResource BoolToPassColor}}"/>
-                                <TextBlock FontSize="11" VerticalAlignment="Center"
-                                           Text="{x:Bind ViewModel.HasSelectedTarget, Mode=OneWay, Converter={StaticResource BoolToReadyTarget}}"/>
-                            </StackPanel>
-                            <StackPanel Orientation="Horizontal" Spacing="6">
-                                <Ellipse Width="10" Height="10"
+                                <TextBlock Grid.Column="1" Margin="8,0,0,0" FontSize="12" VerticalAlignment="Center"
+                                           Text="{x:Bind ViewModel.HasSelectedTarget, Mode=OneWay, Converter={StaticResource BoolToReadyTarget}}"
+                                           TextTrimming="CharacterEllipsis"/>
+                            </Grid>
+                            <Grid Grid.Column="1" ColumnDefinitions="Auto,*">
+                                <Ellipse Grid.Column="0" Width="10" Height="10" VerticalAlignment="Center"
                                          Fill="{x:Bind ViewModel.HasPendingFiles, Mode=OneWay, Converter={StaticResource BoolToPassColor}}"/>
-                                <TextBlock FontSize="11" VerticalAlignment="Center"
-                                           Text="{x:Bind ViewModel.HasPendingFiles, Mode=OneWay, Converter={StaticResource BoolToReadyFile}}"/>
-                            </StackPanel>
-                            <StackPanel Orientation="Horizontal" Spacing="6">
-                                <Ellipse Width="10" Height="10"
+                                <TextBlock Grid.Column="1" Margin="8,0,0,0" FontSize="12" VerticalAlignment="Center"
+                                           Text="{x:Bind ViewModel.HasPendingFiles, Mode=OneWay, Converter={StaticResource BoolToReadyFile}}"
+                                           TextTrimming="CharacterEllipsis"/>
+                            </Grid>
+                            <Grid Grid.Column="2" ColumnDefinitions="Auto,*">
+                                <Ellipse Grid.Column="0" Width="10" Height="10" VerticalAlignment="Center"
                                          Fill="{x:Bind ViewModel.IsIdleOrFinished, Mode=OneWay, Converter={StaticResource BoolToPassColor}}"/>
-                                <TextBlock FontSize="11" VerticalAlignment="Center"
-                                           Text="{x:Bind ViewModel.IsIdleOrFinished, Mode=OneWay, Converter={StaticResource BoolToReadyState}}"/>
-                            </StackPanel>
-                        </StackPanel>
-                        <TextBlock Grid.Column="1"
-                                   FontSize="12" Opacity="0.9" VerticalAlignment="Center"
-                                   Margin="18,0,0,0"
-                                   Foreground="{x:Bind ViewModel.CanSend, Mode=OneWay, Converter={StaticResource BoolToHintColor}}"
-                                   Text="{x:Bind ViewModel.SendDisabledHint, Mode=OneWay}"/>
-                    </Grid>
-                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                        <Grid Width="170">
-                            <PasswordBox x:Name="PinPasswordBox" PlaceholderText="PIN（对方启用时必填）"
-                                         Height="32" Padding="10,6" CornerRadius="8"
-                                         PasswordChanged="OnPinPasswordChanged"/>
-                            <TextBox x:Name="PinVisibleBox" Visibility="Collapsed"
-                                     Height="32" Padding="10,6" CornerRadius="8"
-                                     TextChanged="OnPinTextChanged"/>
+                                <TextBlock Grid.Column="1" Margin="8,0,0,0" FontSize="12" VerticalAlignment="Center"
+                                           Text="{x:Bind ViewModel.IsIdleOrFinished, Mode=OneWay, Converter={StaticResource BoolToReadyState}}"
+                                           TextTrimming="CharacterEllipsis"/>
+                            </Grid>
                         </Grid>
-                        <Button x:Name="PinToggleBtn" Width="36" Height="32" Padding="0" Click="OnPinToggleClick"
-                                ToolTipService.ToolTip="显示/隐藏 PIN" VerticalAlignment="Center">
-                            <FontIcon Glyph="&#xE8D4;" FontSize="16"/>
-                        </Button>
-                        <Button Content="🚀 开始发送"
-                                Command="{x:Bind ViewModel.StartSendCommand}"
-                                Padding="20,10" CornerRadius="10"
-                                FontSize="14" FontWeight="SemiBold"
-                                Background="{ThemeResource AccentFillColorDefaultBrush}"
-                                Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}"/>
-                    </StackPanel>
+                    </Border>
                 </Grid>
             </Grid>
         </Grid>

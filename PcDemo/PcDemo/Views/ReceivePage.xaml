@@ -55,9 +55,19 @@
                 </Border>
                 <TextBlock Grid.Column="2" Margin="16,0,0,0" FontSize="12" FontWeight="SemiBold"
                            VerticalAlignment="Center" Text="{x:Bind ViewModel.Alias, Mode=OneWay}"/>
-                <TextBlock Grid.Column="3" Text="{x:Bind ViewModel.Fingerprint, Mode=OneWay}"
-                           Opacity="0.4" FontSize="11" IsTextSelectionEnabled="True"
-                           VerticalAlignment="Center" TextAlignment="Right"/>
+                <Button Grid.Column="3" HorizontalAlignment="Right" VerticalAlignment="Center"
+                        Background="Transparent" Padding="8,2" CornerRadius="8"
+                        Command="{x:Bind ViewModel.CopyFingerprintCommand, Mode=OneWay}"
+                        ToolTipService.ToolTip="{x:Bind ViewModel.Fingerprint, Mode=OneWay}"
+                        BorderThickness="0">
+                    <Grid ColumnDefinitions="Auto,Auto" VerticalAlignment="Center">
+                        <TextBlock Text="{x:Bind ViewModel.FingerprintShort, Mode=OneWay}"
+                                   Opacity="0.5" FontSize="11" VerticalAlignment="Center"/>
+                        <!-- 复制图标（Segoe MDL2 Assets Copy glyph），避免 emoji tofu -->
+                        <FontIcon Grid.Column="1" Glyph="&#xE8C8;" FontSize="12" Margin="6,0,0,0"
+                                  Opacity="0.55" VerticalAlignment="Center"/>
+                    </Grid>
+                </Button>
             </Grid>
         </Border>
 
@@ -167,5 +177,24 @@
                         Visibility="{x:Bind ViewModel.CanOpenFolder, Mode=OneWay}"/>
             </InfoBar.ActionButton>
         </InfoBar>
+
+        <!-- 居中 Toast：轻巧提示卡片，淡入→停留→淡出，不阻塞，不和 InfoBar 冲突 -->
+        <Border x:Name="ToastBorder"
+                Grid.RowSpan="4"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center"
+                Padding="20,13"
+                CornerRadius="12"
+                Background="{ThemeResource SolidBackgroundFillColorBaseBrush}"
+                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                BorderThickness="1"
+                Visibility="Collapsed"
+                Opacity="0"
+                MinWidth="260">
+            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12" VerticalAlignment="Center">
+                <FontIcon x:Name="ToastIcon" FontSize="20" VerticalAlignment="Center"/>
+                <TextBlock Grid.Column="1" x:Name="ToastText" FontSize="13" VerticalAlignment="Center" TextWrapping="Wrap"/>
+            </Grid>
+        </Border>
     </Grid>
 </Page>

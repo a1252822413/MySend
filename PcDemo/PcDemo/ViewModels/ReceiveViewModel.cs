@@ -55,6 +55,59 @@ public partial class ReceiveViewModel : ViewModelBase,
     [ObservableProperty] private string _fingerprint = string.Empty;
     [ObservableProperty] private bool _isRefreshing;
 
+    /// <summary>缩略指纹：只显示前 8 位 + 省略号（64位 → 9 字符，不挤右侧空间）。</summary>
+    public string FingerprintShort
+    {
+        get
+        {
+            if (string.IsNullOrEmpty(Fingerprint)) return Fingerprint;
+            if (Fingerprint.Length <= 8) return Fingerprint;
+            return string.Concat(Fingerprint.AsSpan(0, 8), "…");
+        }
+    }
+
+    /// <summary>把完整指纹复制到剪贴板，成功/失败通过居中 Toast（消息总线 ShowToastMessage）显示。
+    /// WinUI3 Clipboard 必须在关联 CoreWindow 的 UI 线程调用。</summary>
+    [RelayCommand]
+    public void CopyFingerprint()
+    {
+        if (string.IsNullOrEmpty(Fingerprint)) return;
+
+        void DoCopy()
+        {
+            try
+            {
+                var package = new Windows.ApplicationModel.DataTransfer.DataPackage();
+                package.SetText(Fingerprint);
+                Windows.ApplicationModel.DataTransfer.Clipboard.SetContent(package);
+                Windows.ApplicationModel.DataTransfer.Clipboard.Flush();
+
+                App.LogDiag($"[CopyFingerprint] 已写入剪贴板 fp(前8)={Fingerprint[..Math.Min(8, Fingerprint.Length)]}");
+                _messenger.Send(new ShowToastMessage
+                {
+                    Message = $"指纹已复制\n前 8 位：{Fingerprint[..Math.Min(8, Fingerprint.Length)]}…",
+                    Kind = ToastKind.Success,
+                    DurationMs = 1700,
+                });
+            }
+            catch (Exception ex)
+            {
+                App.LogDiag($"[CopyFingerprint] 异常：{ex.GetType().Name}: {ex.Message}");
+                _messenger.Send(new ShowToastMessage
+                {
+                    Message = $"复制失败：{ex.Message}",
+                    Kind = ToastKind.Error,
+                    DurationMs = 2200,
+                });
+            }
+        }
+
+        if (_dispatcher is not null)
+            _dispatcher.TryEnqueue(DoCopy);
+        else
+            DoCopy();
+    }
+
     // 通知（接收成功/失败提示）
     [ObservableProperty] private bool _isNotificationOpen;
     [ObservableProperty] private string _notificationTitle = string.Empty;
@@ -160,6 +213,7 @@ public partial class ReceiveViewModel : ViewModelBase,
         Alias = s.Alias;
         Port = s.Port;
         Fingerprint = s.Fingerprint;
+        OnPropertyChanged(nameof(FingerprintShort));
     }
 
     public void Receive(DeviceDiscoveredMessage msg)
