@@ -366,15 +366,13 @@ public partial class SendViewModel : ViewModelBase,
             else
             {
                 Devices.Add(incoming);
-                // 如果还没选中任何设备，且这个设备就是我们想要的（没选中自动首设）
-                // 这里不自动选，用户手动选
             }
         });
     }
 
     public void Receive(DeviceTimedOutMessage message)
     {
-        // 离线设备直接从列表移除（刷新时主动清旧设备也走这个消息）。——避免闪烁/破坏选中态。只触发 IsOnline 刷新让 UI 显示为“离线”灰态。
+        // 离线/超时设备从列表移除（手动刷新清理未响应设备也走此消息）
         _dispatcher?.TryEnqueue(() =>
         {
             var d = Devices.FirstOrDefault(x => x.Fingerprint == message.Fingerprint);
@@ -454,8 +452,6 @@ public partial class SendViewModel : ViewModelBase,
             }
         }
     }
-
-    // FileKind 推断放在 FileKindMapper.FromExtension
 
     private static string FormatBytes(long b)
     {

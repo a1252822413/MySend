@@ -38,7 +38,7 @@ public sealed class MulticastDiscoveryService : IDisposable
     private DateTime _lastSelfLoopLog = DateTime.MinValue;
     private DateTime _lastParseFailLog = DateTime.MinValue;
 
-    /// <summary>是否正在刷新（发 UDP 公告让其他设备回播）。两个 VM 订阅这个属性镜像到 UI。</summary>
+    /// <summary>是否正在刷新。两个 VM 订阅这个属性镜像到 UI。</summary>
     public bool IsRefreshing { get; private set; }
 
     /// <summary>IsRefreshing 变化时通知订阅者（两个 VM 镜像到自己的可绑定属性）。</summary>
@@ -237,7 +237,6 @@ public sealed class MulticastDiscoveryService : IDisposable
 
     private async Task ReceiveLoopAsync(CancellationToken ct)
     {
-        var buffer = new byte[ReceiveBufferSize];
         var udp = _udp!;
         var myFp = _settings.Current.Fingerprint;
         App.LogDiag("[Multicast] ReceiveLoop 启动");
@@ -322,12 +321,9 @@ public sealed class MulticastDiscoveryService : IDisposable
     /// <summary>
     /// 公共刷新入口：
     /// 1. 记录 cutoff 时间
-    /// 2. EnsureKestrelRunning（接收端才能处理后续 register/prepare-upload）
-    ///    + AnnounceOnce（三次 UDP 公告让局域网其他设备回播）
-    /// 3. 等 3 秒让在线设备回播更新 LastSeenUtcTicks
-    /// 4. 清理：LastSeen 早于 cutoff 的设备 → Remove + DeviceTimedOutMessage
-    ///    在线设备因回播了 → LastSeen 新于 cutoff → 保留
-    ///    离线设备没回播 → LastSeen 旧于 cutoff → 移除
+    /// 2. EnsureKestrelRunning + AnnounceOnce（发 3 轮 UDP 公告，让局域网设备发现本机）
+    /// 3. 等 3 秒让在线设备通过公告/register 更新 LastSeenUtcTicks
+    /// 4. 清理：LastSeen 早于 cutoff 的设备移除（离线设备没回公告 → 被清理）
     /// </summary>
     public async Task RefreshAsync(CancellationToken ct = default)
     {
@@ -342,10 +338,10 @@ public sealed class MulticastDiscoveryService : IDisposable
             App.EnsureKestrelRunning();
             await AnnounceOnceAsync(ct);
 
-            // 等 3 秒让在线设备回播（三次公告最晚在 2.0s 发完，留 1s 给网络传输）
-            try { await Task.Delay(3000, ct); } catch (OperationCanceledException) { /* 刷新被取消也继续清理 */ }
+            // 等 3 秒让在线设备公告到达（三轮公告最晚 2.0s 发完，留 1s 给网络传输）
+            try { await Task.Delay(3000, ct); } catch (OperationCanceledException) { }
 
-            // 主动清除没回播的设备——在线设备因回播了 LastSeen 新于 cutoff，离线设备 LastSeen 旧于 cutoff
+            // 清理没回公告的设备
             _registry.RemoveStaleSince(cutoff);
         }
         catch (Exception ex)

@@ -127,7 +127,7 @@ public partial class App : Application, IRecipient<DeviceDiscoveredMessage>
             // 3. 订阅设置变更：端口/多播组变化时重启 discovery + server
             settings.Changed += OnSettingsChanged;
 
-            // 3.1 订阅 UDP 发现消息（首次收到时触发 Kestrel 延迟启动）
+            // 3.1 注册消息接收（App 实现 IRecipient<DeviceDiscoveredMessage>，当前为空实现）
             WeakReferenceMessenger.Default.Register(this);
 
             // 4. 启动网络：UDP 监听 + Kestrel + 周期公告全部常驻（官方客户端同款行为）
@@ -182,8 +182,7 @@ public partial class App : Application, IRecipient<DeviceDiscoveredMessage>
         // 服务层
         services.AddSingleton<ISettingsService, SettingsService>();
         // 必须统一使用 WeakReferenceMessenger.Default 静态单例：
-        // 若由容器自建实例，DeviceRegistry 发布的消息 App（注册在 Default 上）将收不到，
-        // "收到公告→立即回播"失效，手机端只能等周期公告才能发现本机
+        // 若由容器自建实例，DeviceRegistry 发布的消息 App 将收不到
         services.AddSingleton<IMessenger>(_ => WeakReferenceMessenger.Default);
         services.AddSingleton<IDeviceInfoBuilder, DeviceInfoBuilder>();
         services.AddSingleton<IFileSaver, FileSaver>();
@@ -214,13 +213,13 @@ public partial class App : Application, IRecipient<DeviceDiscoveredMessage>
         services.AddSingleton<ShellWindow>();
     }
 
-    /// <summary>启动 UDP 多播监听（Kestrel 由 OnLaunched 随后 EnsureKestrelRunning 常驻启动）。</summary>
     /// <summary>网络身份签名：只有这些设置变化才需要重启网络。</summary>
     private static string _lastNetSig = string.Empty;
 
     private static string NetSig(AppSettings s)
         => $"{s.Alias}|{s.Port}|{s.Fingerprint}|{s.MulticastGroup}";
 
+    /// <summary>启动 UDP 多播被动监听（Kestrel + 周期公告由 EnsureKestrelRunning 常驻启动）。</summary>
     private static void StartUdpOnly()
     {
         try
@@ -323,8 +322,8 @@ public partial class App : Application, IRecipient<DeviceDiscoveredMessage>
         // 重启 UDP 被动监听（端口可能已变）
         StartUdpOnly();
 
-        // 之前 Kestrel 在跑（本机对外可见）→ 立即拉起并补发公告，
-        // 让局域网设备马上用新别名/端口看到我们；空闲态则保持被动（不主动唤醒 Kestrel）
+        // 之前 Kestrel 在跑 → 立即拉起并补发公告，
+        // 让局域网设备马上用新别名/端口看到我们
         if (wasRunning)
             EnsureKestrelRunning();
     }
