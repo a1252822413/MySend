@@ -21,7 +21,8 @@ public static class PrepareUploadEndpoint
     public static async Task<IResult> Handle(
         HttpContext ctx,
         IReceiveSessionManager sessions,
-        ISettingsService settings)
+        ISettingsService settings,
+        IDeviceListService deviceLists)
     {
         PrepareUploadRequestDtoV2? req;
         try
@@ -39,6 +40,14 @@ public static class PrepareUploadEndpoint
         {
             return Results.Json(new ErrorResponse { Message = "No files provided" },
                 JsonOptions.Default, contentType: "application/json", statusCode: 400);
+        }
+
+        // 黑名单拦截：对方指纹在黑名单中直接 403 拒绝，不进入决策流程
+        if (req.Info is not null && deviceLists.IsBlacklisted(req.Info.Fingerprint))
+        {
+            App.LogDiag($"[PrepareUpload] 拒绝黑名单设备 fp={(req.Info.Fingerprint.Length >= 8 ? req.Info.Fingerprint[..8] : req.Info.Fingerprint)} alias={req.Info.Alias}");
+            return Results.Json(new ErrorResponse { Message = "Blocked by blacklist" },
+                JsonOptions.Default, contentType: "application/json", statusCode: 403);
         }
 
         // PIN 校验：接收端开启了 PIN（settings.Pin 非空）时，请求必须带 ?pin= 精确匹配 → 否则 401

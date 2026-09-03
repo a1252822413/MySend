@@ -103,6 +103,16 @@
                         <Border Padding="14" CornerRadius="12"
                                 Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                                 BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1">
+                            <Border.ContextFlyout>
+                                <MenuFlyout>
+                                    <MenuFlyoutItem Text="加入白名单"
+                                                    Click="OnAddToWhitelistClick"
+                                                    DataContext="{Binding}"/>
+                                    <MenuFlyoutItem Text="加入黑名单"
+                                                    Click="OnAddToBlacklistClick"
+                                                    DataContext="{Binding}"/>
+                                </MenuFlyout>
+                            </Border.ContextFlyout>
                             <Grid ColumnDefinitions="3,42,*,Auto" VerticalAlignment="Center">
                                 <Border Grid.Column="0" Width="3" Height="42" CornerRadius="1.5"
                                         VerticalAlignment="Center" Margin="0,0,10,0"

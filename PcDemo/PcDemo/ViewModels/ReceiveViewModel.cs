@@ -25,6 +25,7 @@ public partial class ReceiveViewModel : ViewModelBase,
     private readonly MulticastDiscoveryService _discovery;
     private readonly TransferHistoryService _history;
     private readonly IDeviceRegistry _registry;
+    private readonly IDeviceListService _deviceLists;
     private DispatcherQueue? _dispatcher;
 
     /// <summary>UI 注入：收到 prepare-upload 时弹对话框的回调。返回 null 表示无法弹窗（默认拒绝）。</summary>
@@ -62,7 +63,8 @@ public partial class ReceiveViewModel : ViewModelBase,
     [ObservableProperty] private bool _canOpenFolder;
 
     public ReceiveViewModel(ISettingsService settings, IReceiveSessionManager sessions, IMessenger messenger,
-        MulticastDiscoveryService discovery, TransferHistoryService history, IDeviceRegistry registry)
+        MulticastDiscoveryService discovery, TransferHistoryService history, IDeviceRegistry registry,
+        IDeviceListService deviceLists)
     {
         _settings = settings;
         _sessions = sessions;
@@ -70,6 +72,7 @@ public partial class ReceiveViewModel : ViewModelBase,
         _discovery = discovery;
         _history = history;
         _registry = registry;
+        _deviceLists = deviceLists;
         _messenger.RegisterAll(this);
 
         // 与 SendViewModel 一致：注入启动时 registry 已有的设备
@@ -117,6 +120,21 @@ public partial class ReceiveViewModel : ViewModelBase,
 
     /// <summary>本机用户取消当前接收会话（进度对话框"确认取消"按钮调用）。</summary>
     public void CancelTransfer(string sessionId) => _sessions.CancelLocal(sessionId);
+
+    // ---------- 设备名单快捷操作（右键菜单调用） ----------
+    [RelayCommand]
+    private void AddToWhitelist(Device? d)
+    {
+        if (d is null) return;
+        _deviceLists.AddWhitelist(d.Fingerprint, d.Alias, d.DeviceModel, d.DeviceType);
+    }
+
+    [RelayCommand]
+    private void AddToBlacklist(Device? d)
+    {
+        if (d is null) return;
+        _deviceLists.AddBlacklist(d.Fingerprint, d.Alias, d.DeviceModel, d.DeviceType);
+    }
 
     /// <summary>在资源管理器中打开保存目录（InfoBar「打开文件夹」按钮调用）。</summary>
     public void OpenDestinationFolder()
@@ -175,11 +193,14 @@ public partial class ReceiveViewModel : ViewModelBase,
             return;
         }
 
-        // 自动接收（settings.Download = 官方「自动保存」语义）：跳过弹窗直接接受全部文件，
-        // 仍触发 TransferAccepted 弹进度对话框，保持 UI 反馈一致
-        if (_settings.Current.Download)
+        // 自动接收优先级：白名单条目 AutoAccept > 全局 settings.Download；
+        // 黑名单在 PrepareUpload 端点已拦截（不会到这里），这里只处理「跳过弹窗」分支
+        var senderFp = session.Sender?.Fingerprint;
+        var whitelistEntry = !string.IsNullOrEmpty(senderFp) ? _deviceLists.FindWhitelist(senderFp!) : null;
+        var autoAccept = whitelistEntry?.AutoAccept == true || _settings.Current.Download;
+        if (autoAccept)
         {
-            App.LogDiag($"[ReceiveVM] 自动接收已开启，直接接受 sessionId={session.SessionId[..8]} 文件数={session.Files.Count}");
+            App.LogDiag($"[ReceiveVM] 自动接收（{(whitelistEntry?.AutoAccept == true ? "白名单" : "全局")}），直接接受 sessionId={session.SessionId[..8]} 文件数={session.Files.Count}");
             _dispatcher.TryEnqueue(() =>
             {
                 _sessions.Accept(session.SessionId, session.Files.Keys.ToList());

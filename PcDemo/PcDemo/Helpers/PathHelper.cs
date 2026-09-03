@@ -11,6 +11,9 @@ public static class PathHelper
 
     public static string SettingsFilePath => System.IO.Path.Combine(AppDataDir, "settings.json");
 
+    /// <summary>白名单/黑名单持久化文件（与 settings.json 分离，避免名单增长撑大配置）。</summary>
+    public static string DeviceListsFilePath => System.IO.Path.Combine(AppDataDir, "device-lists.json");
+
     /// <summary>
     /// 给定目标目录与文件名，若已存在则追加 _1/_2 等后缀避免覆盖。
     /// 算法与 localsend FileSaver 行为一致：保留扩展名。

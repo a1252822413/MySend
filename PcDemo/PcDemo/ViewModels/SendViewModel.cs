@@ -25,6 +25,7 @@ public partial class SendViewModel : ViewModelBase,
     private readonly MulticastDiscoveryService _discovery;
     private readonly IMessenger _messenger;
     private readonly TransferHistoryService _history;
+    private readonly IDeviceListService _deviceLists;
     private DispatcherQueue? _dispatcher;
 
     public ObservableCollection<Device> Devices { get; } = new();
@@ -84,13 +85,15 @@ public partial class SendViewModel : ViewModelBase,
     private DispatcherQueueTimer? _closeTimer;
 
     public SendViewModel(ISendSessionManager sendMgr, IDeviceRegistry registry,
-        MulticastDiscoveryService discovery, IMessenger messenger, TransferHistoryService history)
+        MulticastDiscoveryService discovery, IMessenger messenger, TransferHistoryService history,
+        IDeviceListService deviceLists)
     {
         _sendMgr = sendMgr;
         _registry = registry;
         _discovery = discovery;
         _messenger = messenger;
         _history = history;
+        _deviceLists = deviceLists;
         _messenger.RegisterAll(this);
 
         // 注入启动时 registry 已有的设备
@@ -337,6 +340,21 @@ public partial class SendViewModel : ViewModelBase,
     private void CancelSend()
     {
         _sendMgr.CancelCurrent();
+    }
+
+    // ---------- 设备名单快捷操作（右键菜单调用） ----------
+    [RelayCommand]
+    private void AddToWhitelist(Device? d)
+    {
+        if (d is null) return;
+        _deviceLists.AddWhitelist(d.Fingerprint, d.Alias, d.DeviceModel, d.DeviceType);
+    }
+
+    [RelayCommand]
+    private void AddToBlacklist(Device? d)
+    {
+        if (d is null) return;
+        _deviceLists.AddBlacklist(d.Fingerprint, d.Alias, d.DeviceModel, d.DeviceType);
     }
 
     // ---------- messenger handlers ----------

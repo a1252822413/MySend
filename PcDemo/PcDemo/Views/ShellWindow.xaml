@@ -52,6 +52,7 @@
             <NavigationView.MenuItems>
                 <NavigationViewItem Tag="Receive" Icon="Download" Content="接收"/>
                 <NavigationViewItem Tag="Send" Icon="Send" Content="发送"/>
+                <NavigationViewItem Tag="DeviceList" Icon="People" Content="设备管理"/>
                 <NavigationViewItem Tag="History" Icon="Clock" Content="历史记录"/>
             </NavigationView.MenuItems>
 

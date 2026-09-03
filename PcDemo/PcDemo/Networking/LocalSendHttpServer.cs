@@ -55,6 +55,7 @@ public sealed class LocalSendHttpServer : IAsyncDisposable
             ForwardSingleton<IReceiveSessionManager>(builder);
             ForwardSingleton<IDeviceRegistry>(builder);
             ForwardSingleton<IFileSaver>(builder);
+            ForwardSingleton<IDeviceListService>(builder);
 
             var app = builder.Build();
 
@@ -63,8 +64,8 @@ public sealed class LocalSendHttpServer : IAsyncDisposable
             app.MapPost(RegisterEndpoint.Path,
                 (HttpContext ctx, IDeviceInfoBuilder info, IDeviceRegistry devices) => RegisterEndpoint.Handle(ctx, info, devices));
             app.MapPost(PrepareUploadEndpoint.Path,
-                (HttpContext ctx, IReceiveSessionManager sessions, ISettingsService settings) =>
-                    PrepareUploadEndpoint.Handle(ctx, sessions, settings));
+                (HttpContext ctx, IReceiveSessionManager sessions, ISettingsService settings, IDeviceListService deviceLists) =>
+                    PrepareUploadEndpoint.Handle(ctx, sessions, settings, deviceLists));
             app.MapPost(UploadEndpoint.Path,
                 (HttpContext ctx, IReceiveSessionManager sessions) => UploadEndpoint.Handle(ctx, sessions));
             app.MapPost(CancelEndpoint.Path,

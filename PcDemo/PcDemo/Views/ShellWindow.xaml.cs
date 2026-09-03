@@ -89,20 +89,23 @@ public sealed partial class ShellWindow : Window
         // MenuItems 里的项 + FooterMenuItems 里的项都会触发这里，用 Tag 区分。
         var tag = (args.SelectedItem as NavigationViewItem)?.Tag?.ToString();
         switch (tag)
-        {
-            case "Send":
-                ContentFrame.Navigate(typeof(SendPage));
-                break;
-            case "History":
-                ContentFrame.Navigate(typeof(HistoryPage));
-                break;
-            case "Settings":
-                ContentFrame.Navigate(typeof(SettingsPage));
-                break;
-            case "Receive":
-            default:
-                ContentFrame.Navigate(typeof(ReceivePage));
-                break;
-        }
+            {
+                case "Send":
+                    ContentFrame.Navigate(typeof(SendPage));
+                    break;
+                case "DeviceList":
+                    ContentFrame.Navigate(typeof(DeviceListPage));
+                    break;
+                case "History":
+                    ContentFrame.Navigate(typeof(HistoryPage));
+                    break;
+                case "Settings":
+                    ContentFrame.Navigate(typeof(SettingsPage));
+                    break;
+                case "Receive":
+                default:
+                    ContentFrame.Navigate(typeof(ReceivePage));
+                    break;
+            }
     }
 }

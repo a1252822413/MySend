@@ -66,6 +66,19 @@ public sealed partial class SendPage : Page
         ViewModel.SelectedTarget = null;
     }
 
+    // 设备卡片右键菜单 → 加入白/黑名单
+    private void OnAddToWhitelistClick(object sender, RoutedEventArgs e)
+    {
+        if (sender is MenuFlyoutItem mfi && mfi.DataContext is Device d)
+            ViewModel.AddToWhitelistCommand.Execute(d);
+    }
+
+    private void OnAddToBlacklistClick(object sender, RoutedEventArgs e)
+    {
+        if (sender is MenuFlyoutItem mfi && mfi.DataContext is Device d)
+            ViewModel.AddToBlacklistCommand.Execute(d);
+    }
+
     /// <summary>DataTemplate 里的移除按钮：sender.DataContext 取到 SendFileItem。</summary>
     private void OnRemoveFileClick(object sender, RoutedEventArgs e)
     {

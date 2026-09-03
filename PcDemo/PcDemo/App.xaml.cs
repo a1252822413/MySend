@@ -136,6 +136,8 @@ public partial class App : Application, IRecipient<DeviceDiscoveredMessage>
 
             // 4.5 加载传输历史（JSON 持久化）
             Services.GetRequiredService<TransferHistoryService>().Load();
+            // 4.6 加载白名单/黑名单（device-lists.json）
+            Services.GetRequiredService<IDeviceListService>().Load();
 
             // 5. 创建并显示主窗口
             MainWindow = Services.GetRequiredService<ShellWindow>();
@@ -190,6 +192,7 @@ public partial class App : Application, IRecipient<DeviceDiscoveredMessage>
         services.AddSingleton<IDeviceRegistry, DeviceRegistry>();
         services.AddSingleton<ISendSessionManager, SendSessionManager>();
         services.AddSingleton<TransferHistoryService>();
+        services.AddSingleton<IDeviceListService, DeviceListService>();
 
         // 网络层
         services.AddSingleton<LocalSendHttpServer>();
@@ -210,6 +213,7 @@ public partial class App : Application, IRecipient<DeviceDiscoveredMessage>
         services.AddSingleton<SettingsViewModel>();
         services.AddSingleton<SendViewModel>();
         services.AddSingleton<HistoryViewModel>();
+        services.AddSingleton<DeviceListViewModel>();
         services.AddSingleton<ShellWindow>();
     }
 

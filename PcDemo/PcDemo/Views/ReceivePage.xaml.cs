@@ -79,6 +79,19 @@ public sealed partial class ReceivePage : Page
 
     private void OnOpenFolderClick(object sender, RoutedEventArgs e) => ViewModel.OpenDestinationFolder();
 
+    // 设备卡片右键菜单 → 加入白/黑名单
+    private void OnAddToWhitelistClick(object sender, RoutedEventArgs e)
+    {
+        if (sender is MenuFlyoutItem mfi && mfi.DataContext is Device d)
+            ViewModel.AddToWhitelistCommand.Execute(d);
+    }
+
+    private void OnAddToBlacklistClick(object sender, RoutedEventArgs e)
+    {
+        if (sender is MenuFlyoutItem mfi && mfi.DataContext is Device d)
+            ViewModel.AddToBlacklistCommand.Execute(d);
+    }
+
     private async Task ShowReceiveProgressAsync(ReceiveSession session)
     {
         var root = App.MainWindow.Content?.XamlRoot;
