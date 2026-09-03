@@ -1,10 +1,9 @@
-// App.xaml.cs —— 应用入口：构建 DI 容器、加载设置、启动 UDP 被动监听（Kestrel 延迟启动）。
+// App.xaml.cs —— 应用入口：构建 DI 容器、加载设置、启动网络（UDP 监听 + Kestrel + 周期公告，常驻）。
 //
-// 延迟启动策略：
-//   App 启动 → 只开 UDP 多播被动监听（不发公告、不开 Kestrel）
-//   收到第一个 DeviceDiscoveredMessage → EnsureKestrelRunningAsync（Start Kestrel → AnnounceOnce → StartPeriodicAnnounce）
-//   空闲 60s（无设备 + 无收发会话）→ Stop Kestrel + StopPeriodicAnnounce，只保留 UDP 监听
-// 这样空闲态省掉 Kestrel 运行时 50-80MB 的常驻内存。
+// Kestrel + 周期公告必须随应用常驻（2026-09-02 实测结论，勿改回延迟启动）：
+//   官方协议是 UDP 公告 + HTTP register 应答，这要求公告方的 HTTP 服务器在线。
+//   延迟启动/空闲停止会切断该通道：PC 静默 = 手机看不到 PC；
+//   手机 register 打到已停止的 PC = PC 看不到手机。官方 PC 客户端从不停止服务器。
 using System.Linq;
 using System.Threading;
 using CommunityToolkit.Mvvm.Messaging;
@@ -30,15 +29,9 @@ public partial class App : Application, IRecipient<DeviceDiscoveredMessage>
     private static LocalSendHttpServer? _http;
     private static MulticastDiscoveryService? _multicast;
 
-    // 延迟启动相关：Kestrel 启动幂等守卫 + 空闲自动停
+    // Kestrel 启动幂等守卫
     private static readonly object _kestrelGate = new();
     private static bool _kestrelStarted;
-    private static Timer? _idleCheckTimer;
-    private const int IdleCheckIntervalMs = 15_000;   // 每 15s 检查一次
-    private const int IdleTimeoutMs = 60_000;        // 连续 60s 无设备 + 无会话 → 停 Kestrel
-
-    // 空闲最后时间戳（设备数变 0 时开始计时）
-    private static long _idleSinceTicks;
 
     // 托盘常驻：关窗隐藏到托盘，后台继续接收；「退出」才真正结束进程
     private static TrayIconManager? _tray;
@@ -137,14 +130,9 @@ public partial class App : Application, IRecipient<DeviceDiscoveredMessage>
             // 3.1 订阅 UDP 发现消息（首次收到时触发 Kestrel 延迟启动）
             WeakReferenceMessenger.Default.Register(this);
 
-            // 4. 启动网络：恢复延迟启动架构——只开 UDP 被动监听，
-            //    Kestrel + 公告在首次发现设备时由 EnsureKestrelRunning 启动。
-            //    （此前 no-deferred 是为绕过 Messenger 分裂导致延迟启动失效，已修复，故恢复）
+            // 4. 启动网络：UDP 监听 + Kestrel + 周期公告全部常驻（官方客户端同款行为）
             StartUdpOnly();
-
-            // 4.1 空闲检查：每 15s 一次，无设备 + 无会话持续 60s → 停 Kestrel 省内存
-            _idleCheckTimer ??= new Timer(_ => CheckAndStopIfIdle(), null,
-                IdleCheckIntervalMs, IdleCheckIntervalMs);
+            EnsureKestrelRunning();
 
             // 4.5 加载传输历史（JSON 持久化）
             Services.GetRequiredService<TransferHistoryService>().Load();
@@ -226,10 +214,7 @@ public partial class App : Application, IRecipient<DeviceDiscoveredMessage>
         services.AddSingleton<ShellWindow>();
     }
 
-    /// <summary>
-    /// 只开 UDP 多播被动监听——Kestrel HTTP server 在首次收到其他设备的公告时才启动。
-    /// 这样空闲态省掉 ASP.NET Core 运行时 50-80MB 的常驻内存。
-    /// </summary>
+    /// <summary>启动 UDP 多播监听（Kestrel 由 OnLaunched 随后 EnsureKestrelRunning 常驻启动）。</summary>
     /// <summary>网络身份签名：只有这些设置变化才需要重启网络。</summary>
     private static string _lastNetSig = string.Empty;
 
@@ -244,8 +229,7 @@ public partial class App : Application, IRecipient<DeviceDiscoveredMessage>
             if (!_multicast.IsRunning)
             {
                 _multicast.Start();
-                // 注意：不调用 AnnounceOnceAsync，避免其他设备认为我们在线但 /prepare-upload 不可达
-                LogDiag("Multicast UDP passive listener started (Kestrel deferred)");
+                LogDiag("Multicast UDP listener started (Kestrel always-on)");
             }
             _lastNetSig = NetSig(Services.GetRequiredService<ISettingsService>().Current);
         }
@@ -256,8 +240,8 @@ public partial class App : Application, IRecipient<DeviceDiscoveredMessage>
     }
 
     /// <summary>
-    /// 幂等启动 Kestrel HTTP server + 周期 UDP 公告。
-    /// 触发时机：收到 DeviceDiscoveredMessage、用户手动点刷新、设置变更后。
+    /// 幂等启动 Kestrel HTTP server + 周期 UDP 公告（应用启动时调用，之后常驻）。
+    /// 用户手动刷新、设置变更也会调用（幂等，已在运行则快速返回）。
     /// </summary>
     public static void EnsureKestrelRunning()
     {
@@ -270,7 +254,7 @@ public partial class App : Application, IRecipient<DeviceDiscoveredMessage>
             if (!_http.IsRunning)
             {
                 _http.Start();
-                LogDiag($"HTTP server started on port {_http.RunningPort} (deferred)");
+                LogDiag($"HTTP server started on port {_http.RunningPort} (always-on)");
             }
 
             // Kestrel 就绪后才能发公告——否则其他设备收到公告后发 prepare-upload 会连不上
@@ -279,79 +263,16 @@ public partial class App : Application, IRecipient<DeviceDiscoveredMessage>
             _multicast.StartPeriodicAnnounce(TimeSpan.FromSeconds(3));
 
             _kestrelStarted = true;
-            _idleSinceTicks = long.MaxValue; // 重置空闲计时
             LogDiag("Kestrel + periodic announce activated");
         }
     }
 
-    /// <summary>DeviceDiscoveredMessage 处理：收到设备公告 = 对方在找我们。
-    /// 1) Kestrel 未启动（延迟启动/空闲已停）：先 EnsureKestrelRunning（启动 HTTP → 回播公告 → 开周期公告）
-    /// 2) Kestrel 已运行：立即回播公告（官方双向可见机制的核心）
-    /// 保证"手机先开 → PC 回播 → 手机看得到 PC"，且回播时 prepare-upload 端点一定就绪。</summary>
+    /// <summary>DeviceDiscoveredMessage 处理（刻意空实现）。
+    /// 绝不回播公告：常驻 3s 周期公告已保证对方在一个周期内看到本机；
+    /// 回播会形成 公告→对方 register→再公告 的乒乓风暴，打满 UI 线程导致卡死、
+    /// 手机被洪流淹没而看不到设备（2026-09-03 定稿删除）。</summary>
     public void Receive(DeviceDiscoveredMessage message)
     {
-        _multicast ??= Services.GetRequiredService<MulticastDiscoveryService>();
-
-        if (!_kestrelStarted)
-        {
-            // 首次发现：先启动 Kestrel（内部随后回播公告 + 开周期公告），
-            // 保证对方收到公告、发 prepare-upload 时端口已就绪
-            LogDiag($"[Kestrel] first device discovered ({message.Message.Alias}), triggering deferred start");
-            EnsureKestrelRunning();
-        }
-        else
-        {
-            // 已在运行：立即回播公告（单发，官方双向可见机制的核心）
-            _ = _multicast.AnnounceSingleAsync();
-        }
-    }
-
-    /// <summary>
-    /// 空闲检查：每 15s 看一眼。设备数=0 且无收发会话连续 60s → 停 Kestrel 省内存。
-    /// 只保留 UDP 监听（~几 MB），下次发现设备再自动启动。
-    /// </summary>
-    private static void CheckAndStopIfIdle()
-    {
-        try
-        {
-            if (!_kestrelStarted) return;
-
-            var registry = Services.GetService<IDeviceRegistry>();
-            var sessions = Services.GetService<IReceiveSessionManager>();
-            var sendSessions = Services.GetService<ISendSessionManager>();
-            if (registry is null || sessions is null || sendSessions is null) return;
-
-            var noDevices = registry.GetSnapshot().Count == 0;
-            var noReceiveSession = sessions.CurrentSession is null;
-            var noSendSession = sendSessions.Current is null;
-            var trulyIdle = noDevices && noReceiveSession && noSendSession;
-
-            if (trulyIdle)
-            {
-                // 开始计时
-                if (_idleSinceTicks == long.MaxValue)
-                    _idleSinceTicks = Environment.TickCount64;
-
-                var idleMs = Environment.TickCount64 - _idleSinceTicks;
-                if (idleMs >= IdleTimeoutMs)
-                {
-                    LogDiag($"[Kestrel] idle {idleMs}ms, stopping to save memory");
-                    _multicast?.StopPeriodicAnnounce();
-                    _ = (_http?.StopAsync() ?? Task.CompletedTask);
-                    _kestrelStarted = false;
-                    _idleSinceTicks = long.MaxValue;
-                }
-            }
-            else
-            {
-                // 有设备或会话 → 重置空闲计时
-                _idleSinceTicks = long.MaxValue;
-            }
-        }
-        catch (Exception ex)
-        {
-            LogDiag($"[IdleCheck] error: {ex.Message}");
-        }
     }
 
     internal static bool TryGetMainWindow([System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out ShellWindow? window)
@@ -425,7 +346,6 @@ public partial class App : Application, IRecipient<DeviceDiscoveredMessage>
             _tray?.Dispose();
             _tray = null;
             WeakReferenceMessenger.Default.UnregisterAll(CurrentApp);
-            _idleCheckTimer?.Dispose();
             _multicast?.Stop();
             _ = _http?.StopAsync();
         }
@@ -458,7 +378,6 @@ public partial class App : Application, IRecipient<DeviceDiscoveredMessage>
         try
         {
             WeakReferenceMessenger.Default.UnregisterAll(CurrentApp);
-            _idleCheckTimer?.Dispose();
             _multicast?.Stop();
             if (_http is not null) await _http.StopAsync();
         }

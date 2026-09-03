@@ -34,6 +34,10 @@ public sealed class MulticastDiscoveryService : IDisposable
     private PeriodicTimer? _periodicAnnounceTimer;
     private Task? _periodicAnnounceTask;
 
+    // ReceiveLoop 限频日志：自身回环每包多次，per-packet 记录会刷爆 1MB 日志
+    private DateTime _lastSelfLoopLog = DateTime.MinValue;
+    private DateTime _lastParseFailLog = DateTime.MinValue;
+
     /// <summary>是否正在刷新（发 UDP 公告让其他设备回播）。两个 VM 订阅这个属性镜像到 UI。</summary>
     public bool IsRefreshing { get; private set; }
 
@@ -60,7 +64,40 @@ public sealed class MulticastDiscoveryService : IDisposable
         _udp = new UdpClient();
         _udp.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
         _udp.Client.Bind(new IPEndPoint(IPAddress.Any, port));
-        _udp.JoinMulticastGroup(group);
+
+        // 接收侧也必须按接口加入多播组：Windows 多网卡（WLAN + Hyper-V/WSL 虚拟网卡）下，
+        // 不指定接口的 JoinMulticastGroup 会绑定到默认路由接口（很可能是虚拟网卡），
+        // 导致手机发的公告 PC 收不到。官方 LocalSend 同样逐接口加入。
+        var joinedIfaces = 0;
+        foreach (var ni in NetworkInterface.GetAllNetworkInterfaces())
+        {
+            if (ni.OperationalStatus != OperationalStatus.Up) continue;
+            if (ni.NetworkInterfaceType == NetworkInterfaceType.Loopback) continue;
+            if (!ni.SupportsMulticast) continue;
+
+            var props = ni.GetIPProperties();
+            var ipv4 = props.UnicastAddresses
+                .FirstOrDefault(a => a.Address.AddressFamily == AddressFamily.InterNetwork)?.Address;
+            if (ipv4 is null) continue;
+
+            try
+            {
+                _udp.Client.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.MulticastInterface, ipv4);
+                _udp.JoinMulticastGroup(group, ipv4);
+                joinedIfaces++;
+                App.LogDiag($"[Multicast] 接收组加入 {ipv4} ({ni.Name})");
+            }
+            catch (Exception ex)
+            {
+                App.LogDiag($"[Multicast] 接收组加入 {ipv4} 失败: {ex.Message}");
+            }
+        }
+        if (joinedIfaces == 0)
+        {
+            _udp.JoinMulticastGroup(group);
+            App.LogDiag("[Multicast] 无可用接口逐个加入，回退默认接口（可能收不到公告）");
+        }
+
         // TTL=1：仅本地子网
         _udp.Client.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.MulticastTimeToLive, 1);
 
@@ -202,6 +239,8 @@ public sealed class MulticastDiscoveryService : IDisposable
     {
         var buffer = new byte[ReceiveBufferSize];
         var udp = _udp!;
+        var myFp = _settings.Current.Fingerprint;
+        App.LogDiag("[Multicast] ReceiveLoop 启动");
         while (!ct.IsCancellationRequested && _udp is not null)
         {
             UdpReceiveResult result;
@@ -218,15 +257,34 @@ public sealed class MulticastDiscoveryService : IDisposable
             {
                 msg = JsonSerializer.Deserialize<MulticastMessageV2>(result.Buffer, JsonOptions.Default);
             }
-            catch { continue; }
+            catch
+            {
+                // 收到包但解析失败：诊断用，限频 10s 一次
+                if ((DateTime.UtcNow - _lastParseFailLog).TotalSeconds > 10)
+                {
+                    _lastParseFailLog = DateTime.UtcNow;
+                    App.LogDiag($"[Multicast] 收到无法解析的包 from {result.RemoteEndPoint} len={result.Buffer.Length}");
+                }
+                continue;
+            }
             if (msg is null) continue;
 
             // 过滤自身回环（loopback 启用，自己发的也会收到）
-            if (string.Equals(msg.Fingerprint, _settings.Current.Fingerprint, StringComparison.Ordinal))
+            if (string.Equals(msg.Fingerprint, myFp, StringComparison.Ordinal))
+            {
+                // 自身回环每周期都会触发，per-packet 记录会刷爆日志，限频 30s 一次（仅作健康检查）
+                if ((DateTime.UtcNow - _lastSelfLoopLog).TotalSeconds > 30)
+                {
+                    _lastSelfLoopLog = DateTime.UtcNow;
+                    App.LogDiag($"[Multicast] 收到自身公告回环 fp={(msg.Fingerprint.Length >= 8 ? msg.Fingerprint[..8] : msg.Fingerprint)}（接收链路健康）");
+                }
                 continue;
+            }
+
+            // 非自身公告：每次都记录（手机周期 3s，频率可控，不会刷爆日志）
+            App.LogDiag($"[Multicast] 收到设备公告 alias={msg.Alias} fp={(msg.Fingerprint.Length >= 8 ? msg.Fingerprint[..8] : msg.Fingerprint)} ip={result.RemoteEndPoint.Address} port={msg.Port}");
 
             // 统一入口：UDP 被动发现 → DeviceRegistry.Upsert → 内部发 DeviceDiscoveredMessage
-            // 这样 DeviceRegistry 始终是设备真源，RemoveStaleSince 等才能正确工作
             _registry.Upsert(
                 ip: result.RemoteEndPoint.Address.ToString(),
                 alias: msg.Alias,
@@ -238,6 +296,7 @@ public sealed class MulticastDiscoveryService : IDisposable
                 version: msg.Version,
                 download: msg.Download);
         }
+        App.LogDiag("[Multicast] ReceiveLoop 退出");
     }
 
     /// <summary>发送一轮公告：重复 3 次（100/500/2000ms 后），每次向所有多播接口各发一个数据报。用于启动/手动刷新。</summary>

@@ -12,9 +12,12 @@ namespace PcDemo.Services;
 public sealed class DeviceRegistry : IDeviceRegistry, IDisposable
 {
     private const int TimeoutSeconds = 60;
+    private const int BroadcastDebounceMs = 2000; // 同一指纹去抖窗口，防多 IP 轮替导致消息风暴
     private readonly IMessenger _messenger;
     private readonly Timer _cleanupTimer;
     private readonly ConcurrentDictionary<string, Device> _devices = new();
+    // 最近一次广播时间（UTC ticks），指纹级去抖
+    private readonly ConcurrentDictionary<string, long> _lastBroadcastTicks = new();
 
     public DeviceRegistry(IMessenger messenger)
     {
@@ -26,23 +29,40 @@ public sealed class DeviceRegistry : IDeviceRegistry, IDisposable
     public void Upsert(string ip, string alias, string? deviceModel, DeviceType? deviceType,
         string fingerprint, ushort port, ProtocolType protocol, string version, bool download)
     {
+        var now = DateTime.UtcNow.Ticks;
+        var changed = false;
+        var isNew = false;
+
         _devices.AddOrUpdate(
             fingerprint,
-            _ => new Device
+            _ =>
             {
-                Fingerprint = fingerprint,
-                Alias = alias,
-                DeviceModel = deviceModel,
-                DeviceType = deviceType,
-                Port = port,
-                Protocol = protocol,
-                Version = version,
-                Download = download,
-                Ip = ip,
-                LastSeenUtcTicks = DateTime.UtcNow.Ticks,
+                isNew = true;
+                changed = true;
+                return new Device
+                {
+                    Fingerprint = fingerprint,
+                    Alias = alias,
+                    DeviceModel = deviceModel,
+                    DeviceType = deviceType,
+                    Port = port,
+                    Protocol = protocol,
+                    Version = version,
+                    Download = download,
+                    Ip = ip,
+                    LastSeenUtcTicks = now,
+                };
             },
             (_, existing) =>
             {
+                // 关键修复（2026-09-03）：同一指纹设备的 Ip 在多接口间轮替到达
+                // （如 192.168.31.140 ↔ 172.17.1.1 Docker 网段）时，Ip 变化不再
+                // 视为关键字段变化，避免每条公告都广播→UI 风暴。Ip 仍静默更新。
+                changed = !string.Equals(existing.Alias, alias, StringComparison.Ordinal)
+                    || existing.Port != port
+                    || existing.Protocol != protocol
+                    || existing.Download != download
+                    || existing.DeviceType != deviceType;
                 existing.Alias = alias;
                 existing.DeviceModel = deviceModel;
                 existing.DeviceType = deviceType;
@@ -51,11 +71,23 @@ public sealed class DeviceRegistry : IDeviceRegistry, IDisposable
                 existing.Version = version;
                 existing.Download = download;
                 existing.Ip = ip;
-                existing.LastSeenUtcTicks = DateTime.UtcNow.Ticks;
+                existing.LastSeenUtcTicks = now;
                 return existing;
             });
 
-        // 广播消息（注意 Device 字段非线程安全，但此处只读属性；UI 同步在 UI 线程做）
+        if (!changed) return;
+
+        // 双保险：同一指纹去抖窗口内不重复广播。
+        // 手机多网卡/多 IP 公告会在同一秒内从多个 IP 到达，上面 changed 判断已过滤 Ip 变化，
+        // 但 Alias/Port 等在握手期也可能不稳定，这里再判一次时间窗口。
+        var debounceTicks = TimeSpan.FromMilliseconds(BroadcastDebounceMs).Ticks;
+        if (!isNew)
+        {
+            var lastTick = _lastBroadcastTicks.TryGetValue(fingerprint, out var t) ? t : 0;
+            if (now - lastTick < debounceTicks) return;
+        }
+        _lastBroadcastTicks[fingerprint] = now;
+
         _messenger.Send(new DeviceDiscoveredMessage
         {
             Ip = ip,
@@ -75,6 +107,7 @@ public sealed class DeviceRegistry : IDeviceRegistry, IDisposable
 
     public void Remove(string fingerprint)
     {
+        _lastBroadcastTicks.TryRemove(fingerprint, out _);
         if (_devices.TryRemove(fingerprint, out _))
         {
             _messenger.Send(new DeviceTimedOutMessage { Fingerprint = fingerprint });
@@ -84,6 +117,7 @@ public sealed class DeviceRegistry : IDeviceRegistry, IDisposable
     public void Clear()
     {
         var keys = _devices.Keys.ToList();
+        foreach (var k in keys) _lastBroadcastTicks.TryRemove(k, out _);
         _devices.Clear();
         foreach (var k in keys)
         {
@@ -103,6 +137,7 @@ public sealed class DeviceRegistry : IDeviceRegistry, IDisposable
         {
             if (kv.Value.LastSeenUtcTicks < cutoffTicks)
             {
+                _lastBroadcastTicks.TryRemove(kv.Key, out _);
                 if (_devices.TryRemove(kv.Key, out _))
                 {
                     _messenger.Send(new DeviceTimedOutMessage { Fingerprint = kv.Key });
@@ -119,6 +154,7 @@ public sealed class DeviceRegistry : IDeviceRegistry, IDisposable
         {
             if (now - kv.Value.LastSeenUtcTicks > timeout)
             {
+                _lastBroadcastTicks.TryRemove(kv.Key, out _);
                 if (_devices.TryRemove(kv.Key, out _))
                 {
                     _messenger.Send(new DeviceTimedOutMessage { Fingerprint = kv.Key });

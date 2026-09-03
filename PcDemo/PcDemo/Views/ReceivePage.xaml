@@ -9,6 +9,8 @@
         <converters:DeviceTypeToGlyphConverter x:Key="DeviceTypeGlyph"/>
         <converters:InvertedBoolConverter x:Key="InvertedBoolConverter"/>
         <converters:RefreshingTextConverter x:Key="RefreshingTextConverter"/>
+        <converters:BoolToOnlineDot x:Key="BoolToOnlineDot"/>
+        <converters:BoolToOnlineLabel x:Key="BoolToOnlineLabel"/>
     </Page.Resources>
 
     <Grid Padding="24" RowDefinitions="Auto,Auto,Auto,*">

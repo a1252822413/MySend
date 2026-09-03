@@ -24,6 +24,7 @@ public partial class ReceiveViewModel : ViewModelBase,
     private readonly IMessenger _messenger;
     private readonly MulticastDiscoveryService _discovery;
     private readonly TransferHistoryService _history;
+    private readonly IDeviceRegistry _registry;
     private DispatcherQueue? _dispatcher;
 
     /// <summary>UI 注入：收到 prepare-upload 时弹对话框的回调。返回 null 表示无法弹窗（默认拒绝）。</summary>
@@ -61,14 +62,20 @@ public partial class ReceiveViewModel : ViewModelBase,
     [ObservableProperty] private bool _canOpenFolder;
 
     public ReceiveViewModel(ISettingsService settings, IReceiveSessionManager sessions, IMessenger messenger,
-        MulticastDiscoveryService discovery, TransferHistoryService history)
+        MulticastDiscoveryService discovery, TransferHistoryService history, IDeviceRegistry registry)
     {
         _settings = settings;
         _sessions = sessions;
         _messenger = messenger;
         _discovery = discovery;
         _history = history;
+        _registry = registry;
         _messenger.RegisterAll(this);
+
+        // 与 SendViewModel 一致：注入启动时 registry 已有的设备
+        // （设备可能在 VM 构造前就已 Upsert 到 registry，去抖会阻止后续重复广播，
+        //   不从 registry 加载的话 Devices 集合会永远为空）
+        foreach (var d in _registry.GetSnapshot()) Devices.Add(d);
 
         // 列表增删时同步空状态属性
         Devices.CollectionChanged += (_, _) =>
@@ -150,15 +157,21 @@ public partial class ReceiveViewModel : ViewModelBase,
             }
             else
             {
-                existing.Alias = msg.Message.Alias;
-                existing.DeviceModel = msg.Message.DeviceModel;
-                existing.DeviceType = msg.Message.DeviceType;
-                existing.Port = msg.Message.Port;
-                existing.Protocol = msg.Message.Protocol;
-                existing.Version = msg.Message.Version;
-                existing.Download = msg.Message.Download;
-                existing.Ip = msg.Ip;
-                existing.LastSeenUtcTicks = DateTime.UtcNow.Ticks;
+                // 与 SendViewModel 一致：用 UpdateFrom 原位更新并触发 PropertyChanged，
+                // 避免 ListView 选中态丢失 + UI 字段不刷新
+                existing.UpdateFrom(new Device
+                {
+                    Fingerprint = msg.Message.Fingerprint,
+                    Alias = msg.Message.Alias,
+                    DeviceModel = msg.Message.DeviceModel,
+                    DeviceType = msg.Message.DeviceType,
+                    Port = msg.Message.Port,
+                    Protocol = msg.Message.Protocol,
+                    Version = msg.Message.Version,
+                    Download = msg.Message.Download,
+                    Ip = msg.Ip,
+                    LastSeenUtcTicks = DateTime.UtcNow.Ticks,
+                });
             }
         });
     }
