@@ -1,6 +1,11 @@
 // 设备注册表实现：用 ConcurrentDictionary<fingerprint, Device> 维护内存设备字典。
 // 后台线程可安全 Upsert；通过 IMessenger 广播 DeviceDiscoveredMessage / DeviceTimedOutMessage。
 // UI 由 ReceiveViewModel 监听这些消息，在 UI 线程同步 ObservableCollection<Device>。
+//
+// 设计哲学（对齐官方 LocalSend 2026-09-03）：
+//   设备列表是快照式，不做事后超时清理。设备加入后一直保留，直到用户手动刷新
+//   （RemoveStaleSince 清理未响应设备）或重启 App。避免 UDP 丢包误删在线设备。
+//   UI 通过 Device.IsOnline（50s 阈值）显示离线灰态，提示用户哪些设备可能不在了。
 using System.Collections.Concurrent;
 using CommunityToolkit.Mvvm.Messaging;
 using PcDemo.Messages;
@@ -11,10 +16,8 @@ namespace PcDemo.Services;
 
 public sealed class DeviceRegistry : IDeviceRegistry, IDisposable
 {
-    private const int TimeoutSeconds = 60;
     private const int BroadcastDebounceMs = 2000; // 同一指纹去抖窗口，防多 IP 轮替导致消息风暴
     private readonly IMessenger _messenger;
-    private readonly Timer _cleanupTimer;
     private readonly ConcurrentDictionary<string, Device> _devices = new();
     // 最近一次广播时间（UTC ticks），指纹级去抖
     private readonly ConcurrentDictionary<string, long> _lastBroadcastTicks = new();
@@ -22,8 +25,6 @@ public sealed class DeviceRegistry : IDeviceRegistry, IDisposable
     public DeviceRegistry(IMessenger messenger)
     {
         _messenger = messenger;
-        _cleanupTimer = new Timer(_ => CleanupStale(), null,
-            TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(15));
     }
 
     public void Upsert(string ip, string alias, string? deviceModel, DeviceType? deviceType,
@@ -146,22 +147,8 @@ public sealed class DeviceRegistry : IDeviceRegistry, IDisposable
         }
     }
 
-    private void CleanupStale()
+    public void Dispose()
     {
-        var now = DateTime.UtcNow.Ticks;
-        var timeout = TimeSpan.FromSeconds(TimeoutSeconds).Ticks;
-        foreach (var kv in _devices)
-        {
-            if (now - kv.Value.LastSeenUtcTicks > timeout)
-            {
-                _lastBroadcastTicks.TryRemove(kv.Key, out _);
-                if (_devices.TryRemove(kv.Key, out _))
-                {
-                    _messenger.Send(new DeviceTimedOutMessage { Fingerprint = kv.Key });
-                }
-            }
-        }
+        // 无后台定时器需要清理（对齐官方：不做事后超时清理）
     }
-
-    public void Dispose() => _cleanupTimer.Dispose();
 }
