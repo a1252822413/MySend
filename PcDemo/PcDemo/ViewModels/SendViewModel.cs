@@ -344,29 +344,9 @@ public partial class SendViewModel : ViewModelBase,
     {
         _dispatcher?.TryEnqueue(() =>
         {
-            var fp = message.Message.Fingerprint;
-            // 构造新 Device（字段用 registry 里的最新数据，否则从消息取最小集）
-            var incoming = _registry.Find(fp) ?? new Device
-            {
-                Fingerprint = fp,
-                Ip = message.Ip,
-                Alias = message.Message.Alias,
-                Port = message.Message.Port,
-                DeviceModel = message.Message.DeviceModel,
-                DeviceType = message.Message.DeviceType,
-                LastSeenUtcTicks = DateTime.UtcNow.Ticks,
-            };
-            // 关键：FP 已在列表中则 UpdateFrom 原位更新（保留引用 → SelectedTarget 不变）
-            var existing = Devices.FirstOrDefault(x => x.Fingerprint == fp);
-            if (existing is not null)
-            {
-                existing.UpdateFrom(incoming);
-                // 保留选中：SelectedTarget 仍是 existing，不会变 null
-            }
-            else
-            {
-                Devices.Add(incoming);
-            }
+            // 与 ReceiveViewModel 共用同步逻辑：registry 实例复用 + 原位更新
+            // （SelectedTarget 仍是 existing 引用，不会变 null）
+            DeviceCollectionSync.Sync(Devices, _registry, message.Ip, message.Message);
         });
     }
 

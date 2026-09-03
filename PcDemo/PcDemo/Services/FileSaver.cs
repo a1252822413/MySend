@@ -12,11 +12,16 @@ public sealed class FileSaver : IFileSaver
     private const int BufferSize = 81920;
 
     public async Task<string> SaveAsync(string directory, string fileName, Stream content,
-        IProgress<long>? progress = null, CancellationToken ct = default)
+        IProgress<long>? progress = null, CancellationToken ct = default, string? expectedSha256 = null)
     {
         Directory.CreateDirectory(directory);
         var path = PathHelper.ResolveUniquePath(directory, fileName);
         var buffer = ArrayPool<byte>.Shared.Rent(BufferSize);
+        // 边收边算 SHA-256（~GB/s 级 CPU 成本，可忽略）；发送方未提供校验值则跳过
+        using var sha = string.IsNullOrWhiteSpace(expectedSha256)
+            ? null
+            : System.Security.Cryptography.IncrementalHash.CreateHash(
+                System.Security.Cryptography.HashAlgorithmName.SHA256);
         try
         {
             await using var fs = new FileStream(path, FileMode.CreateNew, FileAccess.Write, FileShare.None);
@@ -26,6 +31,7 @@ public sealed class FileSaver : IFileSaver
             while ((read = await content.ReadAsync(buffer, ct)) > 0)
             {
                 await fs.WriteAsync(buffer.AsMemory(0, read), ct);
+                sha?.AppendData(buffer, 0, read);
                 total += read;
                 sinceReport += read;
                 // 节流上报：每 512KB 或每 0.25s 一次，避免 UI 刷新过频
@@ -39,6 +45,18 @@ public sealed class FileSaver : IFileSaver
             }
             await fs.FlushAsync(ct);
             progress?.Report(total); // 最终对齐
+
+            // 校验：与官方协议一致（不匹配 → 422 Checksum mismatch），半成品在 catch 中删除
+            if (sha is not null)
+            {
+                var actual = Convert.ToHexString(sha.GetHashAndReset());
+                if (!string.Equals(actual, expectedSha256, StringComparison.OrdinalIgnoreCase))
+                {
+                    throw new ChecksumMismatchException(
+                        $"SHA-256 mismatch: expected={expectedSha256} actual={actual}");
+                }
+            }
+
             return path;
         }
         catch

@@ -27,14 +27,14 @@ public sealed class AppSettings
     /// <summary>设备类型枚举，作为公告/注册响应的 deviceType。</summary>
     public DeviceType? DeviceType { get; set; } = Models.Dto.DeviceType.Desktop;
 
-    /// <summary>是否使用 HTTPS。MVP 固定 false。</summary>
+    /// <summary>是否使用 HTTPS。未实现（Kestrel 服务端未配 TLS）；公告协议固定 Http，勿手改 true。</summary>
     public bool Https { get; set; } = false;
 
     /// <summary>本机设备指纹（HTTP 模式下随机字符串；HTTPS 模式下应为证书 SHA-256）。</summary>
     /// <remarks>每次设置变更或新设备首次启动时生成一次并持久化。</remarks>
     public string Fingerprint { get; set; } = string.Empty;
 
-    /// <summary>是否支持 Download API。MVP 固定 false。</summary>
+    /// <summary>自动接收（官方 download 字段语义）：true 时收到 prepare-upload 跳过确认弹窗直接接受全部文件。</summary>
     public bool Download { get; set; } = false;
 
     /// <summary>主题偏好：0=跟随系统（默认）/1=浅色/2=深色。</summary>

@@ -37,6 +37,8 @@ public sealed class MulticastDiscoveryService : IDisposable
     // ReceiveLoop 限频日志：自身回环每包多次，per-packet 记录会刷爆 1MB 日志
     private DateTime _lastSelfLoopLog = DateTime.MinValue;
     private DateTime _lastParseFailLog = DateTime.MinValue;
+    // 设备公告日志同样限频：手机周期 3s/台 × 多台设备会持续冲掉 diag.log 里的错误证据
+    private DateTime _lastDeviceAnnounceLog = DateTime.MinValue;
 
     /// <summary>是否正在刷新。两个 VM 订阅这个属性镜像到 UI。</summary>
     public bool IsRefreshing { get; private set; }
@@ -280,8 +282,12 @@ public sealed class MulticastDiscoveryService : IDisposable
                 continue;
             }
 
-            // 非自身公告：每次都记录（手机周期 3s，频率可控，不会刷爆日志）
-            App.LogDiag($"[Multicast] 收到设备公告 alias={msg.Alias} fp={(msg.Fingerprint.Length >= 8 ? msg.Fingerprint[..8] : msg.Fingerprint)} ip={result.RemoteEndPoint.Address} port={msg.Port}");
+            // 非自身公告：限频 30s 记录（接收线程同步写盘 + 防止冲掉错误证据），新设备发现仍由 DeviceDiscoveredMessage 可观测
+            if ((DateTime.UtcNow - _lastDeviceAnnounceLog).TotalSeconds > 30)
+            {
+                _lastDeviceAnnounceLog = DateTime.UtcNow;
+                App.LogDiag($"[Multicast] 收到设备公告 alias={msg.Alias} fp={(msg.Fingerprint.Length >= 8 ? msg.Fingerprint[..8] : msg.Fingerprint)} ip={result.RemoteEndPoint.Address} port={msg.Port}");
+            }
 
             // 统一入口：UDP 被动发现 → DeviceRegistry.Upsert → 内部发 DeviceDiscoveredMessage
             _registry.Upsert(

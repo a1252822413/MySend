@@ -24,6 +24,7 @@ public partial class SettingsViewModel : ViewModelBase
     [ObservableProperty] private bool _autoLaunchEnabled; // 开机自启
     [ObservableProperty] private string _autoLaunchInfo = string.Empty;
     [ObservableProperty] private string _pin = string.Empty; // 接收 PIN（空=不启用）
+    [ObservableProperty] private bool _autoAcceptEnabled;    // 自动接收（官方 download 字段语义）
 
     [ObservableProperty] private string _saveStatus = string.Empty;
 
@@ -46,6 +47,7 @@ public partial class SettingsViewModel : ViewModelBase
         Fingerprint = s.Fingerprint;
         ThemeMode = s.ThemeMode;
         Pin = s.Pin;
+        AutoAcceptEnabled = s.Download;
     }
 
     [RelayCommand]
@@ -65,6 +67,7 @@ public partial class SettingsViewModel : ViewModelBase
             s.DeviceType = DeviceType;
             s.ThemeMode = Math.Clamp(ThemeMode, 0, 2);
             s.Pin = Pin?.Trim() ?? string.Empty;
+            s.Download = AutoAcceptEnabled;
         });
 
         // 主题即时切换

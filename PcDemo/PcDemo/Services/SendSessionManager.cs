@@ -52,6 +52,7 @@ public partial class SendSessionManager : ObservableObject, ISendSessionManager
         _speedEma = 0;
         _progressLastBytes = 0;
         _progressLastTimestamp = 0;
+        _progressLastFile = null;
         var session = new SendSession { Target = target };
         foreach (var f in files) session.Files.Add(f);
         // 监控每个文件 BytesSent → 推高会话 TotalBytesSent
@@ -252,9 +253,11 @@ public partial class SendSessionManager : ObservableObject, ISendSessionManager
     // 进度节流：ProgressStreamContent 每 64KB 块回调一次，千兆网 ~1600 块/秒，
     // 若每块都 TryEnqueue + 全量 Sum 会造成 UI 队列洪水。对齐接收端 FileSaver 策略：
     // ≥512KB 或 ≥250ms 才推一次（回调线程直接判断，不入队）。
+    // 节流基线按单个文件计算（文件切换时重置），否则上一文件的字节残留会跨文件污染增量判断。
     private const long ProgressMinBytesDelta = 512 * 1024;
     private const int ProgressMinIntervalMs = 250;
     private readonly object _progressGate = new();
+    private SendFileItem? _progressLastFile;
     private long _progressLastBytes;
     private long _progressLastTimestamp;
 
@@ -265,12 +268,22 @@ public partial class SendSessionManager : ObservableObject, ISendSessionManager
         {
             lock (_progressGate)
             {
-                var delta = bytes - _progressLastBytes;
-                var elapsedMs = (now - _progressLastTimestamp) * 1000 / Stopwatch.Frequency;
-                if (delta < ProgressMinBytesDelta && elapsedMs < ProgressMinIntervalMs)
-                    return; // 吞掉本次，保留最新值到下一次达标回调
-                _progressLastBytes = bytes;
-                _progressLastTimestamp = now;
+                if (!ReferenceEquals(f, _progressLastFile))
+                {
+                    // 文件切换：重置基线并立即推送首包进度
+                    _progressLastFile = f;
+                    _progressLastBytes = bytes;
+                    _progressLastTimestamp = now;
+                }
+                else
+                {
+                    var delta = bytes - _progressLastBytes;
+                    var elapsedMs = (now - _progressLastTimestamp) * 1000 / Stopwatch.Frequency;
+                    if (delta < ProgressMinBytesDelta && elapsedMs < ProgressMinIntervalMs)
+                        return; // 吞掉本次，保留最新值到下一次达标回调
+                    _progressLastBytes = bytes;
+                    _progressLastTimestamp = now;
+                }
             }
         }
         else

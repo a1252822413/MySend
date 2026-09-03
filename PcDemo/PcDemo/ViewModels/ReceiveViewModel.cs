@@ -99,6 +99,16 @@ public partial class ReceiveViewModel : ViewModelBase,
                 IsRefreshing = value;
                 StatusText = value ? "正在刷新..." : "服务运行中";
             });
+
+        // 4s 心跳定时器：刷 IsOnline 视觉（与 SendViewModel 一致，否则接收页在线点永不变化）
+        var heartbeat = dq.CreateTimer();
+        heartbeat.Interval = TimeSpan.FromSeconds(4);
+        heartbeat.IsRepeating = true;
+        heartbeat.Tick += (_, _) =>
+        {
+            foreach (var d in Devices) d.RefreshOnlineState();
+        };
+        heartbeat.Start();
     }
 
     /// <summary>公共刷新：委托给 MulticastDiscoveryService.RefreshAsync（EnsureKestrelRunning + AnnounceOnce）。</summary>
@@ -138,41 +148,9 @@ public partial class ReceiveViewModel : ViewModelBase,
     {
         _dispatcher?.TryEnqueue(() =>
         {
-            var existing = Devices.FirstOrDefault(d => d.Fingerprint == msg.Message.Fingerprint);
-            if (existing is null)
-            {
-                Devices.Add(new Device
-                {
-                    Fingerprint = msg.Message.Fingerprint,
-                    Alias = msg.Message.Alias,
-                    DeviceModel = msg.Message.DeviceModel,
-                    DeviceType = msg.Message.DeviceType,
-                    Port = msg.Message.Port,
-                    Protocol = msg.Message.Protocol,
-                    Version = msg.Message.Version,
-                    Download = msg.Message.Download,
-                    Ip = msg.Ip,
-                    LastSeenUtcTicks = DateTime.UtcNow.Ticks,
-                });
-            }
-            else
-            {
-                // 与 SendViewModel 一致：用 UpdateFrom 原位更新并触发 PropertyChanged，
-                // 避免 ListView 选中态丢失 + UI 字段不刷新
-                existing.UpdateFrom(new Device
-                {
-                    Fingerprint = msg.Message.Fingerprint,
-                    Alias = msg.Message.Alias,
-                    DeviceModel = msg.Message.DeviceModel,
-                    DeviceType = msg.Message.DeviceType,
-                    Port = msg.Message.Port,
-                    Protocol = msg.Message.Protocol,
-                    Version = msg.Message.Version,
-                    Download = msg.Message.Download,
-                    Ip = msg.Ip,
-                    LastSeenUtcTicks = DateTime.UtcNow.Ticks,
-                });
-            }
+            // 与 SendViewModel 共用同步逻辑：registry 实例复用 + 原位 UpdateFrom
+            // （保留 ListView 选中引用 + 触发 UI 字段刷新）
+            DeviceCollectionSync.Sync(Devices, _registry, msg.Ip, msg.Message);
         });
     }
 
@@ -196,6 +174,20 @@ public partial class ReceiveViewModel : ViewModelBase,
             _sessions.Decline(session.SessionId);
             return;
         }
+
+        // 自动接收（settings.Download = 官方「自动保存」语义）：跳过弹窗直接接受全部文件，
+        // 仍触发 TransferAccepted 弹进度对话框，保持 UI 反馈一致
+        if (_settings.Current.Download)
+        {
+            App.LogDiag($"[ReceiveVM] 自动接收已开启，直接接受 sessionId={session.SessionId[..8]} 文件数={session.Files.Count}");
+            _dispatcher.TryEnqueue(() =>
+            {
+                _sessions.Accept(session.SessionId, session.Files.Keys.ToList());
+                TransferAccepted?.Invoke(session);
+            });
+            return;
+        }
+
         if (RequestUserDecision is null)
         {
             App.LogDiag($"[ReceiveVM] PrepareUpload 到达但 RequestUserDecision 未注入，sessionId={session.SessionId[..8]}，降级 Decline");
@@ -220,15 +212,26 @@ public partial class ReceiveViewModel : ViewModelBase,
             }
             if (_awaitingDecisionSessionId == session.SessionId)
                 _awaitingDecisionSessionId = null;
-            if (decision is null || !decision.Accepted)
+
+            // 决策落地段也要整体保护：Accept / TransferAccepted（弹进度对话框）抛异常
+            // 同样会以 async void 逃逸直接崩进程（2026-09-03 修复）
+            try
             {
-                _sessions.Decline(session.SessionId);
+                if (decision is null || !decision.Accepted)
+                {
+                    _sessions.Decline(session.SessionId);
+                }
+                else
+                {
+                    _sessions.Accept(session.SessionId, decision.AcceptedFileIds);
+                    // 用户已接受 → 弹接收进度对话框
+                    TransferAccepted?.Invoke(session);
+                }
             }
-            else
+            catch (Exception ex)
             {
-                _sessions.Accept(session.SessionId, decision.AcceptedFileIds);
-                // 用户已接受 → 弹接收进度对话框
-                TransferAccepted?.Invoke(session);
+                App.LogDiag($"[ReceiveVM] 决策落地失败：{ex.GetType().Name}: {ex.Message}");
+                try { _sessions.Decline(session.SessionId); } catch { }
             }
         });
     }

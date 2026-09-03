@@ -124,6 +124,14 @@
                             <TextBlock Text="{x:Bind ViewModel.AutoLaunchInfo, Mode=OneWay}" Opacity="0.65" FontSize="12"/>
                         </StackPanel>
                     </Grid>
+                    <Grid ColumnDefinitions="160,*,Auto" VerticalAlignment="Center">
+                        <StackPanel Grid.Column="0" Spacing="1">
+                            <TextBlock Text="自动接收" VerticalAlignment="Center"/>
+                            <TextBlock Text="开启后自动接受所有传入文件，不再弹出确认对话框。" Opacity="0.5" FontSize="11"/>
+                        </StackPanel>
+                        <ToggleSwitch Grid.Column="1" IsOn="{x:Bind ViewModel.AutoAcceptEnabled, Mode=TwoWay}"
+                                      OnContent="开" OffContent="关" VerticalAlignment="Center"/>
+                    </Grid>
                 </StackPanel>
             </Border>
 

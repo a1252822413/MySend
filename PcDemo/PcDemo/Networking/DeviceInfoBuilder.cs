@@ -50,7 +50,9 @@ public sealed class DeviceInfoBuilder : IDeviceInfoBuilder
             DeviceType = s.DeviceType,
             Fingerprint = s.Fingerprint,
             Port = s.Port,
-            Protocol = s.Https ? ProtocolType.Https : ProtocolType.Http,
+            // 公告必须与服务器实际能力一致：本机 Kestrel 仅监听明文 HTTP（LocalSendHttpServer 未配 TLS）。
+            // 若按 s.Https 公告 https，对方会按 https 连接本机 → 握手失败 → prepare-upload 全部失败。
+            Protocol = ProtocolType.Http,
             Download = s.Download,
             Announce = true,
         };

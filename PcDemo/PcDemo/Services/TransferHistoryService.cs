@@ -15,7 +15,9 @@ public sealed class TransferHistoryService
     private readonly string _filePath;
     private static readonly JsonSerializerOptions _jsonOptions = new() { WriteIndented = true };
     private readonly object _itemsGate = new();
-    private Timer? _persistTimer;
+    private readonly object _fileGate = new(); // .tmp 写盘互斥（Timer 线程 / UI Clear 并发防交叉写坏文件）
+    // 复用单实例定时器：Add 时 Change 重置 1.5s 到期，不再反复 new/Dispose Timer
+    private readonly Timer _persistTimer;
 
     /// <summary>历史列表（最新在前）。</summary>
     public ObservableCollection<TransferHistoryItem> Items { get; } = new();
@@ -24,6 +26,7 @@ public sealed class TransferHistoryService
     {
         var localState = Helpers.PathHelper.AppDataDir;
         _filePath = Path.Combine(localState, "transfer-history.json");
+        _persistTimer = new Timer(_ => Persist(), null, Timeout.Infinite, Timeout.Infinite);
     }
 
     /// <summary>启动时从磁盘加载（损坏或缺失则忽略）。</summary>
@@ -69,19 +72,16 @@ public sealed class TransferHistoryService
     /// <summary>1.5s 合并窗口：窗口内多次 Add 只在最后一次触发后落盘一次。</summary>
     private void SchedulePersist()
     {
-        CancelPendingPersist();
-        _persistTimer = new Timer(_ => Persist(), null, PersistDelayMs, Timeout.Infinite);
+        _persistTimer.Change(PersistDelayMs, Timeout.Infinite);
     }
 
     private void CancelPendingPersist()
     {
-        _persistTimer?.Dispose();
-        _persistTimer = null;
+        _persistTimer.Change(Timeout.Infinite, Timeout.Infinite);
     }
 
     private void Persist()
     {
-        CancelPendingPersist();
         try
         {
             List<TransferHistoryItem> snapshot;
@@ -89,11 +89,15 @@ public sealed class TransferHistoryService
             {
                 snapshot = Items.ToList();
             }
-            // 原子写：先写临时文件再替换，避免进程崩溃留下损坏的 JSON
-            var tmp = _filePath + ".tmp";
-            File.WriteAllText(tmp, JsonSerializer.Serialize(snapshot, _jsonOptions));
-            if (File.Exists(_filePath)) File.Replace(tmp, _filePath, null);
-            else File.Move(tmp, _filePath);
+            // 原子写：先写临时文件再替换，避免进程崩溃留下损坏的 JSON；
+            // _fileGate 防 Timer 线程与 UI 线程 Clear() 并发写同一个 .tmp
+            lock (_fileGate)
+            {
+                var tmp = _filePath + ".tmp";
+                File.WriteAllText(tmp, JsonSerializer.Serialize(snapshot, _jsonOptions));
+                if (File.Exists(_filePath)) File.Replace(tmp, _filePath, null);
+                else File.Move(tmp, _filePath);
+            }
         }
         catch (Exception ex)
         {

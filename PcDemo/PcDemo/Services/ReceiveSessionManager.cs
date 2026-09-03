@@ -200,7 +200,7 @@ public sealed class ReceiveSessionManager : IReceiveSessionManager, IDisposable
         try
         {
             var path = await _fileSaver.SaveAsync(_settings.Current.Destination, file.Metadata.FileName, body,
-                progress, session.Cts.Token);
+                progress, session.Cts.Token, file.Metadata.Sha256);
             lock (_lock)
             {
                 file.Status = ReceiveFileStatus.Completed;
@@ -253,6 +253,20 @@ public sealed class ReceiveSessionManager : IReceiveSessionManager, IDisposable
             // 对方连接被 Abort 导致的 IOException 也视为本机取消
             App.LogDiag($"[SessionMgr] 接收被本机用户取消（{ex.GetType().Name}）");
             return new UploadResult { StatusCode = 499, ErrorMessage = "Cancelled by receiver" };
+        }
+        catch (ChecksumMismatchException ex)
+        {
+            // SHA-256 校验失败（协议 422），半成品文件已由 FileSaver 删除
+            App.LogDiag($"[SessionMgr] {ex.Message}");
+            lock (_lock)
+            {
+                file.Status = ReceiveFileStatus.Failed;
+                file.Error = "SHA-256 校验失败";
+                session.Status = ReceiveSessionStatus.Failed;
+                if (_current == session) _current = null;
+            }
+            _messenger.Send(new SessionFinishedMessage { Session = session });
+            return new UploadResult { StatusCode = 422, ErrorMessage = "Checksum mismatch" };
         }
         catch (Exception ex)
         {

@@ -68,7 +68,6 @@ public class SendClient
     private const int DetectTimeoutMs = 2500;
 
     // ----- 短请求超时（upload 不设短超时，走 HttpClient 全局 30 分钟）-----
-    private const int RegisterTimeoutMs = 10_000;
     private const int CancelTimeoutMs = 10_000;
     // prepare-upload 对方要等其用户决策（我方接收端决策窗口 60s），超时须覆盖该窗口
     private const int PrepareUploadTimeoutMs = 75_000;
@@ -254,23 +253,6 @@ public class SendClient
         };
     }
 
-    /// <summary>POST /register（触发对方设备列表中出现我们）。</summary>
-    public async Task<RegisterResponseDtoV2> RegisterAsync(string scheme, string ip, int port, string? pin = null,
-        CancellationToken ct = default)
-    {
-        var payload = BuildSelfRegisterDto();
-        var qs = pin is not null ? new Dictionary<string, string> { ["pin"] = pin } : null;
-        using var req = new HttpRequestMessage(HttpMethod.Post, BuildUri(BaseUrl(scheme, ip, port, "/register"), qs));
-        req.Content = new StringContent(
-            JsonSerializer.Serialize(payload, JsonOptions.Default),
-            Encoding.UTF8, "application/json");
-        using var res = await SendAsync(req, ct, RegisterTimeoutMs);
-        if (!res.IsSuccessStatusCode) await ThrowNonSuccess(res, ct);
-        var body = await res.Content.ReadAsByteArrayAsync(ct);
-        var dto = JsonSerializer.Deserialize(body, typeof(RegisterResponseDtoV2), JsonOptions.Default) as RegisterResponseDtoV2;
-        return dto ?? throw new SendClientException("Empty register response");
-    }
-
     /// <summary>POST /prepare-upload。返回 200 带 sessionId+tokens，或 204 空。</summary>
     public async Task<PrepareSendResult> PrepareUploadAsync(
         string scheme, string ip, int port,
@@ -391,9 +373,6 @@ public class SendClient
     }
 
     // ---------- ProtocolInfo 便捷重载 ----------
-    public Task<RegisterResponseDtoV2> RegisterAsync(ProtocolInfo proto, string ip, string? pin = null, CancellationToken ct = default)
-        => RegisterAsync(proto.Scheme, ip, proto.Port, pin, ct);
-
     public Task<PrepareSendResult> PrepareUploadAsync(ProtocolInfo proto, string ip,
         IReadOnlyList<SendFileItem> files, string? pin = null, CancellationToken ct = default)
         => PrepareUploadAsync(proto.Scheme, ip, proto.Port, files, pin, ct);
@@ -446,13 +425,6 @@ public class SendClient
             cur = cur.InnerException!;
         }
         return string.Join(" <--- ", parts);
-    }
-
-    private static async Task ThrowNonSuccess(HttpResponseMessage res, CancellationToken ct)
-    {
-        var msg = await ReadErrorBody(res, ct);
-        throw new SendClientException($"HTTP {(int)res.StatusCode}: {msg}")
-        { StatusCode = (ushort)res.StatusCode };
     }
 
     private static async Task<string> ReadErrorBody(HttpResponseMessage res, CancellationToken ct)
