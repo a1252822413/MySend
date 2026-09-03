@@ -6,7 +6,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     Title="LocalSend PC">
 
-    <Grid x:Name="RootGrid" RowDefinitions="48,*">
+    <Grid x:Name="RootGrid" RowDefinitions="32,*">
         <!-- 自定义标题栏：汉堡按钮（收起/展开侧边栏）+ 应用图标 + 名称 -->
         <Grid x:Name="AppTitleBar" Grid.Row="0"
               Background="{ThemeResource LayerFillColorDefaultBrush}"
@@ -17,18 +17,20 @@
                 <ColumnDefinition Width="Auto"/>
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
-            <!-- 侧边栏收起/展开按钮（最左） -->
+            <!-- 侧边栏收起/展开按钮（最左）：32×32，点击区域 = 系统按钮高度 -->
             <Button x:Name="PaneToggleButton" Grid.Column="0"
                     Click="OnPaneToggleClick"
                     ToolTipService.ToolTip="收起/展开侧边栏"
                     Background="Transparent" BorderThickness="0"
-                    Width="44" Height="40" Padding="0">
-                <SymbolIcon Symbol="GlobalNavigationButton"/>
+                    Width="32" Height="32" Padding="0">
+                <Viewbox Width="16" Height="16">
+                    <SymbolIcon Symbol="GlobalNavigationButton"/>
+                </Viewbox>
             </Button>
             <Image Grid.Column="1" Source="Assets/Square44x44Logo.targetsize-24_altform-unplated.png"
-                   Width="22" Height="22" Margin="4,0,0,0" VerticalAlignment="Center"/>
-            <TextBlock Grid.Column="2" Text="LocalSend PC" FontSize="13" FontWeight="SemiBold"
-                       Margin="12,0,0,0" VerticalAlignment="Center"
+                   Width="16" Height="16" Margin="4,0,0,0" VerticalAlignment="Center"/>
+            <TextBlock Grid.Column="2" Text="LocalSend PC" FontSize="12" FontWeight="SemiBold"
+                       Margin="10,0,0,0" VerticalAlignment="Center"
                        Foreground="{ThemeResource TextFillColorPrimaryBrush}"/>
         </Grid>
 

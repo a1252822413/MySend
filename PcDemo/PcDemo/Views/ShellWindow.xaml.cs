@@ -50,12 +50,13 @@ public sealed partial class ShellWindow : Window
         NavView.IsPaneOpen = !NavView.IsPaneOpen;
     }
 
-    /// <summary>系统 caption buttons 用 Tall 档（48px），对齐 48px 自定义顶栏。</summary>
+    /// <summary>系统 caption buttons 用 Standard 档（32px），严格对齐 32px 自定义顶栏，
+    /// 无溢出无盲区，系统最小化/最大化/关闭按钮视觉与点击区精确匹配。</summary>
     private void AlignTitleBarHeight()
     {
         try
         {
-            AppWindow.TitleBar.PreferredHeightOption = TitleBarHeightOption.Tall;
+            AppWindow.TitleBar.PreferredHeightOption = TitleBarHeightOption.Standard;
         }
         catch
         {
