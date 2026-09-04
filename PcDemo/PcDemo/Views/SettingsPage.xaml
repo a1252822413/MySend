@@ -19,7 +19,7 @@
                     BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1">
                 <StackPanel Spacing="14">
                     <TextBlock Text="设备身份" FontSize="14" FontWeight="SemiBold" Opacity="0.85"/>
-                    <Grid ColumnDefinitions="160,*,Auto" VerticalAlignment="Center">
+                    <Grid ColumnDefinitions="120,*,Auto" VerticalAlignment="Center">
                         <TextBlock Grid.Column="0" Text="本机显示名" VerticalAlignment="Center"/>
                         <StackPanel Grid.Column="1" Spacing="4">
                             <TextBox Text="{x:Bind ViewModel.Alias, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
@@ -27,16 +27,16 @@
                             <TextBlock Text="默认主机名；发送/接收时对方会看到这个名字。" Opacity="0.6" FontSize="12"/>
                         </StackPanel>
                     </Grid>
-                    <Grid ColumnDefinitions="160,*,Auto" VerticalAlignment="Center">
+                    <Grid ColumnDefinitions="120,*,Auto" VerticalAlignment="Center">
                         <TextBlock Grid.Column="0" Text="设备模型" VerticalAlignment="Center"/>
                         <TextBox Grid.Column="1" Text="{x:Bind ViewModel.DeviceModel, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
                     </Grid>
-                    <Grid ColumnDefinitions="160,*,Auto" VerticalAlignment="Center">
+                    <Grid ColumnDefinitions="120,*,Auto" VerticalAlignment="Center">
                         <TextBlock Grid.Column="0" Text="设备类型" VerticalAlignment="Center"/>
                         <ComboBox Grid.Column="1" ItemsSource="{x:Bind DeviceTypeOptions, Mode=OneTime}"
                                   SelectedItem="{x:Bind ViewModel.DeviceType, Mode=TwoWay}"/>
                     </Grid>
-                    <Grid ColumnDefinitions="160,*,Auto" VerticalAlignment="Center">
+                    <Grid ColumnDefinitions="120,*,Auto" VerticalAlignment="Center">
                         <TextBlock Grid.Column="0" Text="设备指纹" VerticalAlignment="Center"/>
                         <TextBox Grid.Column="1" Text="{x:Bind ViewModel.Fingerprint, Mode=OneWay}"
                                  IsReadOnly="True" Opacity="0.6"/>
@@ -50,27 +50,24 @@
                     BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1">
                 <StackPanel Spacing="14">
                     <TextBlock Text="连接参数" FontSize="14" FontWeight="SemiBold" Opacity="0.85"/>
-                    <Grid ColumnDefinitions="160,*,Auto" VerticalAlignment="Center">
+                    <Grid ColumnDefinitions="120,*,Auto" VerticalAlignment="Center">
                         <TextBlock Grid.Column="0" Text="服务端口" VerticalAlignment="Center"/>
                         <NumberBox Grid.Column="1" Value="{x:Bind ViewModel.Port, Mode=TwoWay}"
                                    Minimum="1" Maximum="65535" SpinButtonPlacementMode="Compact"/>
                     </Grid>
-                    <Grid ColumnDefinitions="160,*,Auto" VerticalAlignment="Center">
+                    <Grid ColumnDefinitions="120,*,Auto" VerticalAlignment="Center">
                         <TextBlock Grid.Column="0" Text="多播组" VerticalAlignment="Center"/>
                         <TextBox Grid.Column="1" Text="{x:Bind ViewModel.MulticastGroup, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
                     </Grid>
-                    <Grid ColumnDefinitions="160,*,Auto" VerticalAlignment="Center">
+                    <Grid ColumnDefinitions="120,*,Auto" VerticalAlignment="Center">
                         <TextBlock Grid.Column="0" Text="接收保存目录" VerticalAlignment="Center"/>
                         <Grid Grid.Column="1" ColumnDefinitions="*,Auto">
                             <TextBox Grid.Column="0" Text="{x:Bind ViewModel.Destination, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
                             <Button Grid.Column="1" Content="浏览..." Click="OnBrowseDestinationClick" Margin="8,0,0,0"/>
                         </Grid>
                     </Grid>
-                    <Grid ColumnDefinitions="160,*,Auto" VerticalAlignment="Center">
-                        <StackPanel Grid.Column="0" Spacing="1">
-                            <TextBlock Text="接收 PIN 码" VerticalAlignment="Center"/>
-                            <TextBlock Text="对方发送文件时必须输入此 PIN 才能发起请求。" Opacity="0.5" FontSize="11"/>
-                        </StackPanel>
+                    <Grid ColumnDefinitions="120,*,Auto" VerticalAlignment="Center">
+                        <TextBlock Grid.Column="0" Text="接收 PIN 码" VerticalAlignment="Center"/>
                         <Grid Grid.Column="1" ColumnDefinitions="*,Auto" VerticalAlignment="Center">
                             <PasswordBox x:Name="PinPasswordBox" Grid.Column="0" Height="32"
                                          PlaceholderText="留空 = 不启用，任何设备都可直接发送"
@@ -93,7 +90,7 @@
                     BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1">
                 <StackPanel Spacing="14">
                     <TextBlock Text="外观" FontSize="14" FontWeight="SemiBold" Opacity="0.85"/>
-                    <Grid ColumnDefinitions="160,*,Auto" VerticalAlignment="Center">
+                    <Grid ColumnDefinitions="120,*,Auto" VerticalAlignment="Center">
                         <TextBlock Grid.Column="0" Text="主题模式" VerticalAlignment="Center"/>
                         <StackPanel Grid.Column="1" Spacing="4">
                             <RadioButtons SelectedIndex="{x:Bind ViewModel.ThemeMode, Mode=TwoWay}" MaxColumns="3">
@@ -113,22 +110,14 @@
                     BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1">
                 <StackPanel Spacing="14">
                     <TextBlock Text="系统" FontSize="14" FontWeight="SemiBold" Opacity="0.85"/>
-                    <Grid ColumnDefinitions="160,*,Auto" VerticalAlignment="Center">
-                        <StackPanel Grid.Column="0" Spacing="1">
-                            <TextBlock Text="开机自启" VerticalAlignment="Center"/>
-                            <TextBlock Text="登录 Windows 后自动启动 LocalSend PC。" Opacity="0.5" FontSize="11"/>
-                        </StackPanel>
-                        <StackPanel Grid.Column="1" Spacing="4" VerticalAlignment="Center">
-                            <ToggleSwitch IsOn="{x:Bind ViewModel.AutoLaunchEnabled, Mode=TwoWay}"
-                                          OnContent="开" OffContent="关"/>
-                            <TextBlock Text="{x:Bind ViewModel.AutoLaunchInfo, Mode=OneWay}" Opacity="0.65" FontSize="12"/>
-                        </StackPanel>
+                    <Grid ColumnDefinitions="120,*,Auto" VerticalAlignment="Center">
+                        <TextBlock Grid.Column="0" Text="开机自启" VerticalAlignment="Center"/>
+                        <ToggleSwitch Grid.Column="1" IsOn="{x:Bind ViewModel.AutoLaunchEnabled, Mode=TwoWay}"
+                                      OnContent="开" OffContent="关" VerticalAlignment="Center"
+                                      ToolTipService.ToolTip="{x:Bind ViewModel.AutoLaunchInfo, Mode=OneWay}"/>
                     </Grid>
-                    <Grid ColumnDefinitions="160,*,Auto" VerticalAlignment="Center">
-                        <StackPanel Grid.Column="0" Spacing="1">
-                            <TextBlock Text="自动接收" VerticalAlignment="Center"/>
-                            <TextBlock Text="开启后自动接受所有传入文件，不再弹出确认对话框。" Opacity="0.5" FontSize="11"/>
-                        </StackPanel>
+                    <Grid ColumnDefinitions="120,*,Auto" VerticalAlignment="Center">
+                        <TextBlock Grid.Column="0" Text="自动接收" VerticalAlignment="Center"/>
                         <ToggleSwitch Grid.Column="1" IsOn="{x:Bind ViewModel.AutoAcceptEnabled, Mode=TwoWay}"
                                       OnContent="开" OffContent="关" VerticalAlignment="Center"/>
                     </Grid>
