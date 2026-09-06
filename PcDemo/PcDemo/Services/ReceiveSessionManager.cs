@@ -42,6 +42,9 @@ public sealed class ReceiveSessionManager : IReceiveSessionManager, IDisposable
         TaskCompletionSource<PrepareUploadDecision> tcs;
         ReceiveSession session;
 
+        // IP 归一化：IPv4-mapped IPv6 与纯 IPv4 文本在双栈下不一致会误拒后续 upload
+        senderIp = NormalizeIp(senderIp);
+
         lock (_lock)
         {
             // 单槽：当前会话仍占用（待决策/已接受/接收中）→ 409
@@ -58,6 +61,8 @@ public sealed class ReceiveSessionManager : IReceiveSessionManager, IDisposable
                 SessionId = sessionId,
                 SenderIp = senderIp,
                 Sender = request.Info,
+                // 固化保存目录快照：传输中改"保存目录"设置不应影响本会话（避免文件落散到不同目录）
+                DestinationDir = _settings.Current.Destination,
                 Status = ReceiveSessionStatus.PendingDecision,
                 Files = request.Files.ToDictionary(
                     kv => kv.Key,
@@ -102,13 +107,14 @@ public sealed class ReceiveSessionManager : IReceiveSessionManager, IDisposable
                 return new PrepareUploadResult { StatusCode = 403, ErrorMessage = "Rejected" };
             }
 
-            // Accept 空集合 → 204 NoContent
+            // 全不选 = 拒绝（等价 Decline）：UI 端已把空集合转为 Decline，这里兜底，
+            // 避免此前把空集合记成 Completed → 历史写入 0 字节"成功"会话
             if (decision.AcceptedFileIds.Count == 0)
             {
-                session.Status = ReceiveSessionStatus.Completed;
+                session.Status = ReceiveSessionStatus.Rejected;
                 if (_current == session) _current = null;
                 _messenger.Send(new SessionFinishedMessage { Session = session });
-                return new PrepareUploadResult { StatusCode = 204 };
+                return new PrepareUploadResult { StatusCode = 403, ErrorMessage = "Rejected" };
             }
 
             session.Status = ReceiveSessionStatus.Accepted;
@@ -150,6 +156,9 @@ public sealed class ReceiveSessionManager : IReceiveSessionManager, IDisposable
     {
         ReceiveSession? session;
         lock (_lock) session = _current;
+
+        // IP 归一化后再比较：双栈下同一连接的 RemoteIpAddress 可能是 IPv4-mapped IPv6
+        senderIp = NormalizeIp(senderIp);
 
         // 校验：会话存在 + sessionId 匹配 + IP 匹配 + fileId 在会话 + token 匹配 + 文件处于 Pending
         if (session is null
@@ -196,10 +205,10 @@ public sealed class ReceiveSessionManager : IReceiveSessionManager, IDisposable
             });
         });
 
-        App.LogDiag($"[SessionMgr] 开始写盘：{file.Metadata.FileName}（{file.Metadata.Size} bytes）到 {_settings.Current.Destination}");
+        App.LogDiag($"[SessionMgr] 开始写盘：{file.Metadata.FileName}（{file.Metadata.Size} bytes）到 {session.DestinationDir}");
         try
         {
-            var path = await _fileSaver.SaveAsync(_settings.Current.Destination, file.Metadata.FileName, body,
+            var path = await _fileSaver.SaveAsync(session.DestinationDir, file.Metadata.FileName, body,
                 progress, session.Cts.Token, file.Metadata.Sha256);
             lock (_lock)
             {
@@ -237,7 +246,7 @@ public sealed class ReceiveSessionManager : IReceiveSessionManager, IDisposable
                 // 窗口隐藏在托盘时提醒用户（前台可见时静默）
                 var savedCount = session.Files.Values.Count(f => f.Status == ReceiveFileStatus.Completed);
                 App.ShowTransferToast("接收完成",
-                    $"来自 {session.Sender.Alias} 的 {savedCount} 个文件已保存到 {_settings.Current.Destination}");
+                    $"来自 {session.Sender.Alias} 的 {savedCount} 个文件已保存到 {session.DestinationDir}");
                 _messenger.Send(new SessionFinishedMessage { Session = session });
             }
             return new UploadResult { StatusCode = 200 };
@@ -268,6 +277,21 @@ public sealed class ReceiveSessionManager : IReceiveSessionManager, IDisposable
             _messenger.Send(new SessionFinishedMessage { Session = session });
             return new UploadResult { StatusCode = 422, ErrorMessage = "Checksum mismatch" };
         }
+        catch (UnsafeFileNameException ex)
+        {
+            // 文件名不安全（路径穿越/绝对路径/盘符）→ 协议无法表达"拒单个文件"，
+            // 整会话失败并明确告知；FileSaver 未创建任何文件
+            App.LogDiag($"[SessionMgr] 拒绝不安全文件名：{ex.FileName}");
+            lock (_lock)
+            {
+                file.Status = ReceiveFileStatus.Failed;
+                file.Error = $"文件名不安全（已拒绝）：{ex.FileName}";
+                session.Status = ReceiveSessionStatus.Failed;
+                if (_current == session) _current = null;
+            }
+            _messenger.Send(new SessionFinishedMessage { Session = session });
+            return new UploadResult { StatusCode = 403, ErrorMessage = "Unsafe file name" };
+        }
         catch (Exception ex)
         {
             App.LogDiag($"[SessionMgr] 写盘失败：{ex.GetType().Name}: {ex.Message}{(ex.InnerException is null ? "" : $" | inner: {ex.InnerException.Message}")}");
@@ -297,7 +321,7 @@ public sealed class ReceiveSessionManager : IReceiveSessionManager, IDisposable
         // 仅当 IP+sessionId 都匹配本机会话时才真正中断；否则忽略（避免被恶意 cancel 打断他人）
         if (session is null
             || session.SessionId != sessionId
-            || !string.Equals(session.SenderIp, senderIp, StringComparison.Ordinal))
+            || !string.Equals(session.SenderIp, NormalizeIp(senderIp), StringComparison.Ordinal))
             return;
 
         // 等待决策中的取消 → prepare-upload 端点返回 403 "Cancelled by sender"
@@ -343,6 +367,18 @@ public sealed class ReceiveSessionManager : IReceiveSessionManager, IDisposable
         => s.Status is ReceiveSessionStatus.PendingDecision
             or ReceiveSessionStatus.Accepted
             or ReceiveSessionStatus.InProgress;
+
+    /// <summary>归一化 IP 文本：IPv4-mapped IPv6（::ffff:a.b.c.d）映射为纯 IPv4，
+    /// 避免双栈（监听 IPAddress.Any）下同一连接的 RemoteIpAddress 文本不一致导致误拒。</summary>
+    private static string NormalizeIp(string ip)
+    {
+        if (System.Net.IPAddress.TryParse(ip, out var addr))
+        {
+            if (addr.IsIPv4MappedToIPv6) addr = addr.MapToIPv4();
+            return addr.ToString();
+        }
+        return ip;
+    }
 
     private void CleanupStale()
     {

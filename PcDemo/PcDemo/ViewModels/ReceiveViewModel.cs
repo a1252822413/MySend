@@ -288,7 +288,8 @@ public partial class ReceiveViewModel : ViewModelBase,
             // 同样会以 async void 逃逸直接崩进程（2026-09-03 修复）
             try
             {
-                if (decision is null || !decision.Accepted)
+                // 全不选（AcceptedFileIds 为空）等价"拒绝"，不应作为"接受 0 文件"进入成功态
+                if (decision is null || !decision.Accepted || decision.AcceptedFileIds.Count == 0)
                 {
                     _sessions.Decline(session.SessionId);
                 }
@@ -313,7 +314,10 @@ public partial class ReceiveViewModel : ViewModelBase,
         {
             var session = msg.Session;
             var fileCount = session.Files.Count;
-            var dest = _settings.Current.Destination;
+            // 优先用会话固化快照（传输中改设置不影响本会话记录）；空则回退当前设置目录
+            var dest = !string.IsNullOrEmpty(session.DestinationDir)
+                ? session.DestinationDir
+                : _settings.Current.Destination;
 
             // 等待决策期间会话被清理（60s 决策超时/发送方取消）→ 关闭仍开着的请求对话框，
             // 避免用户对已死会话点"接收"后 Accept 静默无效、再弹出卡死的进度对话框

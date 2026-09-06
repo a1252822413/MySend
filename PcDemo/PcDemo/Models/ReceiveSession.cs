@@ -26,6 +26,10 @@ public sealed class ReceiveSession
     /// <summary>发送方设备信息。</summary>
     public RegisterDtoV2 Sender { get; init; } = null!;
 
+    /// <summary>本机会话保存目录（prepare-upload 到达时固化的快照）。
+    /// 传输中用户改设置里的"保存目录"不应影响本会话，否则不同文件会落不同目录。</summary>
+    public string DestinationDir { get; init; } = string.Empty;
+
     /// <summary>会话内所有文件（fileId -> ReceiveFile）。</summary>
     public Dictionary<string, ReceiveFile> Files { get; init; } = new();
 

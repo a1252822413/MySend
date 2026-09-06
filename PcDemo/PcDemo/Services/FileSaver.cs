@@ -1,10 +1,24 @@
 // 文件落盘服务：流式写入目标目录，处理文件名冲突重命名（_1/_2/...）。
-// 对应 packages/core/src/http/server/common/save.rs 的写盘逻辑（MVP 简化版）。
+// 对应 packages/core/src/http/server/common/save.rs 的写盘逻辑。
+// fileName 支持含 '/' 或 '\' 的相对路径（官方目录传输的编码方式）→ 在目标目录下创建子目录；
+// 并做路径穿越防护：不安全的文件名抛 UnsafeFileNameException（上层整体拒绝该文件）。
 using System.Buffers;
 using System.Diagnostics;
 using PcDemo.Helpers;
 
 namespace PcDemo.Services;
+
+/// <summary>文件名不安全（路径穿越/绝对路径/盘符/空名等），已拒绝写入。</summary>
+public sealed class UnsafeFileNameException : Exception
+{
+    public UnsafeFileNameException(string fileName)
+        : base($"Unsafe file name rejected: '{fileName}'")
+    {
+        FileName = fileName;
+    }
+
+    public string FileName { get; }
+}
 
 public sealed class FileSaver : IFileSaver
 {
@@ -15,7 +29,10 @@ public sealed class FileSaver : IFileSaver
         IProgress<long>? progress = null, CancellationToken ct = default, string? expectedSha256 = null)
     {
         Directory.CreateDirectory(directory);
-        var path = PathHelper.ResolveUniquePath(directory, fileName);
+        var path = PathHelper.ResolveSafeDestinationPath(directory, fileName)
+            ?? throw new UnsafeFileNameException(fileName);
+        // 嵌套目录（相对路径 fileName）：创建父目录，否则 FileMode.CreateNew 抛 DirectoryNotFoundException
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         var buffer = ArrayPool<byte>.Shared.Rent(BufferSize);
         // 边收边算 SHA-256（~GB/s 级 CPU 成本，可忽略）；发送方未提供校验值则跳过
         using var sha = string.IsNullOrWhiteSpace(expectedSha256)
