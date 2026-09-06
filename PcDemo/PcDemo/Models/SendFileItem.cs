@@ -31,6 +31,10 @@ public partial class SendFileItem : ObservableObject
     /// <summary>预览缩略图（可选，留空）。</summary>
     public string? Preview { get; set; }
 
+    /// <summary>是否为一次性临时内容（如"发送文字"写入临时目录的消息）。
+    /// 发送会话结束后由 ViewModel 从待发列表移除并清理临时文件。</summary>
+    public bool IsTransient { get; set; }
+
     /// <summary>上传进度 [0,Size]。</summary>
     [ObservableProperty] private long _bytesSent;
 

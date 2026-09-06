@@ -245,6 +245,86 @@ public partial class SendViewModel : ViewModelBase,
         App.LogDiag($"[SendVM] 添加文件夹完成：新增 {batch.Count} 个文件");
     }
 
+    // ---------- 发送文字 / 剪贴板文本 ----------
+
+    /// <summary>一次性文本消息的临时目录（发送会话结束后清理）。</summary>
+    private static readonly string _textTempDir =
+        System.IO.Path.Combine(System.IO.Path.GetTempPath(), "PcDemo", "messages");
+
+    /// <summary>
+    /// 把一段文字作为 text/plain 消息发送（官方桌面端同款"发送文字"能力，接收端按 .txt 保存）。
+    /// 已选目标且空闲 → 立即发送；否则把文字项加入待发送列表并提示。
+    /// </summary>
+    public async Task SendTextAsync(string text)
+    {
+        text = text?.Trim() ?? string.Empty;
+        if (text.Length == 0) return;
+
+        PendingFiles.Add(CreateTransientTextItem(text));
+
+        if (SelectedTarget is null)
+        {
+            _messenger.Send(new ShowToastMessage
+            {
+                Kind = ToastKind.Info,
+                Message = "文字已加入待发送列表，请先选择目标设备再点「开始发送」",
+            });
+            return;
+        }
+        if (!IsIdleOrFinished)
+        {
+            _messenger.Send(new ShowToastMessage
+            {
+                Kind = ToastKind.Info,
+                Message = "当前正在发送，文字已加入待发送列表",
+            });
+            return;
+        }
+        await StartSendAsync();
+    }
+
+    /// <summary>把文本写入一次性临时 .txt，构造 SendFileItem（FileName 可读，MIME text/plain）。</summary>
+    private static SendFileItem CreateTransientTextItem(string text)
+    {
+        try { System.IO.Directory.CreateDirectory(_textTempDir); } catch { }
+        var fileName = $"消息-{DateTime.Now:yyyyMMdd-HHmmss}.txt";
+        var path = System.IO.Path.Combine(_textTempDir, $"{Guid.NewGuid():N}.txt");
+        try
+        {
+            System.IO.File.WriteAllText(path, text, new System.Text.UTF8Encoding(false));
+        }
+        catch (Exception ex)
+        {
+            App.LogDiag($"[SendVM] 写入文本临时文件失败：{ex.Message}");
+            path = string.Empty; // 发送该文件时将报错提示，不让异常逃逸
+        }
+        return new SendFileItem
+        {
+            FileName = fileName,
+            Path = path,
+            Size = new System.Text.UTF8Encoding(false).GetByteCount(text),
+            FileKind = FileKind.Text,
+            Extension = "txt",
+            IsTransient = true,
+        };
+    }
+
+    /// <summary>会话结束后清理一次性文本临时文件并从待发列表移除（避免重发已删文件）。</summary>
+    private void CleanupTransient(SendSession s)
+    {
+        if (s is null) return;
+        foreach (var f in s.Files)
+        {
+            if (!f.IsTransient) continue;
+            var pending = PendingFiles.FirstOrDefault(p => p.Id == f.Id && p.IsTransient);
+            if (pending is not null) PendingFiles.Remove(pending);
+            if (!string.IsNullOrEmpty(f.Path))
+            {
+                try { if (System.IO.File.Exists(f.Path)) System.IO.File.Delete(f.Path); } catch { }
+            }
+        }
+    }
+
     /// <summary>
     /// 递归遍历文件夹，保留相对目录结构。每个叶子文件的 FileName 设为相对根文件夹的
     /// '/'-分隔路径（如 "sub/img.png"），与官方目录传输编码一致 —— 接收端（含官方 App）
@@ -325,6 +405,7 @@ public partial class SendViewModel : ViewModelBase,
             Path = f.Path,
             Size = f.Size,
             FileKind = f.FileKind,
+            IsTransient = f.IsTransient,
         }).ToList();
         var session = _sendMgr.CreateSession(SelectedTarget, files);
         Current = session;
@@ -398,6 +479,9 @@ public partial class SendViewModel : ViewModelBase,
     {
         // 会话结束 → 关闭进度对话框（若开着）
         ProgressFinished?.Invoke();
+
+        // 一次性文本消息：发送结束清理临时文件并从待发列表移除
+        CleanupTransient(s);
 
         // 记录传输历史
         _history.Add(new TransferHistoryItem

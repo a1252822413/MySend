@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ContentDialog
+    x:Class="PcDemo.Views.TextInputDialog"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d"
+    Title="发送文字"
+    DefaultButton="Primary"
+    PrimaryButtonText="发送"
+    SecondaryButtonText="粘贴剪贴板"
+    CloseButtonText="取消"
+    SecondaryButtonClick="OnSecondaryClick">
+
+    <Grid Width="440">
+        <StackPanel Spacing="10">
+            <TextBlock Text="输入要发送的文字（可多行）。接收端会把它保存为 .txt 文件。"
+                       FontSize="12" Opacity="0.65" TextWrapping="Wrap"/>
+            <TextBox x:Name="InputTextBox" AcceptsReturn="True" TextWrapping="Wrap"
+                     Height="180" FontSize="14"
+                     PlaceholderText="在这里输入文字…"/>
+        </StackPanel>
+    </Grid>
+</ContentDialog>

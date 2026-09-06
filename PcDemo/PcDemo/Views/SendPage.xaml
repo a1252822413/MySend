@@ -196,6 +196,9 @@
                         <Button Content="📂 添加文件夹" Click="OnPickFolderClick"
                                 Padding="14,0" Height="36" CornerRadius="8"
                                 ToolTipService.ToolTip="选择文件夹（保留目录结构发送）"/>
+                        <Button Content="✏️ 文字" Click="OnSendTextClick"
+                                Padding="14,0" Height="36" CornerRadius="8"
+                                ToolTipService.ToolTip="发送文字/剪贴板内容（对方保存为 .txt）"/>
                     </StackPanel>
                     <Button Grid.Column="2" Content="清空" Command="{x:Bind ViewModel.ClearFilesCommand}"
                             Padding="12,0" Height="36" CornerRadius="8" Margin="0,0,16,0"

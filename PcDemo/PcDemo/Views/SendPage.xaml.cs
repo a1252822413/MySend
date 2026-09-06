@@ -75,6 +75,20 @@ public sealed partial class SendPage : Page
         await ViewModel.AddFolderAsync(folder);
     }
 
+    private async void OnSendTextClick(object sender, RoutedEventArgs e)
+    {
+        var root = App.MainWindow.Content?.XamlRoot;
+        if (root is null)
+        {
+            App.LogDiag("[SendPage] OnSendTextClick: XamlRoot 为 null，忽略");
+            return;
+        }
+        var dialog = new TextInputDialog { XamlRoot = root };
+        var text = await dialog.ShowAndGetTextAsync();
+        if (string.IsNullOrEmpty(text)) return;
+        await ViewModel.SendTextAsync(text);
+    }
+
     private void OnDeselectTargetClick(object sender, RoutedEventArgs e)
     {
         ViewModel.SelectedTarget = null;
