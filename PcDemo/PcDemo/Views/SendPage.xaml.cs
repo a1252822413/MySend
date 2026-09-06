@@ -61,6 +61,20 @@ public sealed partial class SendPage : Page
         ViewModel.AddFiles(picked.Select(f => f.Path));
     }
 
+    private async void OnPickFolderClick(object sender, RoutedEventArgs e)
+    {
+        var picker = new Windows.Storage.Pickers.FolderPicker
+        {
+            SuggestedStartLocation = Windows.Storage.Pickers.PickerLocationId.DocumentsLibrary,
+        };
+        // FolderPicker 至少需要一个扩展名过滤（"*" 表示任意）
+        picker.FileTypeFilter.Add("*");
+        InitializeWithWindow.Initialize(picker, WindowNative.GetWindowHandle(App.MainWindow));
+        var folder = await picker.PickSingleFolderAsync();
+        if (folder is null) return;
+        await ViewModel.AddFolderAsync(folder);
+    }
+
     private void OnDeselectTargetClick(object sender, RoutedEventArgs e)
     {
         ViewModel.SelectedTarget = null;

@@ -222,19 +222,8 @@ public partial class SendViewModel : ViewModelBase,
                 }
                 else if (item is Windows.Storage.StorageFolder folder)
                 {
-                    // 递归遍历文件夹
-                    await foreach (var f in EnumerateFilesAsync(folder))
-                    {
-                        if (!existingPaths.Add(f.Path)) continue;
-                        batch.Add(new SendFileItem
-                        {
-                            FileName = f.Name,
-                            Path = f.Path,
-                            Size = (long)f.Size,
-                            FileKind = FileKindMapper.FromExtension(f.Ext),
-                            Extension = f.Ext.TrimStart('.'),
-                        });
-                    }
+                    // 递归遍历文件夹并保留相对目录结构（fileName = 相对路径含 '/'，接收端据此重建目录）
+                    await CollectFolderFilesAsync(folder, string.Empty, existingPaths, batch);
                 }
             }
             catch
@@ -246,30 +235,62 @@ public partial class SendViewModel : ViewModelBase,
         App.LogDiag($"[SendVM] 拖拽添加完成：新增 {batch.Count} 个文件");
     }
 
-    /// <summary>递归遍历文件夹，返回 (Path, Name, Size, Ext)。</summary>
-    private static async IAsyncEnumerable<(string Path, string Name, long Size, string Ext)> EnumerateFilesAsync(
-        Windows.Storage.StorageFolder folder)
+    /// <summary>文件夹选择器入口：保留目录结构递归加入（fileName = 相对路径，'/'-分隔）。</summary>
+    public async Task AddFolderAsync(Windows.Storage.StorageFolder folder)
     {
-        // 不限制层数，但限制最大文件数避免卡死（10000 个上限）
+        var existingPaths = new HashSet<string>(PendingFiles.Select(f => f.Path), StringComparer.OrdinalIgnoreCase);
+        var batch = new List<SendFileItem>();
+        await CollectFolderFilesAsync(folder, string.Empty, existingPaths, batch);
+        if (batch.Count > 0) PendingFiles.AddRange(batch);
+        App.LogDiag($"[SendVM] 添加文件夹完成：新增 {batch.Count} 个文件");
+    }
+
+    /// <summary>
+    /// 递归遍历文件夹，保留相对目录结构。每个叶子文件的 FileName 设为相对根文件夹的
+    /// '/'-分隔路径（如 "sub/img.png"），与官方目录传输编码一致 —— 接收端（含官方 App）
+    /// 会在保存目录下按此重建子目录。文件夹不可访问（权限受限）时跳过该目录。
+    /// </summary>
+    private static async Task CollectFolderFilesAsync(
+        Windows.Storage.StorageFolder folder,
+        string prefix,
+        HashSet<string> existingPaths,
+        List<SendFileItem> batch)
+    {
+        IReadOnlyList<Windows.Storage.IStorageItem> items;
+        try { items = await folder.GetItemsAsync(); }
+        catch { return; } // 不可访问目录跳过，不影响其余文件
+
+        // 不限制层数但限制总文件数，避免拖入超大目录卡死（10000 上限，沿用原行为）
         var count = 0;
-        var items = await folder.GetItemsAsync();
         foreach (var sub in items)
         {
-            if (count >= 10000) yield break;
-            if (sub is Windows.Storage.StorageFile f)
+            if (count >= 10000) return;
+            try
             {
-                var props = await f.GetBasicPropertiesAsync();
-                yield return (f.Path, f.Name, (long)props.Size, System.IO.Path.GetExtension(f.Path));
-                count++;
-            }
-            else if (sub is Windows.Storage.StorageFolder subFolder)
-            {
-                await foreach (var inner in EnumerateFilesAsync(subFolder))
+                if (sub is Windows.Storage.StorageFile file)
                 {
-                    if (count >= 10000) yield break;
-                    yield return inner;
+                    var path = file.Path;
+                    if (string.IsNullOrEmpty(path) || !existingPaths.Add(path)) continue;
+                    var props = await file.GetBasicPropertiesAsync();
+                    var rel = prefix + file.Name;
+                    batch.Add(new SendFileItem
+                    {
+                        FileName = rel, // 相对路径（含 '/'），发送后接收端重建目录结构
+                        Path = path,
+                        Size = (long)props.Size,
+                        FileKind = FileKindMapper.FromExtension(System.IO.Path.GetExtension(rel)),
+                        Extension = System.IO.Path.GetExtension(rel).TrimStart('.'),
+                    });
                     count++;
                 }
+                else if (sub is Windows.Storage.StorageFolder child)
+                {
+                    await CollectFolderFilesAsync(child, prefix + child.Name + "/", existingPaths, batch);
+                }
+            }
+            catch
+            {
+                // 忽略单个不可访问项
             }
         }
     }
