@@ -23,11 +23,12 @@ public sealed partial class SendPage : Page
         this.InitializeComponent();
         ViewModel.SetDispatcher(DispatcherQueue.GetForCurrentThread());
 
-        // 发送会话创建 → 弹出发送进度对话框（取消走二次确认 → CancelSend）
-        ViewModel.TransferStarted += session => _ = ShowSendProgressAsync(session);
+        // 发送会话创建 → 弹出发送进度对话框（取消走二次确认 → CancelSend）。
+        // 覆盖式处理器（非事件累加），避免多次进入页面后重复弹框
+        ViewModel.TransferStarted = session => _ = ShowSendProgressAsync(session);
 
         // 会话结束 → 关闭进度对话框（ProgressFinished 在 UI 线程触发）
-        ViewModel.ProgressFinished += () => _progressDialog?.Hide();
+        ViewModel.ProgressFinished = () => _progressDialog?.Hide();
     }
 
     private async Task ShowSendProgressAsync(PcDemo.Models.SendSession session)

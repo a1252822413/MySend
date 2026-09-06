@@ -39,11 +39,12 @@ public partial class SendViewModel : ViewModelBase,
     [ObservableProperty]
     private string _pin = string.Empty;
 
-    /// <summary>UI 订阅：发送会话创建后弹出发送进度对话框（UI 线程触发）。</summary>
-    public event Action<SendSession>? TransferStarted;
+    /// <summary>UI 处理器（每次页面加载覆盖为最新，避免在单例 VM 上 += 累积连弹多个对话框）。
+    /// 发送会话创建后弹出发送进度对话框（UI 线程触发）。</summary>
+    public Action<SendSession>? TransferStarted { get; set; }
 
-    /// <summary>UI 订阅：会话结束（完成/取消/失败）时关闭进度对话框（UI 线程触发）。</summary>
-    public event Action? ProgressFinished;
+    /// <summary>UI 处理器：会话结束（完成/取消/失败）时关闭进度对话框（UI 线程触发）。</summary>
+    public Action? ProgressFinished { get; set; }
 
     /// <summary>选中设备（Devices 网格选中的那个；不选则按钮灰）。</summary>
     [ObservableProperty] private Device? _selectedTarget;

@@ -66,14 +66,15 @@ public sealed partial class ReceivePage : Page
             }
         };
 
-        // 等待决策期间会话超时/被取消 → 自动关闭请求对话框（避免用户对已死会话点"接收"）
-        ViewModel.DecisionExpired += () => _requestDialog?.Hide();
+        // 等待决策期间会话超时/被取消 → 自动关闭请求对话框（避免用户对已死会话点"接收"）。
+        // 注意：这些是"覆盖式"处理器（非事件累加），避免单例 VM 上多次进入页面后重复弹框
+        ViewModel.DecisionExpired = () => _requestDialog?.Hide();
 
         // 用户接受后 → 弹接收进度对话框（取消走二次确认 → ViewModel.CancelTransfer → CancelLocal）
-        ViewModel.TransferAccepted += session => _ = ShowReceiveProgressAsync(session);
+        ViewModel.TransferAccepted = session => _ = ShowReceiveProgressAsync(session);
 
         // 会话结束 → 关闭进度对话框（ProgressFinished 在 UI 线程触发）
-        ViewModel.ProgressFinished += () => _progressDialog?.Hide();
+        ViewModel.ProgressFinished = () => _progressDialog?.Hide();
     }
 
     // 设备卡片右键菜单 → 加入白/黑名单

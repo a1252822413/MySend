@@ -36,6 +36,10 @@ public partial class App : Application, IRecipient<DeviceDiscoveredMessage>
     // 托盘常驻：关窗隐藏到托盘，后台继续接收；「退出」才真正结束进程
     private static TrayIconManager? _tray;
 
+    /// <summary>主窗口是否被隐藏到托盘。用应用自身状态而非 AppWindow.IsVisible 判断
+    /// （实测 Hide() 后 IsVisible 仍可能返回 true，会导致接收请求被误判"可见"而弹到看不见的窗口）。</summary>
+    private static bool _windowHiddenToTray;
+
     public App()
     {
         this.InitializeComponent();
@@ -79,12 +83,12 @@ public partial class App : Application, IRecipient<DeviceDiscoveredMessage>
                     {
                         try
                         {
-                            LogDiag("[SingleInstance] activation redirected in, showing main window");
-                            ShowMainWindow();
+                            LogDiag("[SingleInstance] activation redirected in");
+                            HandleActivation(e);
                         }
                         catch (Exception ex)
                         {
-                            LogDiag($"[SingleInstance] show window failed: {ex}");
+                            LogDiag($"[SingleInstance] handle activation failed: {ex}");
                         }
                     });
                     if (!enqueued)
@@ -158,6 +162,7 @@ public partial class App : Application, IRecipient<DeviceDiscoveredMessage>
                 MainWindow.AppWindow.Closing += (s, e) =>
                 {
                     e.Cancel = true;
+                    _windowHiddenToTray = true;
                     s.Hide();
                     LogDiag("[Tray] window closed by user → hidden to tray (still receiving)");
                 };
@@ -336,8 +341,19 @@ public partial class App : Application, IRecipient<DeviceDiscoveredMessage>
     private static void ShowMainWindow()
     {
         if (!TryGetMainWindow(out var window)) return;
+        _windowHiddenToTray = false;
         window.AppWindow.Show();
         window.Activate();
+
+        // 窗口恢复可见 → 若隐藏到托盘期间有挂起的接收请求决策，补弹请求对话框
+        try
+        {
+            Services.GetRequiredService<ReceiveViewModel>().OnWindowBecameVisible();
+        }
+        catch (Exception ex)
+        {
+            LogDiag($"[SingleInstance] OnWindowBecameVisible notify failed: {ex.Message}");
+        }
     }
 
     /// <summary>托盘「退出」：清理资源后真正退出进程（关窗只是隐藏，不走这里）。</summary>
@@ -373,6 +389,131 @@ public partial class App : Application, IRecipient<DeviceDiscoveredMessage>
         catch (Exception ex)
         {
             LogDiag($"[Toast] failed: {ex.Message}");
+        }
+    }
+
+    /// <summary>主窗口是否对用户可见：隐藏到托盘(标志) 或最小化(Presenter) 均视为不可见，
+    /// 此时接收请求改走托盘 toast 决策而非弹 ContentDialog。尚未创建按可见处理。
+    /// 用应用自身标志判断"隐藏"（AppWindow.IsVisible 在 Hide() 后仍可能返回 true）。</summary>
+    internal static bool IsMainWindowVisible
+    {
+        get
+        {
+            try
+            {
+                if (MainWindow is null) return true;
+                if (_windowHiddenToTray) return false;
+                if (MainWindow.AppWindow.Presenter is Microsoft.UI.Windowing.OverlappedPresenter op
+                    && op.State == Microsoft.UI.Windowing.OverlappedPresenterState.Minimized)
+                    return false;
+                return true;
+            }
+            catch
+            {
+                return true;
+            }
+        }
+    }
+
+    /// <summary>接收请求动作 toast：带「打开处理 / 全部接收 / 拒绝」按钮。
+    /// arguments 编码为 request|action|sessionId，由激活回调 HandleRequestActivation 解析执行。
+    /// 仅由 ReceiveViewModel 在窗口隐藏时调用（隐藏时 ContentDialog 用户看不见）。</summary>
+    internal static void ShowTransferRequestToast(string title, string body, string sessionId)
+    {
+        try
+        {
+            var t = System.Security.SecurityElement.Escape(title ?? string.Empty);
+            var b = System.Security.SecurityElement.Escape(body ?? string.Empty);
+            var sid = System.Security.SecurityElement.Escape(sessionId ?? string.Empty);
+            var xml = $"""
+                <toast launch="request|open|{sid}" activationType="foreground">
+                  <visual><binding template="ToastGeneric">
+                    <text>{t}</text>
+                    <text>{b}</text>
+                  </binding></visual>
+                  <actions>
+                    <action content="打开处理" activationType="foreground" arguments="request|open|{sid}"/>
+                    <action content="全部接收" activationType="foreground" arguments="request|accept|{sid}"/>
+                    <action content="拒绝" activationType="foreground" arguments="request|decline|{sid}"/>
+                  </actions>
+                </toast>
+                """;
+            var doc = new Windows.Data.Xml.Dom.XmlDocument();
+            doc.LoadXml(xml);
+            ToastNotificationManager.CreateToastNotifier().Show(new ToastNotification(doc));
+            var shortSid = string.IsNullOrEmpty(sessionId) ? string.Empty : sessionId[..Math.Min(8, sessionId.Length)];
+            LogDiag($"[Toast] request toast shown, sessionId={shortSid}");
+        }
+        catch (Exception ex)
+        {
+            LogDiag($"[Toast] request toast failed: {ex.Message}");
+        }
+    }
+
+    /// <summary>App 被激活（toast 点击 / 重复启动图标）：request| 前缀走传输请求动作，否则显示主窗口。</summary>
+    private static void HandleActivation(AppActivationArguments e)
+    {
+        var arg = GetActivationArguments(e);
+        if (arg.StartsWith("request|", StringComparison.Ordinal))
+        {
+            LogDiag($"[Activation] request action args: {arg}");
+            HandleRequestActivation(arg);
+            return;
+        }
+        ShowMainWindow();
+    }
+
+    /// <summary>从激活事件中尽力提取参数串（兼容多种 IActivatedEventArgs 形态，含 toast arguments）。</summary>
+    private static string GetActivationArguments(AppActivationArguments e)
+    {
+        try
+        {
+            if (e.Data is null) return string.Empty;
+            if (e.Data is Windows.ApplicationModel.Activation.ILaunchActivatedEventArgs launch)
+                return launch.Arguments;
+            if (e.Data is Windows.ApplicationModel.Activation.ToastNotificationActivatedEventArgs toast)
+                return toast.Argument;
+            if (e.Data is Microsoft.UI.Xaml.LaunchActivatedEventArgs xl)
+                return xl.Arguments;
+            var p = e.Data.GetType().GetProperty("Arguments");
+            if (p?.GetValue(e.Data) is string s) return s;
+        }
+        catch (Exception ex)
+        {
+            LogDiag($"[Activation] args extract failed: {ex.Message}");
+        }
+        return string.Empty;
+    }
+
+    /// <summary>执行 request|action|sessionId 动作（已切回 UI 线程调度中）。
+    /// accept/decline 直接作用在会话上；open 显示窗口并由 OnWindowBecameVisible 补弹请求对话框。</summary>
+    private static void HandleRequestActivation(string args)
+    {
+        try
+        {
+            var parts = args.Split('|');
+            if (parts.Length < 3 || parts[0] != "request") return;
+            var action = parts[1];
+            var sessionId = parts[2];
+            LogDiag($"[Activation] request handled: action={action} sessionId={sessionId[..Math.Min(8, sessionId.Length)]}");
+            var vm = Services.GetRequiredService<ReceiveViewModel>();
+            switch (action)
+            {
+                case "accept":
+                    vm.AcceptFromNotification(sessionId);
+                    break;
+                case "decline":
+                    vm.DeclineFromNotification(sessionId);
+                    break;
+                case "open":
+                default:
+                    ShowMainWindow(); // 内含 OnWindowBecameVisible → 补弹请求对话框
+                    break;
+            }
+        }
+        catch (Exception ex)
+        {
+            LogDiag($"[Activation] request handling failed: {ex}");
         }
     }
 

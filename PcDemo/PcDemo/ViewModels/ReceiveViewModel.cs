@@ -31,17 +31,24 @@ public partial class ReceiveViewModel : ViewModelBase,
     /// <summary>UI 注入：收到 prepare-upload 时弹对话框的回调。返回 null 表示无法弹窗（默认拒绝）。</summary>
     public Func<ReceiveSession, Task<PrepareUploadDecision?>>? RequestUserDecision { get; set; }
 
-    /// <summary>UI 订阅：用户接受后弹出接收进度对话框（UI 线程触发）。</summary>
-    public event Action<ReceiveSession>? TransferAccepted;
+    /// <summary>UI 处理器（每次页面加载覆盖为最新，避免在单例 VM 上 += 累积导致连弹多个对话框）。
+    /// 用户接受后弹出接收进度对话框（UI 线程触发）。</summary>
+    public Action<ReceiveSession>? TransferAccepted { get; set; }
 
-    /// <summary>UI 订阅：会话结束（成功/失败/取消）时关闭进度对话框（UI 线程触发）。</summary>
-    public event Action? ProgressFinished;
+    /// <summary>UI 处理器：会话结束（成功/失败/取消）时关闭进度对话框（UI 线程触发）。</summary>
+    public Action? ProgressFinished { get; set; }
 
-    /// <summary>UI 订阅：等待用户决策期间会话被服务端清理（60s 决策超时/发送方取消）→ 关闭请求对话框。</summary>
-    public event Action? DecisionExpired;
+    /// <summary>UI 处理器：等待用户决策期间会话被服务端清理（60s 决策超时/发送方取消）→ 关闭请求对话框。</summary>
+    public Action? DecisionExpired { get; set; }
 
     /// <summary>当前正在等待 UI 决策的会话（单槽约束下至多一个）。</summary>
     private string? _awaitingDecisionSessionId;
+
+    /// <summary>主窗口隐藏到托盘期间挂起的待决策会话。
+    /// 隐藏时无法弹 ContentDialog，改走系统 toast 的动作按钮（打开/全部接收/拒绝）；
+    /// 窗口恢复可见或有 toast 回调时再处理。</summary>
+    private ReceiveSession? _deferredSession;
+    private bool _deferredPending;
 
     public ObservableCollection<Device> Devices { get; } = new();
 
@@ -259,6 +266,24 @@ public partial class ReceiveViewModel : ViewModelBase,
             return;
         }
 
+        // 主窗口对用户不可见（隐藏到托盘/最小化）→ ContentDialog 弹给看不见的用户只会白等
+        // 60s 超时被自动拒绝；改为把会话挂起，弹带动作按钮的系统 toast（打开处理/全部接收/拒绝），
+        // 由 App 激活回调驱动（ReceiveViewModel.OnWindowBecameVisible / Accept·DeclineFromNotification）。
+        // 记录窗口可见性判定，便于排查"走了弹窗还是 toast 决策"
+        if (!App.IsMainWindowVisible)
+        {
+            App.LogDiag($"[ReceiveVM] 窗口不可见，接收请求改走托盘 toast 决策，sessionId={session.SessionId[..8]}，文件数={session.Files.Count}");
+            _deferredSession = session;
+            _deferredPending = true;
+            _awaitingDecisionSessionId = session.SessionId;
+            App.ShowTransferRequestToast(
+                "收到文件传输请求",
+                $"{session.Sender?.Alias} 想发送 {session.Files.Count} 个文件",
+                session.SessionId);
+            return;
+        }
+        App.LogDiag($"[ReceiveVM] 窗口可见，走弹窗决策，sessionId={session.SessionId[..8]}");
+
         if (RequestUserDecision is null)
         {
             App.LogDiag($"[ReceiveVM] PrepareUpload 到达但 RequestUserDecision 未注入，sessionId={session.SessionId[..8]}，降级 Decline");
@@ -266,14 +291,42 @@ public partial class ReceiveViewModel : ViewModelBase,
             return;
         }
 
-        App.LogDiag($"[ReceiveVM] PrepareUpload 入队 UI 决策，sessionId={session.SessionId[..8]}，文件数={session.Files.Count}");
-        _dispatcher.TryEnqueue(async () =>
+        PromptForDecision(session);
+    }
+
+    /// <summary>窗口可见时弹请求对话框等待用户决策（UI 线程入队执行）。</summary>
+    private void PromptForDecision(ReceiveSession session)
+    {
+        // 快照委托（字段在 await 期间可能变化，编译器流分析也要求非空判断）
+        var request = RequestUserDecision;
+        if (request is null)
         {
+            // 页面未注入（罕见）：把会话挂起并弹动作 toast，等页面注入/窗口处理，避免请求丢失
+            App.LogDiag($"[ReceiveVM] PromptForDecision: RequestUserDecision 未注入，改走 toast 挂起，sessionId={session.SessionId[..8]}");
+            _deferredSession = session;
+            _deferredPending = true;
+            _awaitingDecisionSessionId = session.SessionId;
+            App.ShowTransferRequestToast(
+                "收到文件传输请求",
+                $"{session.Sender?.Alias} 想发送 {session.Files.Count} 个文件",
+                session.SessionId);
+            return;
+        }
+
+        App.LogDiag($"[ReceiveVM] 入队 UI 决策，sessionId={session.SessionId[..8]}，文件数={session.Files.Count}");
+        _dispatcher?.TryEnqueue(async () =>
+        {
+            // 走正常弹窗时清掉隐藏期间可能的挂起标记，避免状态残留
+            if (_deferredPending && _deferredSession?.SessionId == session.SessionId)
+            {
+                _deferredPending = false;
+                _deferredSession = null;
+            }
             _awaitingDecisionSessionId = session.SessionId;
             PrepareUploadDecision? decision = null;
             try
             {
-                decision = await RequestUserDecision(session);
+                decision = await request(session);
             }
             catch (Exception ex)
             {
@@ -308,6 +361,75 @@ public partial class ReceiveViewModel : ViewModelBase,
         });
     }
 
+    /// <summary>主窗口恢复可见（托盘打开 / toast「打开处理」）→ 补弹隐藏期间挂起的请求对话框。</summary>
+    public void OnWindowBecameVisible()
+    {
+        _dispatcher?.TryEnqueue(() =>
+        {
+            if (!_deferredPending) return;
+            var session = _deferredSession;
+            _deferredPending = false;
+            _deferredSession = null;
+            if (session is null) return;
+
+            var cur = _sessions.CurrentSession;
+            if (cur is null || cur.SessionId != session.SessionId
+                || cur.Status != ReceiveSessionStatus.PendingDecision)
+            {
+                App.LogDiag($"[ReceiveVM] 补弹跳过：会话已不在等待决策（{cur?.Status}），可能已超时/被处理");
+                return;
+            }
+            PromptForDecision(cur);
+        });
+    }
+
+    /// <summary>toast「全部接收」：直接接受会话全部文件。
+    /// 窗口可见时补弹进度对话框；隐藏则后台写盘、完成走系统 toast（不打断用户）。</summary>
+    public void AcceptFromNotification(string sessionId)
+    {
+        Action act = () =>
+        {
+            var cur = _sessions.CurrentSession;
+            if (cur is null || cur.SessionId != sessionId
+                || cur.Status != ReceiveSessionStatus.PendingDecision)
+            {
+                App.LogDiag($"[ReceiveVM] toast 全部接收失败：会话不在等待决策（{cur?.Status}）");
+                return;
+            }
+            if (_deferredPending && _deferredSession?.SessionId == sessionId)
+            {
+                _deferredPending = false;
+                _deferredSession = null;
+            }
+            if (_awaitingDecisionSessionId == sessionId) _awaitingDecisionSessionId = null;
+
+            var ids = cur.Files.Keys.ToList();
+            _sessions.Accept(sessionId, ids);
+            App.LogDiag($"[ReceiveVM] toast 全部接收：sessionId={sessionId[..8]}，文件数={ids.Count}");
+            if (App.IsMainWindowVisible) TransferAccepted?.Invoke(cur);
+        };
+        if (_dispatcher is null) act();
+        else _dispatcher.TryEnqueue(() => act());
+    }
+
+    /// <summary>toast「拒绝」：直接拒绝该接收请求（prepare-upload 返回 403）。</summary>
+    public void DeclineFromNotification(string sessionId)
+    {
+        Action act = () =>
+        {
+            if (_deferredPending && _deferredSession?.SessionId == sessionId)
+            {
+                _deferredPending = false;
+                _deferredSession = null;
+            }
+            if (_awaitingDecisionSessionId == sessionId) _awaitingDecisionSessionId = null;
+            _sessions.Decline(sessionId);
+            App.LogDiag($"[ReceiveVM] toast 拒绝：sessionId={sessionId[..8]}");
+        };
+        if (_dispatcher is null) act();
+        else _dispatcher.TryEnqueue(() => act());
+    }
+
     public void Receive(SessionFinishedMessage msg)
     {
         _dispatcher?.TryEnqueue(() =>
@@ -324,6 +446,11 @@ public partial class ReceiveViewModel : ViewModelBase,
             if (_awaitingDecisionSessionId == session.SessionId)
             {
                 _awaitingDecisionSessionId = null;
+                if (_deferredPending && _deferredSession?.SessionId == session.SessionId)
+                {
+                    _deferredPending = false;
+                    _deferredSession = null;
+                }
                 DecisionExpired?.Invoke();
             }
 
