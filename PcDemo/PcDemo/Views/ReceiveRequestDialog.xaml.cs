@@ -45,4 +45,14 @@ public sealed partial class ReceiveRequestDialog : ContentDialog
     {
         // 同上
     }
+
+    private void OnSelectAllClick(object sender, RoutedEventArgs e)
+    {
+        (DataContext as ReceiveRequestViewModel)?.SelectAll();
+    }
+
+    private void OnSelectNoneClick(object sender, RoutedEventArgs e)
+    {
+        (DataContext as ReceiveRequestViewModel)?.SelectNone();
+    }
 }

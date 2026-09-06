@@ -35,16 +35,22 @@
             </Grid>
         </Border>
 
-        <!-- 文件列表标题 + 汇总 -->
-        <Grid ColumnDefinitions="*,Auto">
+        <!-- 文件列表标题 + 全选/全不选 + 已选汇总 -->
+        <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
             <TextBlock Grid.Column="0" Text="文件列表" FontWeight="SemiBold" VerticalAlignment="Center"/>
-            <Border Grid.Column="1" Padding="8,3" CornerRadius="10"
+            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                <Button Content="全选" Click="OnSelectAllClick"
+                        Padding="10,3" FontSize="11" CornerRadius="6"
+                        Background="Transparent"
+                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1"/>
+                <Button Content="全不选" Click="OnSelectNoneClick"
+                        Padding="10,3" FontSize="11" CornerRadius="6"
+                        Background="Transparent"
+                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1"/>
+            </StackPanel>
+            <Border Grid.Column="2" Padding="8,3" CornerRadius="10"
                     Background="{ThemeResource AccentFillColorSecondaryBrush}">
-                <TextBlock FontSize="11">
-                    <Run Text="{Binding FileCount}"/>
-                    <Run Text=" 个文件 · "/>
-                    <Run Text="{Binding TotalDisplaySize}"/>
-                </TextBlock>
+                <TextBlock Text="{Binding SelectedSummaryText}" FontSize="11"/>
             </Border>
         </Grid>
 

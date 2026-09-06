@@ -80,16 +80,68 @@ public sealed partial class ReceiveRequestViewModel : ObservableObject
         };
         foreach (var f in session.Files.Values)
         {
-            vm.Files.Add(new ReceiveFileItem
+            var item = new ReceiveFileItem
             {
                 FileId = f.FileId,
                 FileName = f.Metadata.FileName,
                 Size = f.Metadata.Size,
                 FileType = f.Metadata.FileType,
                 IsSelected = true,
-            });
+            };
+            // 勾选状态变化 → 刷新已选统计
+            item.PropertyChanged += (_, e) =>
+            {
+                if (e.PropertyName == nameof(ReceiveFileItem.IsSelected))
+                    vm.RefreshSelectedSummary();
+            };
+            vm.Files.Add(item);
         }
         return vm;
+    }
+
+    // ---------- 全选/全不选 与 已选统计 ----------
+
+    /// <summary>已选文件数。</summary>
+    public int SelectedCount => Files.Count(f => f.IsSelected);
+
+    /// <summary>已选文件总大小（字节）。</summary>
+    public ulong SelectedBytes => Files.Where(f => f.IsSelected)
+        .Aggregate(0UL, (acc, f) => acc + f.Size);
+
+    /// <summary>标题行汇总：如 "已选 3/5 · 12.3 MB"。</summary>
+    public string SelectedSummaryText
+    {
+        get
+        {
+            var size = SelectedBytes;
+            var sizeText = size switch
+            {
+                < 1024 => $"{size} B",
+                < 1024 * 1024 => $"{size / 1024.0:F1} KB",
+                < 1024UL * 1024 * 1024 => $"{size / 1024.0 / 1024:F1} MB",
+                _ => $"{size / 1024.0 / 1024 / 1024:F2} GB",
+            };
+            return $"已选 {SelectedCount}/{FileCount} · {sizeText}";
+        }
+    }
+
+    public void SelectAll()
+    {
+        foreach (var f in Files) f.IsSelected = true;
+        RefreshSelectedSummary();
+    }
+
+    public void SelectNone()
+    {
+        foreach (var f in Files) f.IsSelected = false;
+        RefreshSelectedSummary();
+    }
+
+    private void RefreshSelectedSummary()
+    {
+        OnPropertyChanged(nameof(SelectedCount));
+        OnPropertyChanged(nameof(SelectedBytes));
+        OnPropertyChanged(nameof(SelectedSummaryText));
     }
 
     public PrepareUploadDecision ToDecision()
