@@ -2,6 +2,7 @@
 <Page
     x:Class="PcDemo.Views.DeviceListPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    NavigationCacheMode="Enabled"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:models="using:PcDemo.Models"
     Background="Transparent">

@@ -2,6 +2,7 @@
 <Page
     x:Class="PcDemo.Views.ReceivePage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    NavigationCacheMode="Enabled"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:converters="using:PcDemo.Converters">
 
@@ -111,6 +112,8 @@
                 <ListView.ItemTemplate>
                     <DataTemplate>
                         <Border Padding="14" CornerRadius="12"
+                                DoubleTapped="OnDeviceCardDoubleTapped"
+                                ToolTipService.ToolTip="双击 → 发送文件给该设备"
                                 Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                                 BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1">
                             <Border.ContextFlyout>

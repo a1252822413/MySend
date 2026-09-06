@@ -28,6 +28,15 @@ public partial class SettingsViewModel : ViewModelBase
 
     [ObservableProperty] private string _saveStatus = string.Empty;
 
+    /// <summary>防火墙入站放行状态文本（设置页「网络与防火墙」卡片）。</summary>
+    [ObservableProperty] private string _firewallStatus = "未检测";
+
+    /// <summary>正在检测防火墙（防止重复触发）。</summary>
+    [ObservableProperty] private bool _isCheckingFirewall;
+
+    /// <summary>设置页首次打开时自动检测一次。</summary>
+    private bool _autoFirewallChecked;
+
     public SettingsViewModel(ISettingsService settings)
     {
         _settings = settings;
@@ -77,7 +86,7 @@ public partial class SettingsViewModel : ViewModelBase
         await SyncAutoLaunchAsync();
 
         LoadFromSettings();
-        SaveStatus = "已保存（端口/多播组变更需重启应用）";
+        SaveStatus = "已保存（端口/多播组等网络设置变更已即时生效）";
     }
 
     // ---------- 开机自启：MSIX StartupTask API ----------
@@ -132,6 +141,79 @@ public partial class SettingsViewModel : ViewModelBase
         catch (Exception ex)
         {
             AutoLaunchInfo = $"同步失败：{ex.Message}";
+        }
+    }
+
+    // ---------- 防火墙诊断（设置页「网络与防火墙」卡片） ----------
+
+    /// <summary>设置页首次加载时自动检测一次。</summary>
+    public void EnsureAutoFirewallCheck()
+    {
+        if (_autoFirewallChecked) return;
+        _autoFirewallChecked = true;
+        CheckFirewallCommand.Execute(null);
+    }
+
+    /// <summary>检测当前监听端口的 Windows 防火墙入站放行状态（后台 netsh，不卡 UI）。</summary>
+    [RelayCommand]
+    private async Task CheckFirewallAsync()
+    {
+        if (IsCheckingFirewall) return;
+        IsCheckingFirewall = true;
+        FirewallStatus = "正在检测…";
+        try { await DoCheckCoreAsync(); }
+        finally { IsCheckingFirewall = false; }
+    }
+
+    private async Task DoCheckCoreAsync()
+    {
+        try
+        {
+            var port = (int)_settings.Current.Port;
+            var state = await Task.Run(() => FirewallHelper.CheckState(port));
+            FirewallStatus = state switch
+            {
+                FirewallState.Allowed => $"已放行：端口 {port} 存在入站规则",
+                FirewallState.NotAllowed => $"未放行：端口 {port} 没有入站规则（手机可能连不上）",
+                _ => $"未能确定端口 {port} 的防火墙状态（可尝试点击下方添加规则）",
+            };
+        }
+        catch (Exception ex)
+        {
+            FirewallStatus = $"检测失败：{ex.Message}";
+        }
+    }
+
+    /// <summary>添加当前端口入站放行规则（触发 UAC，用户允许后生效）。</summary>
+    [RelayCommand]
+    private async Task AllowFirewallAsync()
+    {
+        if (IsCheckingFirewall) return;
+        IsCheckingFirewall = true;
+        var port = (int)_settings.Current.Port;
+        FirewallStatus = "正在请求管理员授权…";
+        try
+        {
+            var ok = await Task.Run(() => FirewallHelper.AddRules(port));
+            if (ok)
+            {
+                // 稍等规则落盘再复检，给出准确结论
+                await Task.Delay(400);
+                FirewallStatus = "正在复检…";
+                await DoCheckCoreAsync();
+            }
+            else
+            {
+                FirewallStatus = "未放行：已在 UAC 弹窗中取消授权";
+            }
+        }
+        catch (Exception ex)
+        {
+            FirewallStatus = $"添加失败：{ex.Message}";
+        }
+        finally
+        {
+            IsCheckingFirewall = false;
         }
     }
 }

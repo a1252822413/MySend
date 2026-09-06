@@ -476,6 +476,30 @@ public partial class SendViewModel : ViewModelBase,
         _dispatcher?.TryEnqueue(() => ShowResult(message.Session));
     }
 
+    /// <summary>从发送会话构建逐文件明细快照（发送项无保存路径）。</summary>
+    private static List<TransferFileDetail> BuildDetails(SendSession s)
+    {
+        return s.Files.Select(f => new TransferFileDetail
+        {
+            FileName = f.FileName,
+            Size = f.Size,
+            Result = f.Status switch
+            {
+                SendFileStatus.Done => FileDetailResult.Success,
+                SendFileStatus.Failed => FileDetailResult.Failed,
+                SendFileStatus.Skipped => FileDetailResult.Skipped,
+                // Pending/Uploading（会话结束时仍未完成）：按会话整体状态归类
+                _ => s.State switch
+                {
+                    SendSessionState.Cancelled or SendSessionState.CancelledByPeer => FileDetailResult.Canceled,
+                    SendSessionState.Rejected => FileDetailResult.Skipped,
+                    _ => FileDetailResult.Failed,
+                },
+            },
+            Error = f.ErrorMessage,
+        }).ToList();
+    }
+
     private void ShowResult(SendSession s)
     {
         // 会话结束 → 关闭进度对话框（若开着）
@@ -499,6 +523,7 @@ public partial class SendViewModel : ViewModelBase,
             },
             FinishedAt = DateTime.Now,
             FirstFileName = s.Files.Count == 1 ? System.IO.Path.GetFileName(s.Files[0].Path) : null,
+            Files = BuildDetails(s),
         });
 
         var info = $"{s.CompletedFiles}/{s.Files.Count} 个文件 · {FormatBytes(s.TotalBytesSent)}";

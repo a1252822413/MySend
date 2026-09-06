@@ -69,6 +69,17 @@ public sealed class TransferHistoryService
         Persist();
     }
 
+    /// <summary>删除单条历史记录并立即落盘（用户操作）。</summary>
+    public void Remove(TransferHistoryItem item)
+    {
+        lock (_itemsGate)
+        {
+            Items.Remove(item);
+        }
+        CancelPendingPersist();
+        Persist();
+    }
+
     /// <summary>1.5s 合并窗口：窗口内多次 Add 只在最后一次触发后落盘一次。</summary>
     private void SchedulePersist()
     {

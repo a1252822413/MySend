@@ -430,6 +430,31 @@ public partial class ReceiveViewModel : ViewModelBase,
         else _dispatcher.TryEnqueue(() => act());
     }
 
+    /// <summary>从接收会话构建逐文件明细快照（文件状态 + 保存路径）。</summary>
+    private static List<TransferFileDetail> BuildDetails(ReceiveSession session)
+    {
+        return session.Files.Values.Select(f => new TransferFileDetail
+        {
+            FileName = f.Metadata.FileName,
+            Size = (long)f.Metadata.Size,
+            Result = f.Status switch
+            {
+                ReceiveFileStatus.Completed => FileDetailResult.Success,
+                ReceiveFileStatus.Failed => FileDetailResult.Failed,
+                ReceiveFileStatus.Canceled => FileDetailResult.Canceled,
+                // Pending/InProgress（会话结束时仍未完成）：按会话整体状态归类
+                _ => session.Status switch
+                {
+                    ReceiveSessionStatus.Canceled => FileDetailResult.Canceled,
+                    ReceiveSessionStatus.Rejected => FileDetailResult.Skipped,
+                    _ => FileDetailResult.Failed,
+                },
+            },
+            Error = f.Error,
+            SavedPath = f.Status == ReceiveFileStatus.Completed ? f.SavedPath : null,
+        }).ToList();
+    }
+
     public void Receive(SessionFinishedMessage msg)
     {
         _dispatcher?.TryEnqueue(() =>
@@ -476,6 +501,7 @@ public partial class ReceiveViewModel : ViewModelBase,
                 FinishedAt = DateTime.Now,
                 DestinationPath = dest,
                 FirstFileName = fileCount == 1 ? session.Files.Values.FirstOrDefault()?.Metadata.FileName : null,
+                Files = BuildDetails(session),
             });
 
             // 决策超时特判：Failed 且所有文件仍 Pending → 60s 内未做出决策

@@ -32,4 +32,11 @@ public sealed partial class HistoryViewModel : ObservableObject
         _history.Clear();
         Refresh();
     }
+
+    public void Delete(TransferHistoryItem item)
+    {
+        if (item is null) return;
+        _history.Remove(item);
+        Refresh();
+    }
 }

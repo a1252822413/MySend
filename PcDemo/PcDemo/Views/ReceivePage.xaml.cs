@@ -90,6 +90,13 @@ public sealed partial class ReceivePage : Page
             ViewModel.AddToBlacklistCommand.Execute(d);
     }
 
+    /// <summary>双击设备卡 → 切到发送页并预选该设备（右键菜单仍是白/黑名单）。</summary>
+    private void OnDeviceCardDoubleTapped(object sender, Microsoft.UI.Xaml.Input.DoubleTappedRoutedEventArgs e)
+    {
+        if ((sender as FrameworkElement)?.DataContext is Device d)
+            App.MainWindow.ShowSendPageForDevice(d);
+    }
+
     private async Task ShowReceiveProgressAsync(ReceiveSession session)
     {
         var root = App.MainWindow.Content?.XamlRoot;

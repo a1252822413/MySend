@@ -22,6 +22,8 @@ public sealed partial class SettingsPage : Page
         ViewModel = App.Services.GetRequiredService<SettingsViewModel>();
         this.InitializeComponent();
         this.DataContext = ViewModel;
+        // 首次进入设置页自动检测一次防火墙入站状态（VM 单例，只跑一次）
+        ViewModel.EnsureAutoFirewallCheck();
     }
 
     /// <summary>

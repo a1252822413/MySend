@@ -40,6 +40,9 @@ public partial class App : Application, IRecipient<DeviceDiscoveredMessage>
     /// （实测 Hide() 后 IsVisible 仍可能返回 true，会导致接收请求被误判"可见"而弹到看不见的窗口）。</summary>
     private static bool _windowHiddenToTray;
 
+    /// <summary>是否已弹过"已最小化到托盘"的首次引导提示（每个会话只弹一次）。</summary>
+    private static bool _trayGuideShown;
+
     public App()
     {
         this.InitializeComponent();
@@ -165,6 +168,8 @@ public partial class App : Application, IRecipient<DeviceDiscoveredMessage>
                     _windowHiddenToTray = true;
                     s.Hide();
                     LogDiag("[Tray] window closed by user → hidden to tray (still receiving)");
+                    // 首次隐藏时引导用户：应用仍在后台，可从托盘恢复/退出
+                    ShowTrayGuideToastOnce();
                 };
             }
             catch (Exception ex)
@@ -447,6 +452,26 @@ public partial class App : Application, IRecipient<DeviceDiscoveredMessage>
         catch (Exception ex)
         {
             LogDiag($"[Toast] request toast failed: {ex.Message}");
+        }
+    }
+
+    /// <summary>首次关窗到托盘时的引导提示（无"窗口可见则跳过"守卫，确保弹一次）。
+    /// 与 ShowTransferToast 不同：后者在前台可见时会静默，本方法用于明确的引导场景。</summary>
+    private static void ShowTrayGuideToastOnce()
+    {
+        if (_trayGuideShown) return;
+        _trayGuideShown = true;
+        try
+        {
+            var xml = ToastNotificationManager.GetTemplateContent(ToastTemplateType.ToastText02);
+            var texts = xml.GetElementsByTagName("text");
+            texts[0].AppendChild(xml.CreateTextNode("已最小化到托盘"));
+            texts[1].AppendChild(xml.CreateTextNode("PcDemo 仍在后台接收文件。点右下角托盘图标可重新打开；在托盘图标右键选「退出」才会真正退出。"));
+            ToastNotificationManager.CreateToastNotifier().Show(new ToastNotification(xml));
+        }
+        catch (Exception ex)
+        {
+            LogDiag($"[Toast] tray guide failed: {ex.Message}");
         }
     }
 

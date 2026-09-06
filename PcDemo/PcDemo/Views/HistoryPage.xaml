@@ -21,6 +21,18 @@
                     <Border Margin="0,0,0,8" Padding="14,12" CornerRadius="12"
                             Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                             BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1">
+                        <Border.ContextFlyout>
+                            <MenuFlyout>
+                                <MenuFlyoutItem Text="查看文件明细" Click="OnShowDetailsClick"
+                                                DataContext="{Binding}"/>
+                                <MenuFlyoutSeparator/>
+                                <MenuFlyoutItem Text="复制保存路径" Click="OnCopyPathClick"
+                                                DataContext="{Binding}"/>
+                                <MenuFlyoutSeparator/>
+                                <MenuFlyoutItem Text="删除这条记录" Click="OnDeleteHistoryClick"
+                                                DataContext="{Binding}"/>
+                            </MenuFlyout>
+                        </Border.ContextFlyout>
                         <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto" ColumnSpacing="10">
                             <Border Grid.Column="0" Width="36" Height="36" CornerRadius="18"
                                     Background="{ThemeResource AccentFillColorDefaultBrush}">

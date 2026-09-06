@@ -2,6 +2,7 @@
 <Page
     x:Class="PcDemo.Views.SettingsPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    NavigationCacheMode="Enabled"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
     <ScrollViewer Padding="24">
@@ -120,6 +121,29 @@
                         <TextBlock Grid.Column="0" Text="自动接收" VerticalAlignment="Center"/>
                         <ToggleSwitch Grid.Column="1" IsOn="{x:Bind ViewModel.AutoAcceptEnabled, Mode=TwoWay}"
                                       OnContent="开" OffContent="关" VerticalAlignment="Center"/>
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <!-- 网络与防火墙 -->
+            <Border Padding="18,14" CornerRadius="12"
+                    Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1">
+                <StackPanel Spacing="12">
+                    <TextBlock Text="网络与防火墙" FontSize="14" FontWeight="SemiBold" Opacity="0.85"/>
+                    <TextBlock FontSize="12" Opacity="0.65" TextWrapping="Wrap"
+                               Text="手机收不到公告或连不上本机时，最常见原因是 Windows 防火墙拦截了入站端口。可在此检测并添加放行规则。"/>
+                    <Grid ColumnDefinitions="*,Auto,Auto" VerticalAlignment="Center">
+                        <TextBlock Grid.Column="0" Text="{x:Bind ViewModel.FirewallStatus, Mode=OneWay}"
+                                   FontSize="13" VerticalAlignment="Center" TextWrapping="Wrap"
+                                   Margin="0,0,12,0"/>
+                        <Button Grid.Column="1" Content="重新检测"
+                                Command="{x:Bind ViewModel.CheckFirewallCommand}"
+                                Padding="14,6" CornerRadius="8" Margin="0,0,8,0"/>
+                        <Button Grid.Column="2" Content="添加放行规则"
+                                Command="{x:Bind ViewModel.AllowFirewallCommand}"
+                                Padding="14,6" CornerRadius="8"
+                                ToolTipService.ToolTip="需要管理员权限，会弹出 UAC 授权窗口"/>
                     </Grid>
                 </StackPanel>
             </Border>

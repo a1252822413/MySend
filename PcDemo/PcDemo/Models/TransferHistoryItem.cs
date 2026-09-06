@@ -25,6 +25,12 @@ public sealed class TransferHistoryItem
     /// <summary>单文件传输时的文件名（多文件为 null）。</summary>
     public string? FirstFileName { get; init; }
 
+    /// <summary>逐文件明细（v2.2+ 记录；旧记录为 null → 详情页显示"无逐文件明细"）。</summary>
+    public List<TransferFileDetail>? Files { get; init; }
+
+    /// <summary>是否有逐文件明细可查看。</summary>
+    [JsonIgnore] public bool HasDetails => Files is { Count: > 0 };
+
     // ---------- UI 绑定计算属性 ----------
     [JsonIgnore] public string IconGlyph => Direction == TransferDirection.Receive ? "\uE896" : "\uE798";
     [JsonIgnore] public string DirectionText => Direction == TransferDirection.Receive ? "接收" : "发送";
