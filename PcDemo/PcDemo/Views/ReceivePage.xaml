@@ -52,7 +52,7 @@
                 </StackPanel>
                 <Border Grid.Column="1" Margin="20,0,0,0" Padding="10,4" CornerRadius="10"
                         Background="{ThemeResource ControlFillColorSecondaryBrush}">
-                    <TextBlock Text="HTTP · v2.2" FontSize="11" Opacity="0.7"/>
+                    <TextBlock Text="{x:Bind ViewModel.ProtocolText, Mode=OneWay}" FontSize="11" Opacity="0.7"/>
                 </Border>
                 <TextBlock Grid.Column="2" Margin="16,0,0,0" FontSize="12" FontWeight="SemiBold"
                            VerticalAlignment="Center" Text="{x:Bind ViewModel.Alias, Mode=OneWay}"/>

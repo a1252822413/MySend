@@ -36,6 +36,10 @@ public sealed class DeviceInfoBuilder : IDeviceInfoBuilder
             DeviceType = s.DeviceType,
             Fingerprint = s.Fingerprint,
             Download = s.Download,
+            // 与公告一致：启用 HTTPS 时该端口以 https 提供服务
+            HttpsOnly = EndpointConfig.HttpsEnabled(_settings),
+            Port = s.Port,
+            Protocol = EndpointConfig.ServiceProtocol(_settings),
         };
     }
 
@@ -50,9 +54,8 @@ public sealed class DeviceInfoBuilder : IDeviceInfoBuilder
             DeviceType = s.DeviceType,
             Fingerprint = s.Fingerprint,
             Port = s.Port,
-            // 公告必须与服务器实际能力一致：本机 Kestrel 仅监听明文 HTTP（LocalSendHttpServer 未配 TLS）。
-            // 若按 s.Https 公告 https，对方会按 https 连接本机 → 握手失败 → prepare-upload 全部失败。
-            Protocol = ProtocolType.Http,
+            // 公告与服务器一致：启用 HTTPS → 本机在 53317 以 https 提供服务（加密传输）
+            Protocol = EndpointConfig.ServiceProtocol(_settings),
             Download = s.Download,
             Announce = true,
         };

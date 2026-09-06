@@ -27,7 +27,8 @@ public sealed class AppSettings
     /// <summary>设备类型枚举，作为公告/注册响应的 deviceType。</summary>
     public DeviceType? DeviceType { get; set; } = Models.Dto.DeviceType.Desktop;
 
-    /// <summary>是否使用 HTTPS。未实现（Kestrel 服务端未配 TLS）；公告协议固定 Http，勿手改 true。</summary>
+    /// <summary>是否使用 HTTPS（加密传输）。true 时 服务端口（默认 53317）以 TLS 提供并公告 https，
+    /// 明文 HTTP 关闭（同一 TCP 端口不共存）；false 时为明文 HTTP。</summary>
     public bool Https { get; set; } = false;
 
     /// <summary>本机设备指纹（HTTP 模式下随机字符串；HTTPS 模式下应为证书 SHA-256）。</summary>

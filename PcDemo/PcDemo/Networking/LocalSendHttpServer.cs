@@ -1,4 +1,6 @@
-// Kestrel 自宿主 HTTP 服务器：注册 5 个 v2 端点，监听 0.0.0.0:port。
+// Kestrel 自宿主 HTTP(S) 服务器：注册 5 个 v2 端点。
+// 默认监听 0.0.0.0:port 明文 HTTP；开启「仅使用 HTTPS」后监听 port+1（如 53318）并以
+// mTLS 模式运行（服务端出示自签证书，要求客户端证书但信任任意有效证书——官方语义）。
 // 通过把主 DI 容器中的 singleton 服务实例转发到 WebApplication 的容器，
 // 确保 endpoints 与 UI 共享同一份 SettingsService / SessionManager / DeviceRegistry。
 using System.Net;
@@ -6,6 +8,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
+using Microsoft.AspNetCore.Server.Kestrel.Https;
 using Microsoft.Extensions.DependencyInjection;
 using PcDemo.Networking.Endpoints;
 using PcDemo.Services;
@@ -37,12 +40,42 @@ public sealed class LocalSendHttpServer : IAsyncDisposable
             if (_app is not null) return;
 
             var port = _settings.Current.Port;
+            var https = _settings.Current.Https;
             _runningPort = port;
 
             var builder = WebApplication.CreateBuilder();
             builder.WebHost.ConfigureKestrel(o =>
             {
-                o.Listen(IPAddress.Any, port);
+                if (https)
+                {
+                    // 加密模式：同一端口(默认 53317)以 TLS 提供；公告走 https，实现端到端加密
+                    var cert = ClientIdentity.LoadServerCertificate();
+                    if (cert is null)
+                    {
+                        App.LogDiag($"[HTTP] HTTPS 证书不可用，回退明文 HTTP 监听 {port}");
+                        o.Listen(IPAddress.Any, port);
+                    }
+                    else
+                    {
+                        App.LogDiag($"[HTTP] HTTPS 加密监听 {port}（TLS，证书={cert.Subject}）");
+                        o.Listen(IPAddress.Any, port, listen =>
+                        {
+                            listen.UseHttps(h =>
+                            {
+                                h.ServerCertificate = cert;
+                                // 加密传输用单向 TLS + 允许客户端证书即可（不强求 mTLS 客户端证书，
+                                // 避免部分手机端 info/register 未带证书导致握手失败 → 设备被判不可达）。
+                                // 若客户端出示证书，信任任意有效证书（保留官方身份扩展点）。
+                                h.ClientCertificateMode = ClientCertificateMode.AllowCertificate;
+                                h.ClientCertificateValidation = (_, _, _) => true;
+                            });
+                        });
+                    }
+                }
+                else
+                {
+                    o.Listen(IPAddress.Any, port);
+                }
                 // LocalSend 协议不限文件大小，解除 Kestrel 默认 30MB 请求体限制
                 o.Limits.MaxRequestBodySize = null;
                 // 大文件低速传输不应被 Kestrel 断连（默认 240 bytes/sec 触发断开）

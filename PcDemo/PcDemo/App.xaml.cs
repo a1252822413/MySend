@@ -227,11 +227,11 @@ public partial class App : Application, IRecipient<DeviceDiscoveredMessage>
         services.AddSingleton<ShellWindow>();
     }
 
-    /// <summary>网络身份签名：只有这些设置变化才需要重启网络。</summary>
+    /// <summary>网络身份签名：只有这些设置变化才需要重启网络（含 HTTPS 开关 → 换监听协议/端口）。</summary>
     private static string _lastNetSig = string.Empty;
 
     private static string NetSig(AppSettings s)
-        => $"{s.Alias}|{s.Port}|{s.Fingerprint}|{s.MulticastGroup}";
+        => $"{s.Alias}|{s.Port}|{s.Https}|{s.Fingerprint}|{s.MulticastGroup}";
 
     /// <summary>启动 UDP 多播被动监听（Kestrel + 周期公告由 EnsureKestrelRunning 常驻启动）。</summary>
     private static void StartUdpOnly()

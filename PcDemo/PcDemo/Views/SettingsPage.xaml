@@ -82,6 +82,12 @@
                             </Button>
                         </Grid>
                     </Grid>
+                    <Grid ColumnDefinitions="120,*,Auto" VerticalAlignment="Center">
+                        <TextBlock Grid.Column="0" Text="使用 HTTPS" VerticalAlignment="Center"
+                                   ToolTipService.ToolTip="开启后在 服务端口(默认 53317) 以 TLS 加密提供传输并公告 https（明文 HTTP 关闭，同端口不共存）。与支持 https 的设备互传时加密。保存后即时生效。"/>
+                        <ToggleSwitch Grid.Column="1" IsOn="{x:Bind ViewModel.HttpsEnabled, Mode=TwoWay}"
+                                      OnContent="开" OffContent="关" VerticalAlignment="Center"/>
+                    </Grid>
                 </StackPanel>
             </Border>
 

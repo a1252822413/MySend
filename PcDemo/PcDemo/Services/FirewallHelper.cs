@@ -25,11 +25,12 @@ public static class FirewallHelper
     private static string UdpRuleName(int port) => $"PcDemo-UDP-{port}";
     private static string TcpRuleName(int port) => $"PcDemo-TCP-{port}";
 
-    /// <summary>检测给定端口的入站放行状态（UDP 或 TCP 任一放行即视为已放行）。</summary>
-    public static FirewallState CheckState(int port)
+    /// <summary>检测入站放行状态：UDP 多播端口（53317）与 TCP 服务端口
+    /// （HTTP=端口；HTTPS-only=端口+1）任一放行即视为可用。</summary>
+    public static FirewallState CheckState(int udpPort, int tcpPort)
     {
-        var udp = CheckRule(UdpRuleName(port));
-        var tcp = CheckRule(TcpRuleName(port));
+        var udp = CheckRule(UdpRuleName(udpPort));
+        var tcp = CheckRule(TcpRuleName(tcpPort));
         if (udp == FirewallState.Allowed || tcp == FirewallState.Allowed) return FirewallState.Allowed;
         if (udp == FirewallState.NotAllowed && tcp == FirewallState.NotAllowed) return FirewallState.NotAllowed;
         return FirewallState.Unknown;
@@ -63,11 +64,12 @@ public static class FirewallHelper
         }
     }
 
-    /// <summary>添加 UDP/TCP 入站放行规则（触发 UAC）。返回是否已授权执行（用户点了“是”）。</summary>
-    public static bool AddRules(int port)
+    /// <summary>添加入站放行规则：UDP(多播端口) + TCP(实际服务端口，HTTPS 时=端口+1)。
+    /// 触发 UAC；返回是否已授权执行（用户点了"是"）。</summary>
+    public static bool AddRules(int udpPort, int tcpPort)
     {
-        var udp = RunAdd(UdpRuleName(port), "UDP", port);
-        var tcp = RunAdd(TcpRuleName(port), "TCP", port);
+        var udp = RunAdd(UdpRuleName(udpPort), "UDP", udpPort);
+        var tcp = RunAdd(TcpRuleName(tcpPort), "TCP", tcpPort);
         return udp || tcp;
     }
 

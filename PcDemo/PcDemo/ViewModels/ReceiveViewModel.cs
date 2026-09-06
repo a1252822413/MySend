@@ -144,6 +144,9 @@ public partial class ReceiveViewModel : ViewModelBase,
         };
 
         RefreshFromSettings();
+
+        // 设置变化（含 HTTPS 开关/端口）→ 刷新接收页显示的端口与协议徽标
+        _settings.Changed += (_, _) => RefreshFromSettings();
     }
 
     public void SetDispatcher(DispatcherQueue dq)
@@ -214,10 +217,15 @@ public partial class ReceiveViewModel : ViewModelBase,
     {
         var s = _settings.Current;
         Alias = s.Alias;
-        Port = s.Port;
+        // 显示实际服务端口：HTTPS-only 时为 端口+1（如 53318）
+        Port = EndpointConfig.ServicePort(_settings);
         Fingerprint = s.Fingerprint;
         OnPropertyChanged(nameof(FingerprintShort));
+        OnPropertyChanged(nameof(ProtocolText));
     }
+
+    /// <summary>当前协议徽标（启用 HTTPS → 该端口提供加密 https）。</summary>
+    public string ProtocolText => EndpointConfig.HttpsEnabled(_settings) ? "HTTPS · v2.2" : "HTTP · v2.2";
 
     public void Receive(DeviceDiscoveredMessage msg)
     {

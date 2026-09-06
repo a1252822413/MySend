@@ -4,6 +4,7 @@ using CommunityToolkit.Mvvm.Input;
 using Microsoft.UI.Xaml;
 using PcDemo.Models;
 using PcDemo.Models.Dto;
+using PcDemo.Networking;
 using PcDemo.Services;
 using Windows.ApplicationModel;
 
@@ -21,6 +22,7 @@ public partial class SettingsViewModel : ViewModelBase
     [ObservableProperty] private DeviceType _deviceType = Models.Dto.DeviceType.Desktop;
     [ObservableProperty] private string _fingerprint = string.Empty;
     [ObservableProperty] private int _themeMode;           // 0=跟随系统 / 1=浅色 / 2=深色
+    [ObservableProperty] private bool _httpsEnabled;       // 仅使用 HTTPS（监听 端口+1，公告 https + mTLS）
     [ObservableProperty] private bool _autoLaunchEnabled; // 开机自启
     [ObservableProperty] private string _autoLaunchInfo = string.Empty;
     [ObservableProperty] private string _pin = string.Empty; // 接收 PIN（空=不启用）
@@ -55,6 +57,7 @@ public partial class SettingsViewModel : ViewModelBase
         DeviceType = s.DeviceType ?? Models.Dto.DeviceType.Desktop;
         Fingerprint = s.Fingerprint;
         ThemeMode = s.ThemeMode;
+        HttpsEnabled = s.Https;
         Pin = s.Pin;
         AutoAcceptEnabled = s.Download;
     }
@@ -75,6 +78,7 @@ public partial class SettingsViewModel : ViewModelBase
             s.DeviceModel = string.IsNullOrWhiteSpace(DeviceModel) ? "Windows" : DeviceModel.Trim();
             s.DeviceType = DeviceType;
             s.ThemeMode = Math.Clamp(ThemeMode, 0, 2);
+            s.Https = HttpsEnabled;
             s.Pin = Pin?.Trim() ?? string.Empty;
             s.Download = AutoAcceptEnabled;
         });
@@ -169,13 +173,15 @@ public partial class SettingsViewModel : ViewModelBase
     {
         try
         {
-            var port = (int)_settings.Current.Port;
-            var state = await Task.Run(() => FirewallHelper.CheckState(port));
+            // UDP 多播端口 = 基端口；TCP 服务端口 = HTTPS-only 时 +1（实际监听口）
+            var udpPort = (int)_settings.Current.Port;
+            var tcpPort = EndpointConfig.ServicePort(_settings);
+            var state = await Task.Run(() => FirewallHelper.CheckState(udpPort, tcpPort));
             FirewallStatus = state switch
             {
-                FirewallState.Allowed => $"已放行：端口 {port} 存在入站规则",
-                FirewallState.NotAllowed => $"未放行：端口 {port} 没有入站规则（手机可能连不上）",
-                _ => $"未能确定端口 {port} 的防火墙状态（可尝试点击下方添加规则）",
+                FirewallState.Allowed => $"已放行：UDP {udpPort} / TCP {tcpPort} 入站规则",
+                FirewallState.NotAllowed => $"未放行：TCP {tcpPort} 没有入站规则（手机可能连不上）",
+                _ => $"未能确定 TCP {tcpPort} 的防火墙状态（可尝试点击下方添加规则）",
             };
         }
         catch (Exception ex)
@@ -190,11 +196,12 @@ public partial class SettingsViewModel : ViewModelBase
     {
         if (IsCheckingFirewall) return;
         IsCheckingFirewall = true;
-        var port = (int)_settings.Current.Port;
+        var udpPort = (int)_settings.Current.Port;
+        var tcpPort = EndpointConfig.ServicePort(_settings);
         FirewallStatus = "正在请求管理员授权…";
         try
         {
-            var ok = await Task.Run(() => FirewallHelper.AddRules(port));
+            var ok = await Task.Run(() => FirewallHelper.AddRules(udpPort, tcpPort));
             if (ok)
             {
                 // 稍等规则落盘再复检，给出准确结论

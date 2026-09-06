@@ -63,4 +63,55 @@ internal static class ClientIdentity
             return null;
         }
     }
+
+    /// <summary>
+    /// 为 Kestrel 服务端加载自签证书（用于 TLS 服务器握手）。
+    /// Windows 上 Kestrel 用 SChannel，必须从「证书存储」取用私钥——直接用内存 PFX
+    /// （尤其 EphemeralKeySet）会导致 SChannel 无法完成握手（curl -k 报 schannel handshake failed）。
+    /// 做法：以可导出+持久密钥加载 PFX，加入 CurrentUser\My 存储后从存储按 Thumbprint 取回。
+    /// 失败返回 null（调用方回退明文 HTTP）。
+    /// </summary>
+    public static X509Certificate2? LoadServerCertificate()
+    {
+        try
+        {
+            var path = System.IO.Path.Combine(Helpers.PathHelper.AppDataDir, CertFileName);
+            if (!File.Exists(path)) GetOrCreate(); // 确保已生成
+            if (!File.Exists(path)) return null;
+
+            // 可导出 + 持久密钥：使私钥可被导入证书存储供 SChannel 使用
+            using var pfx = new X509Certificate2(path, (string?)null,
+                System.Security.Cryptography.X509Certificates.X509KeyStorageFlags.Exportable
+                | System.Security.Cryptography.X509Certificates.X509KeyStorageFlags.PersistKeySet);
+
+            using var store = new System.Security.Cryptography.X509Certificates.X509Store(
+                System.Security.Cryptography.X509Certificates.StoreName.My,
+                System.Security.Cryptography.X509Certificates.StoreLocation.CurrentUser);
+            store.Open(System.Security.Cryptography.X509Certificates.OpenFlags.ReadWrite);
+            try
+            {
+                var found = store.Certificates.Find(
+                    System.Security.Cryptography.X509Certificates.X509FindType.FindByThumbprint,
+                    pfx.Thumbprint, false);
+                if (found.Count == 0)
+                {
+                    store.Add(pfx); // 导入存储（含私钥），供 SChannel 访问
+                }
+                var fromStore = store.Certificates.Find(
+                    System.Security.Cryptography.X509Certificates.X509FindType.FindByThumbprint,
+                    pfx.Thumbprint, false);
+                if (fromStore.Count == 0) return null;
+                return fromStore[0];
+            }
+            finally
+            {
+                store.Close();
+            }
+        }
+        catch (Exception ex)
+        {
+            App.LogDiag($"[TLS] 服务器证书加载失败（将回退 HTTP）: {ex}");
+            return null;
+        }
+    }
 }
