@@ -78,10 +78,6 @@ public sealed partial class ReceivePage : Page
         ViewModel.ProgressFinished = () => _progressDialog?.Hide();
     }
 
-    /// <summary>设备网格宽度变化 → 动态列数/卡宽（卡片拉伸填满行宽）。</summary>
-    private void OnDevicesListSizeChanged(object sender, SizeChangedEventArgs e)
-        => DeviceTileLayout.UpdateLayout(DeviceTileList, e.NewSize.Width);
-
     // 设备卡片右键菜单 → 加入白/黑名单
     private void OnAddToWhitelistClick(object sender, RoutedEventArgs e)
     {

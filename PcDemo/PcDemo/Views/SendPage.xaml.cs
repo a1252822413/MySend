@@ -95,9 +95,12 @@ public sealed partial class SendPage : Page
         if (_progressDialog == dialog) _progressDialog = null;
     }
 
-    /// <summary>目标设备网格宽度变化 → 动态列数/卡宽。</summary>
-    private void OnDevicesListSizeChanged(object sender, SizeChangedEventArgs e)
-        => DeviceTileLayout.UpdateLayout(DeviceTileList, e.NewSize.Width);
+    /// <summary>目标设备卡单击 → 切换多选勾选状态（可多选群发）。</summary>
+    private void OnDeviceTileTapped(object sender, Microsoft.UI.Xaml.Input.TappedRoutedEventArgs e)
+    {
+        if (sender is FrameworkElement fe && fe.DataContext is Device d)
+            ViewModel.ToggleTarget(d);
+    }
 
     private async void OnPickFilesClick(object sender, RoutedEventArgs e)
     {
@@ -144,12 +147,6 @@ public sealed partial class SendPage : Page
     private void OnDeselectTargetClick(object sender, RoutedEventArgs e)
     {
         ViewModel.SelectedTargets.Clear();
-    }
-
-    /// <summary>设备卡单击 → 切换多选勾选状态（可多选群发）。</summary>
-    private void OnDeviceTileItemClick(object sender, ItemClickEventArgs e)
-    {
-        if (e.ClickedItem is Device d) ViewModel.ToggleTarget(d);
     }
 
     // 设备卡片右键菜单 → 加入白/黑名单
