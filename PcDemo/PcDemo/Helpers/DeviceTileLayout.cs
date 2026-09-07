@@ -12,10 +12,11 @@ internal static class DeviceTileLayout
     /// <summary>最多列数。</summary>
     public const int MaxColumns = 4;
 
-    /// <summary>卡片间水平间距（与卡片 ItemContainerStyle 的 Margin 右/下一致）。</summary>
+    /// <summary>卡片间水平间距（与卡片 ItemContainerStyle 的 Margin 右/下一致）。
+    /// 注意：该间距由卡片自身 Margin 提供，ItemsWrapGrid 格子只需平均分满可用宽，无需再让出一份。</summary>
     public const double CardGap = 10;
 
-    /// <summary>按容器当前宽度重排卡片：N = clamp(列数)，ItemWidth = (可用宽 - 间隙)/N。</summary>
+    /// <summary>按容器当前宽度重排卡片：N = clamp(列数)，格子宽 = 可用宽 / N（占满整行，间距由卡片 Margin 承担）。</summary>
     public static void UpdateLayout(ListView list, double availableWidth)
     {
         if (list?.ItemsPanelRoot is not ItemsWrapGrid wrap) return;
@@ -24,6 +25,6 @@ internal static class DeviceTileLayout
 
         var n = Math.Max(1, Math.Min(MaxColumns,
             (int)Math.Floor((availableWidth + CardGap) / (MinCardWidth + CardGap))));
-        wrap.ItemWidth = (availableWidth - (n - 1) * CardGap) / n;
+        wrap.ItemWidth = availableWidth / n;
     }
 }
