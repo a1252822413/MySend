@@ -77,6 +77,9 @@ public partial class SendViewModel : ViewModelBase,
     /// <summary>公共刷新状态：从 MulticastDiscoveryService 镜像（绑定 XAML 刷新按钮转圈/禁用）。</summary>
     [ObservableProperty] private bool _isRefreshing;
 
+    /// <summary>正在导入（拖拽/选文件夹后台枚举中）→ 发送页显示“导入中…”。</summary>
+    [ObservableProperty] private bool _isImporting;
+
     public SendViewModel(ISendSessionManager sendMgr, IDeviceRegistry registry,
         MulticastDiscoveryService discovery, IMessenger messenger, TransferHistoryService history,
         IDeviceListService deviceLists)
@@ -199,51 +202,91 @@ public partial class SendViewModel : ViewModelBase,
     /// </summary>
     public async Task AddStorageItemsAsync(IReadOnlyList<Windows.Storage.IStorageItem> items)
     {
-        var existingPaths = new HashSet<string>(PendingFiles.Select(f => f.Path), StringComparer.OrdinalIgnoreCase);
-        var batch = new List<SendFileItem>();
-        foreach (var item in items)
+        if (items is null || items.Count == 0) return;
+        IsImporting = true;
+        try
         {
-            try
+            // 枚举/读取（Storage API 与递归）放到后台线程，避免占用 UI 上下文
+            var added = await Task.Run(async () =>
             {
-                if (item is Windows.Storage.StorageFile file)
+                var existingPaths = new HashSet<string>(PendingFiles.Select(f => f.Path), StringComparer.OrdinalIgnoreCase);
+                var batch = new List<SendFileItem>();
+                foreach (var item in items)
                 {
-                    var path = file.Path;
-                    if (string.IsNullOrEmpty(path) || !existingPaths.Add(path)) continue;
-                    var props = await file.GetBasicPropertiesAsync();
-                    var size = (long)props.Size;
-                    var ext = System.IO.Path.GetExtension(path);
-                    batch.Add(new SendFileItem
+                    try
                     {
-                        FileName = file.Name,
-                        Path = path,
-                        Size = size,
-                        FileKind = FileKindMapper.FromExtension(ext),
-                        Extension = ext.TrimStart('.'),
-                    });
+                        if (item is Windows.Storage.StorageFile file)
+                        {
+                            var path = file.Path;
+                            if (string.IsNullOrEmpty(path) || !existingPaths.Add(path)) continue;
+                            var props = await file.GetBasicPropertiesAsync();
+                            var size = (long)props.Size;
+                            var ext = System.IO.Path.GetExtension(path);
+                            batch.Add(new SendFileItem
+                            {
+                                FileName = file.Name,
+                                Path = path,
+                                Size = size,
+                                FileKind = FileKindMapper.FromExtension(ext),
+                                Extension = ext.TrimStart('.'),
+                            });
+                        }
+                        else if (item is Windows.Storage.StorageFolder folder)
+                        {
+                            // 递归遍历文件夹并保留相对目录结构（fileName = 相对路径含 '/'，接收端据此重建目录）
+                            await CollectFolderFilesAsync(folder, string.Empty, existingPaths, batch);
+                        }
+                    }
+                    catch
+                    {
+                        // 忽略不可访问项
+                    }
                 }
-                else if (item is Windows.Storage.StorageFolder folder)
-                {
-                    // 递归遍历文件夹并保留相对目录结构（fileName = 相对路径含 '/'，接收端据此重建目录）
-                    await CollectFolderFilesAsync(folder, string.Empty, existingPaths, batch);
-                }
-            }
-            catch
-            {
-                // 忽略不可访问项
-            }
+                return batch;
+            });
+            await AppendInChunks(added); // 分批加入，超大目录不一次塞满 UI
+            App.LogDiag($"[SendVM] 拖拽添加完成：新增 {added.Count} 个文件");
         }
-        if (batch.Count > 0) PendingFiles.AddRange(batch);
-        App.LogDiag($"[SendVM] 拖拽添加完成：新增 {batch.Count} 个文件");
+        finally
+        {
+            IsImporting = false;
+        }
     }
 
-    /// <summary>文件夹选择器入口：保留目录结构递归加入（fileName = 相对路径，'/'-分隔）。</summary>
+    /// <summary>文件夹选择器入口：后台保留目录结构递归加入（fileName = 相对路径，'/'-分隔）。</summary>
     public async Task AddFolderAsync(Windows.Storage.StorageFolder folder)
     {
-        var existingPaths = new HashSet<string>(PendingFiles.Select(f => f.Path), StringComparer.OrdinalIgnoreCase);
-        var batch = new List<SendFileItem>();
-        await CollectFolderFilesAsync(folder, string.Empty, existingPaths, batch);
-        if (batch.Count > 0) PendingFiles.AddRange(batch);
-        App.LogDiag($"[SendVM] 添加文件夹完成：新增 {batch.Count} 个文件");
+        if (folder is null) return;
+        IsImporting = true;
+        try
+        {
+            var added = await Task.Run(async () =>
+            {
+                var existingPaths = new HashSet<string>(PendingFiles.Select(f => f.Path), StringComparer.OrdinalIgnoreCase);
+                var batch = new List<SendFileItem>();
+                await CollectFolderFilesAsync(folder, string.Empty, existingPaths, batch);
+                return batch;
+            });
+            await AppendInChunks(added);
+            App.LogDiag($"[SendVM] 添加文件夹完成：新增 {added.Count} 个文件");
+        }
+        finally
+        {
+            IsImporting = false;
+        }
+    }
+
+    /// <summary>分批加入待发列表：每批之间让出 UI 线程，超大目录下界面仍可响应/渐进显示。</summary>
+    private async Task AppendInChunks(List<SendFileItem> items, int chunkSize = 200)
+    {
+        if (items is null || items.Count == 0) return;
+        for (var i = 0; i < items.Count; i += chunkSize)
+        {
+            var count = Math.Min(chunkSize, items.Count - i);
+            var part = items.GetRange(i, count);
+            PendingFiles.AddRange(part);
+            await Task.Yield();
+        }
     }
 
     // ---------- 发送文字 / 剪贴板文本 ----------

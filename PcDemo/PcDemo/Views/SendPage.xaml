@@ -54,7 +54,7 @@
             </StackPanel>
         </Grid>
 
-            <Grid Grid.Row="1" Margin="0,24,0,0" RowDefinitions="Auto,Auto,*">
+            <Grid Grid.Row="1" Margin="0,16,0,0" RowDefinitions="Auto,Auto,*">
                 <Grid Grid.Row="0" ColumnDefinitions="*,Auto">
                     <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
                         <TextBlock Text="选择目标设备" FontSize="16" FontWeight="SemiBold"/>
@@ -73,7 +73,7 @@
                     </Button>
                 </Grid>
 
-                <Border Grid.Row="1" Margin="0,12,0,16" Padding="14,10" CornerRadius="10"
+                <Border Grid.Row="1" Margin="0,12,0,12" Padding="14,10" CornerRadius="10"
                         Background="{ThemeResource AccentFillColorDefaultBrush}" Opacity="0.9"
                         Visibility="{x:Bind ViewModel.SelectedTarget, Converter={StaticResource NullToCollapsed}}">
                     <Grid ColumnDefinitions="*,Auto">
@@ -100,15 +100,16 @@
                     </Grid>
                 </Border>
 
-                <ListView Grid.Row="2"
+                <ListView Grid.Row="2" x:Name="DeviceTileList" Margin="0,12,0,0"
                           ItemsSource="{x:Bind ViewModel.Devices}"
                           SelectionMode="Single"
+                          SizeChanged="OnDevicesListSizeChanged"
                           SelectedItem="{x:Bind ViewModel.SelectedTarget, Mode=TwoWay}"
                           Visibility="{x:Bind ViewModel.HasDevices, Mode=OneWay}">
                     <ListView.ItemsPanel>
                         <ItemsPanelTemplate>
                             <ItemsWrapGrid Orientation="Horizontal"
-                                           ItemWidth="280" ItemHeight="120" MaximumRowsOrColumns="10"/>
+                                           ItemWidth="300" ItemHeight="120" MaximumRowsOrColumns="10"/>
                         </ItemsPanelTemplate>
                     </ListView.ItemsPanel>
                     <ListView.ItemContainerStyle>
@@ -172,7 +173,7 @@
                     </ListView.ItemTemplate>
                 </ListView>
 
-                <StackPanel Grid.Row="2" Spacing="6" HorizontalAlignment="Center" VerticalAlignment="Center"
+                <StackPanel Grid.Row="2" Margin="0,12,0,0" Spacing="6" HorizontalAlignment="Center" VerticalAlignment="Center"
                             Visibility="{x:Bind ViewModel.HasNoDevices, Mode=OneWay}">
                     <TextBlock Text="📡" FontSize="40" HorizontalAlignment="Center"/>
                     <TextBlock Text="正在搜索附近设备..." FontSize="14" FontWeight="SemiBold" HorizontalAlignment="Center"/>
@@ -181,7 +182,7 @@
                 </StackPanel>
             </Grid>
 
-            <Grid Grid.Row="2" Margin="0,28,0,0" RowDefinitions="Auto,Auto,*,Auto">
+            <Grid Grid.Row="2" Margin="0,2,0,0" RowDefinitions="Auto,Auto,*,Auto">
                 <Grid Grid.Row="0" ColumnDefinitions="*,Auto,Auto,Auto,Auto,Auto">
                     <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
                         <TextBlock Text="待发送文件" FontSize="16" FontWeight="SemiBold"/>
@@ -189,6 +190,11 @@
                                 VerticalAlignment="Center">
                             <TextBlock Text="{x:Bind ViewModel.PendingFiles.Count, Mode=OneWay}" FontSize="11" Opacity="0.7"/>
                         </Border>
+                        <ProgressRing x:Name="ImportingRing" Width="14" Height="14" IsActive="True"
+                                      Visibility="Collapsed" VerticalAlignment="Center"
+                                      AutomationProperties.Name="正在导入文件"/>
+                        <TextBlock x:Name="ImportingText" Text="导入中…" FontSize="12" Opacity="0.7"
+                                   Visibility="Collapsed" VerticalAlignment="Center"/>
                     </StackPanel>
                     <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center"
                                 Margin="0,0,8,0">
@@ -279,13 +285,12 @@
                     </Grid>
                 </Border>
 
-                <Border Grid.Row="2" Margin="0,12,0,0" Padding="12,0" CornerRadius="12"
+                <Border Grid.Row="2" Margin="0,12,0,0" Padding="12" CornerRadius="12"
                         Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                         BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1"
                         MaxHeight="320">
                     <Grid>
                         <ListView ItemsSource="{x:Bind ViewModel.PendingFiles}" SelectionMode="None"
-                                  Padding="0,0,8,0"
                                   Visibility="{x:Bind ViewModel.HasFiles, Mode=OneWay}">
                             <ListView.ItemContainerStyle>
                                 <Style TargetType="ListViewItem">

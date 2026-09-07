@@ -12,20 +12,19 @@
     <Grid MinWidth="400">
         <!-- 进度面板：二次确认时保持显示（确认按钮在底部命令区切换） -->
         <StackPanel Spacing="14" Padding="0,4,0,0">
-            <!-- 计算属性(SenderText/RingValue/FilesText/StatText)不实现 INPC：用 OneTime，
-                 由 P.PropertyChanged → OnProgressChanged → Bindings.Update() 手动刷新。
-                 P.*（ReceiveProgress 实现 INPC）保持 OneWay 自动更新。 -->
-            <TextBlock Text="{x:Bind SenderText}" FontSize="14" Opacity="0.8"
+            <!-- 计算属性(SenderText/Ring/FilesText/StatText)不做 x:Bind：由 P.PropertyChanged →
+                 OnProgressChanged → RefreshUi() 只更新变化节点。P.* 实现 INPC 保持自动绑定。 -->
+            <TextBlock x:Name="SenderTextBlock" FontSize="14" Opacity="0.8"
                        HorizontalAlignment="Center"/>
-            <ProgressRing Width="84" Height="84"
-                          IsIndeterminate="{x:Bind P.IsIndeterminate, Mode=OneWay}"
-                          Value="{x:Bind RingValue}"/>
+            <ProgressRing x:Name="ProgressRingControl" Width="84" Height="84"
+                          IsIndeterminate="{x:Bind P.IsIndeterminate, Mode=OneWay}"/>
             <StackPanel Spacing="4" HorizontalAlignment="Center">
-                <TextBlock Text="{x:Bind P.PhaseText, Mode=OneWay}" FontSize="15" FontWeight="SemiBold"
+                <TextBlock x:Name="PhaseTextBlock" FontSize="15" FontWeight="SemiBold"
+                           HorizontalAlignment="Center"
+                           Text="{x:Bind P.PhaseText, Mode=OneWay}"/>
+                <TextBlock x:Name="FilesTextBlock" FontSize="12" Opacity="0.7"
                            HorizontalAlignment="Center"/>
-                <TextBlock Text="{x:Bind FilesText}" FontSize="12" Opacity="0.7"
-                           HorizontalAlignment="Center"/>
-                <TextBlock Text="{x:Bind StatText}" FontSize="12" Opacity="0.75"
+                <TextBlock x:Name="StatTextBlock" FontSize="12" Opacity="0.75"
                            HorizontalAlignment="Center"/>
             </StackPanel>
         </StackPanel>

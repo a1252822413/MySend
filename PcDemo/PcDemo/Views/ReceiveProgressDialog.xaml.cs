@@ -29,13 +29,23 @@ public sealed partial class ReceiveProgressDialog : ContentDialog
         // （否则 fallback 外观：无圆角/无内容区与按钮区的色带分层）
         this.Style = Application.Current.Resources["DefaultContentDialogStyle"] as Style;
         this.InitializeComponent();
-        // RingValue 是 P 的计算属性（不触发通知），订阅后手动刷新；IsCompleted 变化时切换完成态
+        // RingValue 是 P 的计算属性（不触发通知），进度变化时手动刷新；IsCompleted 变化时切换完成态
         P.PropertyChanged += (_, _) => OnProgressChanged();
+        RefreshUi();
+    }
+
+    /// <summary>增量刷新：只更新会变化的节点（发送方文本不变，可只在首次/必要时设置）。</summary>
+    private void RefreshUi()
+    {
+        SenderTextBlock.Text = SenderText;
+        FilesTextBlock.Text = FilesText;
+        StatTextBlock.Text = ComputeStatText();
+        ProgressRingControl.Value = RingValue;
     }
 
     private void OnProgressChanged()
     {
-        this.Bindings.Update();
+        RefreshUi();
         if (P.IsCompleted && !_completed)
         {
             _completed = true;

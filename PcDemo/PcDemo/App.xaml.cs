@@ -141,10 +141,17 @@ public partial class App : Application, IRecipient<DeviceDiscoveredMessage>
             StartUdpOnly();
             EnsureKestrelRunning();
 
-            // 4.5 加载传输历史（JSON 持久化）
-            Services.GetRequiredService<TransferHistoryService>().Load();
-            // 4.6 加载白名单/黑名单（device-lists.json）
-            Services.GetRequiredService<IDeviceListService>().Load();
+            // 4.5/4.6 非关键数据（传输历史/白黑名单）异步加载：
+            // 后台读盘 + 回 UI 线程应用，避免阻塞首窗口显示。
+            var historySvc = Services.GetRequiredService<TransferHistoryService>();
+            var listSvc = Services.GetRequiredService<IDeviceListService>();
+            var uiQueue = Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread();
+            _ = Task.Run(() =>
+            {
+                var historyItems = historySvc.ReadFromDisk(); // 后台读盘
+                listSvc.Load();                               // 名单是内存 List（锁保护），可后台
+                uiQueue.TryEnqueue(() => historySvc.ApplyLoaded(historyItems));
+            });
 
             // 5. 创建并显示主窗口
             MainWindow = Services.GetRequiredService<ShellWindow>();

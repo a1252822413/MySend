@@ -3,6 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using PcDemo.Helpers;
 using PcDemo.Messages;
 using PcDemo.Models;
 using PcDemo.ViewModels;
@@ -76,6 +77,10 @@ public sealed partial class ReceivePage : Page
         // 会话结束 → 关闭进度对话框（ProgressFinished 在 UI 线程触发）
         ViewModel.ProgressFinished = () => _progressDialog?.Hide();
     }
+
+    /// <summary>设备网格宽度变化 → 动态列数/卡宽（卡片拉伸填满行宽）。</summary>
+    private void OnDevicesListSizeChanged(object sender, SizeChangedEventArgs e)
+        => DeviceTileLayout.UpdateLayout(DeviceTileList, e.NewSize.Width);
 
     // 设备卡片右键菜单 → 加入白/黑名单
     private void OnAddToWhitelistClick(object sender, RoutedEventArgs e)

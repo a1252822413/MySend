@@ -20,8 +20,21 @@ public sealed partial class SendProgressDialog : ContentDialog
         // （否则 fallback 外观：无圆角/无内容区与按钮区的色带分层）
         this.Style = Application.Current.Resources["DefaultContentDialogStyle"] as Style;
         this.InitializeComponent();
-        // SendSessionManager 的所有状态更新都经 DispatcherQueue（UI 线程），这里直接刷新绑定即可
-        _s.PropertyChanged += (_, _) => this.Bindings.Update();
+        // SendSessionManager 的所有状态更新都经 DispatcherQueue（UI 线程），
+        // 这里只刷新会变化的节点（StatText/Ring/状态文字），不做整页 Bindings.Update()
+        _s.PropertyChanged += (_, _) => RefreshUi();
+        RefreshUi();
+    }
+
+    /// <summary>增量刷新：只更新有值的节点（速度/字节/百分比/环形进度/状态文字）。</summary>
+    private void RefreshUi()
+    {
+        TargetTextBlock.Text = TargetText;
+        StateTextBlock.Text = StateText;
+        FilesTextBlock.Text = FilesText;
+        StatTextBlock.Text = ComputeStatText();
+        ProgressRingControl.IsIndeterminate = IsWaiting;
+        ProgressRingControl.Value = RingValue;
     }
 
     // ---------- x:Bind 绑定源 ----------

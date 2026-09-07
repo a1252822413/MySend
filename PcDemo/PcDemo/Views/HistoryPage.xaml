@@ -16,6 +16,15 @@
                     Visibility="{x:Bind ViewModel.HasItems, Mode=OneWay}"/>
         </Grid>
         <ListView Grid.Row="1" Margin="0,12,0,0" ItemsSource="{x:Bind ViewModel.Items}" SelectionMode="None">
+            <ListView.ItemContainerStyle>
+                <Style TargetType="ListViewItem">
+                    <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                    <Setter Property="VerticalContentAlignment" Value="Stretch"/>
+                    <Setter Property="Padding" Value="0"/>
+                    <Setter Property="Margin" Value="0"/>
+                    <Setter Property="MinHeight" Value="0"/>
+                </Style>
+            </ListView.ItemContainerStyle>
             <ListView.ItemTemplate>
                 <DataTemplate x:DataType="m:TransferHistoryItem">
                     <Border Margin="0,0,0,8" Padding="14,12" CornerRadius="12"

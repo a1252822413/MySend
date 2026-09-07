@@ -3,6 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using PcDemo.Helpers;
 using PcDemo.Models;
 using PcDemo.ViewModels;
 using Windows.ApplicationModel.DataTransfer;
@@ -22,6 +23,17 @@ public sealed partial class SendPage : Page
         ViewModel = App.Services.GetRequiredService<SendViewModel>();
         this.InitializeComponent();
         ViewModel.SetDispatcher(DispatcherQueue.GetForCurrentThread());
+
+        // “导入中…”指示：VM 后台导入时切换标题旁状态可见性
+        ViewModel.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(SendViewModel.IsImporting))
+            {
+                var on = ViewModel.IsImporting;
+                ImportingRing.Visibility = on ? Visibility.Visible : Visibility.Collapsed;
+                ImportingText.Visibility = on ? Visibility.Visible : Visibility.Collapsed;
+            }
+        };
 
         // 发送会话创建 → 弹出发送进度对话框（取消走二次确认 → CancelSend）。
         // 覆盖式处理器（非事件累加），避免多次进入页面后重复弹框
@@ -47,6 +59,10 @@ public sealed partial class SendPage : Page
         await dialog.ShowAsync();
         if (_progressDialog == dialog) _progressDialog = null;
     }
+
+    /// <summary>目标设备网格宽度变化 → 动态列数/卡宽。</summary>
+    private void OnDevicesListSizeChanged(object sender, SizeChangedEventArgs e)
+        => DeviceTileLayout.UpdateLayout(DeviceTileList, e.NewSize.Width);
 
     private async void OnPickFilesClick(object sender, RoutedEventArgs e)
     {

@@ -29,23 +29,35 @@ public sealed class TransferHistoryService
         _persistTimer = new Timer(_ => Persist(), null, Timeout.Infinite, Timeout.Infinite);
     }
 
-    /// <summary>启动时从磁盘加载（损坏或缺失则忽略）。</summary>
-    public void Load()
+    /// <summary>从磁盘读取历史列表（任意线程执行；不触碰 UI 集合）。缺失/损坏返回 null。</summary>
+    public List<TransferHistoryItem>? ReadFromDisk()
     {
         try
         {
-            if (!File.Exists(_filePath)) return;
-            var list = JsonSerializer.Deserialize<List<TransferHistoryItem>>(File.ReadAllText(_filePath));
-            if (list is null) return;
-            Items.Clear();
-            foreach (var item in list.Take(MaxItems)) Items.Add(item);
-            App.LogDiag($"[History] 已加载 {Items.Count} 条传输历史");
+            if (!File.Exists(_filePath)) return null;
+            return JsonSerializer.Deserialize<List<TransferHistoryItem>>(File.ReadAllText(_filePath));
         }
         catch (Exception ex)
         {
             App.LogDiag($"[History] 加载失败：{ex.Message}");
+            return null;
         }
     }
+
+    /// <summary>把磁盘读到的列表应用到 UI 集合（须在 UI 线程调用；ObservableCollection 线程亲和）。</summary>
+    public void ApplyLoaded(List<TransferHistoryItem>? list)
+    {
+        if (list is null) return;
+        lock (_itemsGate)
+        {
+            Items.Clear();
+            foreach (var item in list.Take(MaxItems)) Items.Add(item);
+        }
+        App.LogDiag($"[History] 已加载 {Items.Count} 条传输历史");
+    }
+
+    /// <summary>同步加载（兼容旧入口：后台读盘 + UI 应用由调用方编排）。</summary>
+    public void Load() => ApplyLoaded(ReadFromDisk());
 
     /// <summary>新增一条记录（插到最前，超出上限裁剪，1.5s 内合并落盘一次）。</summary>
     public void Add(TransferHistoryItem item)

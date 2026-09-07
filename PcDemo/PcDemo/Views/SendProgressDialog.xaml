@@ -13,19 +13,17 @@
     <Grid MinWidth="400">
         <!-- 进度面板：二次确认时保持显示（确认按钮在底部命令区切换） -->
         <StackPanel Spacing="14" Padding="0,4,0,0">
-            <!-- 绑定源为 code-behind 计算属性（不实现 INPC）：用 OneTime，
-                 由 _s.PropertyChanged → Bindings.Update() 手动整页刷新（见 code-behind） -->
-            <TextBlock Text="{x:Bind TargetText}" FontSize="14" Opacity="0.8"
+            <!-- 绑定源为 code-behind 计算属性：不做 x:Bind，由 _s.PropertyChanged →
+                 RefreshUi() 只更新变化节点（避免整页 Bindings.Update() 重求值） -->
+            <TextBlock x:Name="TargetTextBlock" FontSize="14" Opacity="0.8"
                        HorizontalAlignment="Center"/>
-            <ProgressRing Width="84" Height="84"
-                          IsIndeterminate="{x:Bind IsWaiting}"
-                          Value="{x:Bind RingValue}"/>
+            <ProgressRing x:Name="ProgressRingControl" Width="84" Height="84"/>
             <StackPanel Spacing="4" HorizontalAlignment="Center">
-                <TextBlock Text="{x:Bind StateText}" FontSize="15" FontWeight="SemiBold"
+                <TextBlock x:Name="StateTextBlock" FontSize="15" FontWeight="SemiBold"
                            HorizontalAlignment="Center"/>
-                <TextBlock Text="{x:Bind FilesText}" FontSize="12" Opacity="0.7"
+                <TextBlock x:Name="FilesTextBlock" FontSize="12" Opacity="0.7"
                            HorizontalAlignment="Center"/>
-                <TextBlock Text="{x:Bind StatText}" FontSize="12" Opacity="0.75"
+                <TextBlock x:Name="StatTextBlock" FontSize="12" Opacity="0.75"
                            HorizontalAlignment="Center"/>
             </StackPanel>
         </StackPanel>
