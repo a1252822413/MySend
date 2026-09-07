@@ -151,6 +151,16 @@ public partial class DeviceListViewModel : ViewModelBase
     public void SetWhitelistAutoAccept(string fingerprint, bool autoAccept)
         => _service.SetWhitelistAutoAccept(fingerprint, autoAccept);
 
+    /// <summary>重命名白名单/黑名单条目的本地显示名（只影响本机展示）。</summary>
+    public void Rename(DeviceListEntry entry, string newAlias)
+    {
+        if (entry is null) return;
+        var name = newAlias?.Trim() ?? string.Empty;
+        if (name.Length == 0) return;
+        _service.Rename(entry.Fingerprint, name);
+        StatusText = $"已重命名为「{name}」";
+    }
+
     // ---------- 黑名单 ----------
 
     [RelayCommand]

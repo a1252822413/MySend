@@ -50,6 +50,16 @@ public sealed class ReceiveSessionManager : IReceiveSessionManager, IDisposable
             // 单槽：当前会话仍占用（待决策/已接受/接收中）→ 409
             if (_current is not null && IsOccupied(_current))
             {
+                // 切回 UI 线程提示本机用户（避免“第二台设备被静默拒绝”）
+                var busyAlias = _current.Sender?.Alias ?? "其他设备";
+                var requesterAlias = request.Info?.Alias ?? "未知设备";
+                _dispatcher.TryEnqueue(() => _messenger.Send(new ShowToastMessage
+                {
+                    Kind = ToastKind.Warning,
+                    Message = $"「{requesterAlias}」尝试发送文件，但您正与「{busyAlias}」传输中，已拒绝（请让对方稍后重试）",
+                    DurationMs = 2600,
+                }));
+                App.LogDiag($"[SessionMgr] 单槽忙，409：busy={busyAlias} requester={requesterAlias}");
                 return new PrepareUploadResult { StatusCode = 409, ErrorMessage = "Blocked by another session" };
             }
             var sessionId = Guid.NewGuid().ToString("N");
@@ -118,6 +128,7 @@ public sealed class ReceiveSessionManager : IReceiveSessionManager, IDisposable
             }
 
             session.Status = ReceiveSessionStatus.Accepted;
+            session.LastActivityUtc = DateTime.UtcNow;
             var acceptedSet = decision.AcceptedFileIds.ToHashSet();
             var toRemove = session.Files.Keys.Where(k => !acceptedSet.Contains(k)).ToList();
             foreach (var k in toRemove) session.Files.Remove(k);
@@ -177,6 +188,7 @@ public sealed class ReceiveSessionManager : IReceiveSessionManager, IDisposable
             session.Status = ReceiveSessionStatus.InProgress;
             file.Status = ReceiveFileStatus.InProgress;
             session.HttpContext = httpCtx;
+            session.LastActivityUtc = DateTime.UtcNow;
         }
 
         // 进度初始化（首次或每个文件开始时刷新）
@@ -217,38 +229,14 @@ public sealed class ReceiveSessionManager : IReceiveSessionManager, IDisposable
             }
             App.LogDiag($"[SessionMgr] 写盘成功：{path}");
 
-            bool allDone;
-            lock (_lock) allDone = session.Files.Values.All(f => f.Status == ReceiveFileStatus.Completed);
-
             _dispatcher.TryEnqueue(() =>
             {
                 p.CompletedFiles = session.Files.Values.Count(f => f.Status == ReceiveFileStatus.Completed);
-                if (allDone)
-                {
-                    p.PhaseText = "接收完成";
-                    p.IsIndeterminate = false;
-                    p.IsCompleted = true;
-                }
-                else
-                {
-                    p.PhaseText = "等待下一个文件…";
-                    p.IsIndeterminate = true;
-                }
+                p.PhaseText = "等待下一个文件…";
+                p.IsIndeterminate = true;
             });
 
-            if (allDone)
-            {
-                lock (_lock)
-                {
-                    session.Status = ReceiveSessionStatus.Completed;
-                    if (_current == session) _current = null;
-                }
-                // 窗口隐藏在托盘时提醒用户（前台可见时静默）
-                var savedCount = session.Files.Values.Count(f => f.Status == ReceiveFileStatus.Completed);
-                App.ShowTransferToast("接收完成",
-                    $"来自 {session.Sender.Alias} 的 {savedCount} 个文件已保存到 {session.DestinationDir}");
-                _messenger.Send(new SessionFinishedMessage { Session = session });
-            }
+            MaybeFinalize(session, p);
             return new UploadResult { StatusCode = 200 };
         }
         catch (OperationCanceledException)
@@ -265,47 +253,89 @@ public sealed class ReceiveSessionManager : IReceiveSessionManager, IDisposable
         }
         catch (ChecksumMismatchException ex)
         {
-            // SHA-256 校验失败（协议 422），半成品文件已由 FileSaver 删除
+            // SHA-256 校验失败（协议 422）：仅标记该文件失败，继续接收其余文件
             App.LogDiag($"[SessionMgr] {ex.Message}");
             lock (_lock)
             {
                 file.Status = ReceiveFileStatus.Failed;
                 file.Error = "SHA-256 校验失败";
-                session.Status = ReceiveSessionStatus.Failed;
-                if (_current == session) _current = null;
             }
-            _messenger.Send(new SessionFinishedMessage { Session = session });
+            MaybeFinalize(session, p);
             return new UploadResult { StatusCode = 422, ErrorMessage = "Checksum mismatch" };
         }
         catch (UnsafeFileNameException ex)
         {
-            // 文件名不安全（路径穿越/绝对路径/盘符）→ 协议无法表达"拒单个文件"，
-            // 整会话失败并明确告知；FileSaver 未创建任何文件
+            // 文件名不安全：拒绝该文件，继续接收其余文件
             App.LogDiag($"[SessionMgr] 拒绝不安全文件名：{ex.FileName}");
             lock (_lock)
             {
                 file.Status = ReceiveFileStatus.Failed;
                 file.Error = $"文件名不安全（已拒绝）：{ex.FileName}";
-                session.Status = ReceiveSessionStatus.Failed;
-                if (_current == session) _current = null;
             }
-            _messenger.Send(new SessionFinishedMessage { Session = session });
+            MaybeFinalize(session, p);
             return new UploadResult { StatusCode = 403, ErrorMessage = "Unsafe file name" };
         }
         catch (Exception ex)
         {
-            App.LogDiag($"[SessionMgr] 写盘失败：{ex.GetType().Name}: {ex.Message}{(ex.InnerException is null ? "" : $" | inner: {ex.InnerException.Message}")}");
+            // 写盘失败：仅标记该文件失败，其余文件继续接收（坏文件不再中断整批）
+            App.LogDiag($"[SessionMgr] 写盘失败（跳过该文件）：{ex.GetType().Name}: {ex.Message}{(ex.InnerException is null ? "" : $" | inner: {ex.InnerException.Message}")}");
             lock (_lock)
             {
                 file.Status = ReceiveFileStatus.Failed;
                 file.Error = ex.Message;
-                session.Status = ReceiveSessionStatus.Failed;
-                if (_current == session) _current = null;
             }
-            // 写盘失败也视为会话结束 → 释放 Session 对象 + 通知 UI 关进度对话框 + 记历史
-            _messenger.Send(new SessionFinishedMessage { Session = session });
+            MaybeFinalize(session, p);
             return new UploadResult { StatusCode = 500, ErrorMessage = "Failed to save file" };
         }
+    }
+
+    /// <summary>
+    /// 所有文件都终结（成功/失败/取消）时收尾会话：决定最终状态（有成功=Completed，否则 Failed），
+    /// 释放槽位、发完成摘要 toast 与 SessionFinished。非终结（还有文件未传）时直接返回不动作。
+    /// </summary>
+    private void MaybeFinalize(ReceiveSession session, ReceiveProgress p)
+    {
+        bool terminal;
+        int ok, failed;
+        lock (_lock)
+        {
+            ok = session.Files.Values.Count(f => f.Status == ReceiveFileStatus.Completed);
+            failed = session.Files.Values.Count(f => f.Status == ReceiveFileStatus.Failed);
+            terminal = session.Files.Values.All(f => f.Status is ReceiveFileStatus.Completed
+                or ReceiveFileStatus.Failed or ReceiveFileStatus.Canceled);
+            if (!terminal) return;
+            session.Status = ok > 0 ? ReceiveSessionStatus.Completed : ReceiveSessionStatus.Failed;
+            if (_current == session) _current = null;
+        }
+
+        App.LogDiag($"[SessionMgr] 会话收尾：成功 {ok}，失败 {failed}，总计 {session.Files.Count}");
+        _dispatcher.TryEnqueue(() =>
+        {
+            p.CompletedFiles = ok;
+            p.IsIndeterminate = false;
+            if (ok > 0)
+            {
+                p.IsCompleted = true;
+                p.PhaseText = failed > 0 ? "接收完成（部分失败）" : "接收完成";
+            }
+            else
+            {
+                p.IsCompleted = false;
+                p.PhaseText = "接收失败";
+            }
+        });
+
+        // 窗口隐藏在托盘时提醒用户（前台可见时静默）
+        if (ok > 0)
+        {
+            App.ShowTransferToast(failed > 0 ? "接收完成（部分失败）" : "接收完成",
+                $"{ok}/{session.Files.Count} 个文件已保存到 {session.DestinationDir}{(failed > 0 ? $"，{failed} 个失败" : "")}");
+        }
+        else
+        {
+            App.ShowTransferToast("接收失败", $"{failed} 个文件均接收失败");
+        }
+        _messenger.Send(new SessionFinishedMessage { Session = session });
     }
 
     public void Cancel(string sessionId, string senderIp)
@@ -380,25 +410,68 @@ public sealed class ReceiveSessionManager : IReceiveSessionManager, IDisposable
         return ip;
     }
 
+    /// <summary>已接受但迟迟无首个 upload 的容忍时长（发送方可能掉线）。</summary>
+    private static readonly TimeSpan AcceptedTimeout = TimeSpan.FromMinutes(3);
+
+    /// <summary>传输中两次 upload 请求之间的容忍时长（超过视为卡死，释放单槽）。</summary>
+    private static readonly TimeSpan InProgressIdleTimeout = TimeSpan.FromMinutes(10);
+
     private void CleanupStale()
     {
         ReceiveSession? stale = null;
+        var now = DateTime.UtcNow;
         lock (_lock)
         {
-            if (_current is not null
-                && _current.Status == ReceiveSessionStatus.PendingDecision
-                && DateTime.UtcNow - _current.CreatedAtUtc > TimeSpan.FromSeconds(PendingDecisionTimeoutSeconds))
+            if (_current is null) return;
+            var c = _current;
+            // 1) 待决策超时（UI 60s 未响应）
+            if (c.Status == ReceiveSessionStatus.PendingDecision
+                && now - c.CreatedAtUtc > TimeSpan.FromSeconds(PendingDecisionTimeoutSeconds))
             {
-                stale = _current;
+                stale = c;
+            }
+            // 2) 已接受但迟迟无 upload 开始（发送方掉线）
+            else if (c.Status == ReceiveSessionStatus.Accepted
+                && now - c.LastActivityUtc > AcceptedTimeout)
+            {
+                stale = c;
+            }
+            // 3) 传输中长时间无新请求（断链/卡死，避免永久占槽让其他设备一直 409）
+            else if (c.Status == ReceiveSessionStatus.InProgress
+                && now - c.LastActivityUtc > InProgressIdleTimeout)
+            {
+                stale = c;
             }
         }
         if (stale is null) return;
 
-        if (_pendingDecisions.Remove(stale.SessionId, out var tcs))
-            tcs.TrySetCanceled();
+        var wasPendingDecision = stale.Status == ReceiveSessionStatus.PendingDecision;
+        if (wasPendingDecision)
+        {
+            // 待决策超时：取消等待 UI 的 tcs（prepare 端点返回 403），保留文件 Pending
+            // 以便 UI 判定为"请求超时"
+            if (_pendingDecisions.Remove(stale.SessionId, out var tcs))
+                tcs.TrySetCanceled();
+        }
+        else
+        {
+            // 传输中/已接受卡死：将未完成文件置取消
+            lock (_lock)
+            {
+                foreach (var f in stale.Files.Values)
+                {
+                    if (f.Status is ReceiveFileStatus.Pending or ReceiveFileStatus.InProgress)
+                        f.Status = ReceiveFileStatus.Canceled;
+                }
+            }
+        }
 
-        lock (_lock) { if (_current == stale) _current = null; }
-        stale.Status = ReceiveSessionStatus.Failed;
+        lock (_lock)
+        {
+            stale.Status = ReceiveSessionStatus.Failed;
+            if (_current == stale) _current = null;
+        }
+        App.LogDiag($"[SessionMgr] 清理卡槽会话 {stale.SessionId[..8]}（原状态={stale.Status}）");
         _messenger.Send(new SessionFinishedMessage { Session = stale });
     }
 

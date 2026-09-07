@@ -526,11 +526,14 @@ public partial class SendViewModel : ViewModelBase,
             Files = BuildDetails(s),
         });
 
+        var failedCount = s.Files.Count(f => f.Status == SendFileStatus.Failed);
         var info = $"{s.CompletedFiles}/{s.Files.Count} 个文件 · {FormatBytes(s.TotalBytesSent)}";
         (string title, string message, ToastKind kind) = s.State switch
         {
-            SendSessionState.Completed =>
+            SendSessionState.Completed when failedCount == 0 =>
                 ("发送成功", $"{info}\n已发送到 {s.Target.Alias}", ToastKind.Success),
+            SendSessionState.Completed =>
+                ("发送完成（部分失败）", $"{info}\n{failedCount} 个文件发送失败", ToastKind.Warning),
             SendSessionState.Rejected =>
                 ("对方拒绝", s.ErrorMessage ?? "对方拒绝了所有文件", ToastKind.Warning),
             SendSessionState.Cancelled =>

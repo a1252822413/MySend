@@ -38,6 +38,10 @@ public sealed class ReceiveSession
     /// <summary>会话创建时间，用于超时清理。</summary>
     public DateTime CreatedAtUtc { get; init; } = DateTime.UtcNow;
 
+    /// <summary>最后一次活动时间（决策/收到 upload 请求时更新）。
+    /// 用于清理"已接受/传输中却长时间无进展"的卡槽会话。</summary>
+    public DateTime LastActivityUtc { get; set; } = DateTime.UtcNow;
+
     /// <summary>本机用户主动取消的信号（中断写盘流）。</summary>
     public CancellationTokenSource Cts { get; } = new();
 

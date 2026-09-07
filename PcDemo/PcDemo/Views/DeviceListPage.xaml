@@ -94,10 +94,14 @@
                                                       IsOn="{x:Bind AutoAccept, Mode=OneWay}"
                                                       Toggled="OnWhitelistAutoAcceptToggled"
                                                       DataContext="{x:Bind}"/>
-                                        <Button Grid.Column="2" Content="移除" Margin="12,0,0,0"
-                                                Click="OnRemoveWhitelistClick"
-                                                DataContext="{x:Bind}"
-                                                Padding="12,6" CornerRadius="8"/>
+                                        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8"
+                                                    Margin="12,0,0,0">
+                                            <Button Content="重命名" Click="OnRenameWhitelistClick"
+                                                    DataContext="{x:Bind}" Padding="10,6" CornerRadius="8"
+                                                    ToolTipService.ToolTip="修改本地显示名称"/>
+                                            <Button Content="移除" Click="OnRemoveWhitelistClick"
+                                                    DataContext="{x:Bind}" Padding="10,6" CornerRadius="8"/>
+                                        </StackPanel>
                                     </Grid>
                                 </Border>
                             </DataTemplate>
@@ -134,10 +138,14 @@
                                             <TextBlock Text="{x:Bind Alias, Mode=OneWay}" FontWeight="SemiBold" FontSize="13"/>
                                             <TextBlock Text="{x:Bind Fingerprint, Mode=OneWay}" Opacity="0.5" FontSize="11" TextTrimming="CharacterEllipsis"/>
                                         </StackPanel>
-                                        <Button Grid.Column="1" Content="移除" Margin="12,0,0,0"
-                                                Click="OnRemoveBlacklistClick"
-                                                DataContext="{x:Bind}"
-                                                Padding="12,6" CornerRadius="8"/>
+                                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8"
+                                                    Margin="12,0,0,0">
+                                            <Button Content="重命名" Click="OnRenameBlacklistClick"
+                                                    DataContext="{x:Bind}" Padding="10,6" CornerRadius="8"
+                                                    ToolTipService.ToolTip="修改本地显示名称"/>
+                                            <Button Content="移除" Click="OnRemoveBlacklistClick"
+                                                    DataContext="{x:Bind}" Padding="10,6" CornerRadius="8"/>
+                                        </StackPanel>
                                     </Grid>
                                 </Border>
                             </DataTemplate>

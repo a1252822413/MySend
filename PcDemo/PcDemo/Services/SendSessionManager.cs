@@ -177,24 +177,30 @@ public partial class SendSessionManager : ObservableObject, ISendSessionManager
                             SetFileStatus(f, SendFileStatus.Uploading);
                             continue;
                         }
+                        // 二次失败：跳过该文件、继续发送其余文件（不再整批中断）
                         SetFileStatus(f, SendFileStatus.Failed);
                         f.ErrorMessage = ex.Message;
-                        SetState(session, SendSessionState.Failed);
-                        session.ErrorMessage = $"{f.FileName}: {ex.Message}";
-                        // best-effort 通知对方 cancel，避免对方一直等
-                        try { await _client.CancelAsync(proto, target.Ip, session.RemoteSessionId!, CancellationToken.None); }
-                        catch { }
-                        NotifySendFinished(session);
-                        return;
+                        App.LogDiag($"[Send] ✗ 跳过失败文件继续其余：{f.FileName}: {ex.Message}");
+                        break; // 结束该文件的重试，进入下一个文件
                     }
                 }
             }
-            // 完成
-            SetState(session, SendSessionState.Completed);
-            App.LogDiag($"[Send] ✓ completed {sentCount}/{session.Files.Count} files");
-            // 窗口隐藏在托盘时提醒用户（前台可见时静默）
-            App.ShowTransferToast("发送完成",
-                $"已向 {session.Target.Alias} 发送 {sentCount}/{session.Files.Count} 个文件");
+            // 完成（可能含被跳过的失败文件）
+            var failedFiles = session.Files.Count(f => f.Status == SendFileStatus.Failed);
+            if (sentCount == 0)
+            {
+                SetState(session, SendSessionState.Failed);
+                session.ErrorMessage = failedFiles > 0 ? "所有文件发送失败（详见文件明细）" : "没有文件发送成功";
+                App.ShowTransferToast("发送失败", $"未能向 {session.Target.Alias} 发送任何文件");
+            }
+            else
+            {
+                SetState(session, SendSessionState.Completed);
+                if (failedFiles > 0) session.ErrorMessage = $"{failedFiles} 个文件发送失败";
+                App.ShowTransferToast(failedFiles > 0 ? "发送完成（部分失败）" : "发送完成",
+                    $"已向 {session.Target.Alias} 发送 {sentCount}/{session.Files.Count} 个文件{(failedFiles > 0 ? $"，{failedFiles} 个失败" : "")}");
+            }
+            App.LogDiag($"[Send] ✓ finished {sentCount}/{session.Files.Count} files (failed={failedFiles})");
             NotifySendFinished(session);
         }
         catch (SendCancelledException)

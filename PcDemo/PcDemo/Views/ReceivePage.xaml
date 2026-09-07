@@ -59,6 +59,8 @@
                 <Button Grid.Column="3" HorizontalAlignment="Right" VerticalAlignment="Center"
                         Background="Transparent" Padding="8,2" CornerRadius="8"
                         Command="{x:Bind ViewModel.CopyFingerprintCommand, Mode=OneWay}"
+                        AutomationProperties.Name="复制设备指纹"
+                        AutomationProperties.HelpText="{x:Bind ViewModel.Fingerprint, Mode=OneWay}"
                         ToolTipService.ToolTip="{x:Bind ViewModel.Fingerprint, Mode=OneWay}"
                         BorderThickness="0">
                     <Grid ColumnDefinitions="Auto,Auto" VerticalAlignment="Center">

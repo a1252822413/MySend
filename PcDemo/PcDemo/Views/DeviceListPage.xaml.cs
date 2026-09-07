@@ -53,4 +53,28 @@ public sealed partial class DeviceListPage : Page
         if (sender is Button b && b.DataContext is DeviceListEntry entry)
             ViewModel.RemoveBlacklistCommand.Execute(entry);
     }
+
+    // ---------- 重命名（白/黑名单条目的本地显示名） ----------
+
+    private async void OnRenameWhitelistClick(object sender, RoutedEventArgs e)
+    {
+        if ((sender as FrameworkElement)?.DataContext is DeviceListEntry entry)
+            await TryRenameAsync(entry);
+    }
+
+    private async void OnRenameBlacklistClick(object sender, RoutedEventArgs e)
+    {
+        if ((sender as FrameworkElement)?.DataContext is DeviceListEntry entry)
+            await TryRenameAsync(entry);
+    }
+
+    private async Task TryRenameAsync(DeviceListEntry entry)
+    {
+        var root = App.MainWindow.Content?.XamlRoot;
+        if (root is null) return;
+        var dialog = new NameInputDialog("重命名设备", entry.Alias) { XamlRoot = root };
+        var name = await dialog.ShowAndGetAsync();
+        if (name is null) return;
+        ViewModel.Rename(entry, name);
+    }
 }

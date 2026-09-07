@@ -20,6 +20,7 @@
             <!-- 侧边栏收起/展开按钮（最左）：32×32，点击区域 = 系统按钮高度 -->
             <Button x:Name="PaneToggleButton" Grid.Column="0"
                     Click="OnPaneToggleClick"
+                    AutomationProperties.Name="收起或展开侧边栏"
                     ToolTipService.ToolTip="收起/展开侧边栏"
                     Background="Transparent" BorderThickness="0"
                     Width="32" Height="32" Padding="0">
@@ -28,6 +29,7 @@
                 </Viewbox>
             </Button>
             <Image Grid.Column="1" Source="Assets/Square44x44Logo.targetsize-24_altform-unplated.png"
+                   AutomationProperties.Name="LocalSend PC"
                    Width="16" Height="16" Margin="4,0,0,0" VerticalAlignment="Center"/>
             <TextBlock Grid.Column="2" Text="LocalSend PC" FontSize="12" FontWeight="SemiBold"
                        Margin="10,0,0,0" VerticalAlignment="Center"

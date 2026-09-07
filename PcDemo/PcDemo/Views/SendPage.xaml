@@ -216,11 +216,13 @@
                     </Grid>
                     <Button Grid.Column="4" x:Name="PinToggleBtn" Width="40" Height="36" Padding="0"
                             Click="OnPinToggleClick" CornerRadius="8" Margin="8,0,8,0"
+                            AutomationProperties.Name="显示或隐藏 PIN"
                             ToolTipService.ToolTip="显示/隐藏 PIN" VerticalAlignment="Center">
                         <FontIcon Glyph="&#xE8D4;" FontSize="16"/>
                     </Button>
                     <Button Grid.Column="5" Content="开始发送"
                             Command="{x:Bind ViewModel.StartSendCommand}"
+                            AutomationProperties.Name="开始发送"
                             ToolTipService.ToolTip="{x:Bind ViewModel.SendDisabledHint, Mode=OneWay}"
                             Padding="24,0" Height="36" CornerRadius="10"
                             FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center"
