@@ -44,7 +44,8 @@
                     <ColumnDefinition Width="*"/>
                 </Grid.ColumnDefinitions>
                 <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-                    <TextBlock Text="🔌" FontSize="13" Opacity="0.7" VerticalAlignment="Center"/>
+                    <TextBlock Text="🔌" FontSize="13" Opacity="0.7" VerticalAlignment="Center"
+                               AutomationProperties.AccessibilityView="Raw"/>
                     <TextBlock Opacity="0.8" FontSize="13">
                         <Run Text="端口 "/>
                         <Run Text="{x:Bind ViewModel.Port, Mode=OneWay}" FontWeight="SemiBold"/>
@@ -116,6 +117,8 @@
                         <Border Padding="14" CornerRadius="12"
                                 DoubleTapped="OnDeviceCardDoubleTapped"
                                 ToolTipService.ToolTip="双击 → 发送文件给该设备"
+                                AutomationProperties.Name="{Binding Alias}"
+                                AutomationProperties.HelpText="双击发送文件给该设备；右键加入白名单或黑名单"
                                 Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                                 BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1">
                             <Border.ContextFlyout>
@@ -136,12 +139,14 @@
                                         Background="{ThemeResource AccentFillColorDefaultBrush}"
                                         VerticalAlignment="Center">
                                     <TextBlock Text="{Binding DeviceType, Converter={StaticResource DeviceTypeGlyph}}"
-                                               FontSize="19" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                               FontSize="19" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                               AutomationProperties.Name="{Binding DeviceType}"/>
                                 </Border>
                                 <StackPanel Grid.Column="2" Margin="12,0,0,0" Spacing="3" VerticalAlignment="Center">
                                     <TextBlock Text="{Binding Alias}" FontWeight="SemiBold" FontSize="14" TextTrimming="CharacterEllipsis"/>
                                     <StackPanel Orientation="Horizontal" Spacing="5">
-                                        <TextBlock Text="🌐" FontSize="10" Opacity="0.7" VerticalAlignment="Center"/>
+                                        <TextBlock Text="🌐" FontSize="10" Opacity="0.7" VerticalAlignment="Center"
+                                                   AutomationProperties.AccessibilityView="Raw"/>
                                         <TextBlock Text="{Binding Ip}" Opacity="0.7" FontSize="11" TextTrimming="CharacterEllipsis"/>
                                         <TextBlock Text="·" Opacity="0.5" FontSize="11"/>
                                         <TextBlock Text="{Binding Port}" Opacity="0.7" FontSize="11"/>
@@ -163,7 +168,8 @@
 
             <StackPanel Spacing="6" HorizontalAlignment="Center" VerticalAlignment="Center"
                     Visibility="{x:Bind ViewModel.HasNoDevices, Mode=OneWay}">
-                <TextBlock Text="📡" FontSize="40" HorizontalAlignment="Center"/>
+                <TextBlock Text="📡" FontSize="40" HorizontalAlignment="Center"
+                           AutomationProperties.AccessibilityView="Raw"/>
                 <TextBlock Text="正在搜索附近设备..." FontSize="14" FontWeight="SemiBold" HorizontalAlignment="Center"/>
                 <TextBlock Text="确保手机与电脑连接同一 Wi-Fi 网络" FontSize="12" Opacity="0.6" HorizontalAlignment="Center"/>
             </StackPanel>

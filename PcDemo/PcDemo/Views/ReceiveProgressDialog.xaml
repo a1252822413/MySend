@@ -12,17 +12,20 @@
     <Grid MinWidth="400">
         <!-- 进度面板：二次确认时保持显示（确认按钮在底部命令区切换） -->
         <StackPanel Spacing="14" Padding="0,4,0,0">
-            <TextBlock Text="{x:Bind SenderText, Mode=OneWay}" FontSize="14" Opacity="0.8"
+            <!-- 计算属性(SenderText/RingValue/FilesText/StatText)不实现 INPC：用 OneTime，
+                 由 P.PropertyChanged → OnProgressChanged → Bindings.Update() 手动刷新。
+                 P.*（ReceiveProgress 实现 INPC）保持 OneWay 自动更新。 -->
+            <TextBlock Text="{x:Bind SenderText}" FontSize="14" Opacity="0.8"
                        HorizontalAlignment="Center"/>
             <ProgressRing Width="84" Height="84"
                           IsIndeterminate="{x:Bind P.IsIndeterminate, Mode=OneWay}"
-                          Value="{x:Bind RingValue, Mode=OneWay}"/>
+                          Value="{x:Bind RingValue}"/>
             <StackPanel Spacing="4" HorizontalAlignment="Center">
                 <TextBlock Text="{x:Bind P.PhaseText, Mode=OneWay}" FontSize="15" FontWeight="SemiBold"
                            HorizontalAlignment="Center"/>
-                <TextBlock Text="{x:Bind FilesText, Mode=OneWay}" FontSize="12" Opacity="0.7"
+                <TextBlock Text="{x:Bind FilesText}" FontSize="12" Opacity="0.7"
                            HorizontalAlignment="Center"/>
-                <TextBlock Text="{x:Bind StatText, Mode=OneWay}" FontSize="12" Opacity="0.75"
+                <TextBlock Text="{x:Bind StatText}" FontSize="12" Opacity="0.75"
                            HorizontalAlignment="Center"/>
             </StackPanel>
         </StackPanel>

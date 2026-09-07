@@ -78,7 +78,7 @@
                         Visibility="{x:Bind ViewModel.SelectedTarget, Converter={StaticResource NullToCollapsed}}">
                     <Grid ColumnDefinitions="*,Auto">
                         <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
-                            <TextBlock Text="🎯" FontSize="16"/>
+                            <TextBlock Text="🎯" FontSize="16" AutomationProperties.AccessibilityView="Raw"/>
                             <StackPanel Spacing="2">
                                 <TextBlock Text="{x:Bind ViewModel.SelectedTarget.Alias, Mode=OneWay}"
                                            FontWeight="SemiBold" FontSize="13"/>
@@ -231,7 +231,7 @@
                         <Button.ContentTemplate>
                             <DataTemplate>
                                 <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-                                    <TextBlock Text="🚀" FontSize="15"/>
+                                    <TextBlock Text="🚀" FontSize="15" AutomationProperties.AccessibilityView="Raw"/>
                                     <TextBlock Text="{Binding}" VerticalAlignment="Center"/>
                                 </StackPanel>
                             </DataTemplate>
@@ -303,12 +303,14 @@
                                         <Grid ColumnDefinitions="Auto,40,*" VerticalAlignment="Center">
                                             <Border Grid.Column="0" Width="4" CornerRadius="2" MaxHeight="32"
                                                     VerticalAlignment="Center"
+                                                    AutomationProperties.AccessibilityView="Raw"
                                                     Background="{Binding Status, Converter={StaticResource StatusColor}}"/>
                                             <Border Grid.Column="1" Width="40" Height="40" CornerRadius="10"
                                                     Background="{ThemeResource LayerFillColorDefaultBrush}"
                                                     HorizontalAlignment="Left" VerticalAlignment="Center" Margin="6,0,0,0">
                                                 <TextBlock Text="{Binding FileKind, Converter={StaticResource FileKindGlyph}}"
-                                                           FontSize="28" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                           FontSize="28" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                           AutomationProperties.AccessibilityView="Raw"/>
                                             </Border>
                                             <Grid Grid.Column="2" Margin="10,0,0,0">
                                                 <Grid.RowDefinitions>
@@ -339,6 +341,7 @@
                                                             Visibility="{Binding Status, Converter={StaticResource PendingOnlyToVisible}}"/>
                                                 </Grid>
                                                 <ProgressBar Grid.Row="1" Margin="0,4,0,0" Height="4" CornerRadius="2"
+                                                             AutomationProperties.Name="{Binding FileName}"
                                                              Maximum="{Binding Size}"
                                                              Value="{Binding BytesSent, Mode=OneWay}"
                                                              Foreground="{Binding Status, Converter={StaticResource ProgressColor}}"
