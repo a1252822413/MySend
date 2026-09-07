@@ -30,8 +30,8 @@ public sealed partial class SendPage : Page
             if (e.PropertyName == nameof(SendViewModel.IsImporting))
             {
                 var on = ViewModel.IsImporting;
-                ImportingRing.Visibility = on ? Visibility.Visible : Visibility.Collapsed;
-                ImportingText.Visibility = on ? Visibility.Visible : Visibility.Collapsed;
+                // 整个容器 Collapsed，空闲时 FlowPanel 不会把它当作占位元素（避免按钮左侧多出间距）
+                ImportingIndicator.Visibility = on ? Visibility.Visible : Visibility.Collapsed;
             }
         };
 
@@ -191,11 +191,27 @@ public sealed partial class SendPage : Page
 
     private bool _pinSyncing;
 
+    /// <summary>PIN 只允许数字、最多 6 位；非法/超长部分自动剔除。</summary>
+    private const int PinMaxLength = 6;
+
+    private static string SanitizePin(string? raw)
+    {
+        if (string.IsNullOrEmpty(raw)) return string.Empty;
+        var sb = new System.Text.StringBuilder(raw.Length);
+        foreach (var ch in raw)
+        {
+            if (ch is >= '0' and <= '9' && sb.Length < PinMaxLength) sb.Append(ch);
+        }
+        return sb.ToString();
+    }
+
     private void OnPinPasswordChanged(object sender, RoutedEventArgs e)
     {
         if (_pinSyncing) return;
         _pinSyncing = true;
-        ViewModel.Pin = PinPasswordBox.Password;
+        var clean = SanitizePin(PinPasswordBox.Password);
+        if (clean != PinPasswordBox.Password) PinPasswordBox.Password = clean;
+        ViewModel.Pin = clean;
         _pinSyncing = false;
     }
 
@@ -203,7 +219,14 @@ public sealed partial class SendPage : Page
     {
         if (_pinSyncing) return;
         _pinSyncing = true;
-        ViewModel.Pin = PinVisibleBox.Text;
+        var clean = SanitizePin(PinVisibleBox.Text);
+        if (clean != PinVisibleBox.Text)
+        {
+            // 改动文本后把光标放到末尾，避免非法输入被剔时跳动
+            PinVisibleBox.Text = clean;
+            PinVisibleBox.SelectionStart = clean.Length;
+        }
+        ViewModel.Pin = clean;
         _pinSyncing = false;
     }
 

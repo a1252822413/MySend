@@ -6,6 +6,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:vm="using:PcDemo.ViewModels"
     xmlns:c="using:PcDemo.Converters"
+    xmlns:ctrls="using:PcDemo.Controls"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
@@ -173,7 +174,7 @@
                     </ListView.ItemTemplate>
                 </ListView>
 
-                <StackPanel Grid.Row="2" Margin="0,12,0,0" Spacing="6" HorizontalAlignment="Center" VerticalAlignment="Center"
+                <StackPanel Grid.Row="2" Margin="0,12,0,12" Spacing="6" HorizontalAlignment="Center" VerticalAlignment="Center"
                             Visibility="{x:Bind ViewModel.HasNoDevices, Mode=OneWay}">
                     <TextBlock Text="📡" FontSize="40" HorizontalAlignment="Center"/>
                     <TextBlock Text="正在搜索附近设备..." FontSize="14" FontWeight="SemiBold" HorizontalAlignment="Center"/>
@@ -183,21 +184,15 @@
             </Grid>
 
             <Grid Grid.Row="2" Margin="0,2,0,0" RowDefinitions="Auto,Auto,*,Auto">
-                <Grid Grid.Row="0" ColumnDefinitions="*,Auto,Auto,Auto,Auto,Auto">
-                    <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                        <TextBlock Text="待发送文件" FontSize="16" FontWeight="SemiBold"/>
-                        <Border Padding="8,2" CornerRadius="10" Background="{ThemeResource CardStrokeColorDefaultBrush}"
-                                VerticalAlignment="Center">
-                            <TextBlock Text="{x:Bind ViewModel.PendingFiles.Count, Mode=OneWay}" FontSize="11" Opacity="0.7"/>
-                        </Border>
-                        <ProgressRing x:Name="ImportingRing" Width="14" Height="14" IsActive="True"
-                                      Visibility="Collapsed" VerticalAlignment="Center"
+                <!-- 操作行：窄窗口自动换行（FlowPanel），避免按钮被截断/盖住 -->
+                <ctrls:FlowPanel Grid.Row="0" HorizontalSpacing="8" VerticalSpacing="8">
+                    <StackPanel x:Name="ImportingIndicator" Orientation="Horizontal" Spacing="8"
+                                VerticalAlignment="Center" Visibility="Collapsed">
+                        <ProgressRing Width="14" Height="14" IsActive="True" VerticalAlignment="Center"
                                       AutomationProperties.Name="正在导入文件"/>
-                        <TextBlock x:Name="ImportingText" Text="导入中…" FontSize="12" Opacity="0.7"
-                                   Visibility="Collapsed" VerticalAlignment="Center"/>
+                        <TextBlock Text="导入中…" FontSize="12" Opacity="0.7" VerticalAlignment="Center"/>
                     </StackPanel>
-                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center"
-                                Margin="0,0,8,0">
+                    <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
                         <Button Content="📁 添加文件" Click="OnPickFilesClick"
                                 Padding="14,0" Height="36" CornerRadius="8"/>
                         <Button Content="📂 添加文件夹" Click="OnPickFolderClick"
@@ -207,26 +202,28 @@
                                 Padding="14,0" Height="36" CornerRadius="8"
                                 ToolTipService.ToolTip="发送文字/剪贴板内容（对方保存为 .txt）"/>
                     </StackPanel>
-                    <Button Grid.Column="2" Content="清空" Command="{x:Bind ViewModel.ClearFilesCommand}"
-                            Padding="12,0" Height="36" CornerRadius="8" Margin="0,0,16,0"
+                    <Button Content="清空" Command="{x:Bind ViewModel.ClearFilesCommand}"
+                            Padding="12,0" Height="36" CornerRadius="8"
                             VerticalAlignment="Center"
                             Visibility="{x:Bind ViewModel.HasFiles, Mode=OneWay}"/>
-                    <!-- PIN + 发送：与添加文件同一行右对齐 -->
-                    <Grid Grid.Column="3" Width="180" VerticalAlignment="Center">
-                        <PasswordBox x:Name="PinPasswordBox" PlaceholderText="PIN（对方启用时必填）"
+                    <!-- PIN + 发送：窄时可随 FlowPanel 折行 -->
+                    <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                        <Grid Width="110" VerticalAlignment="Center">
+                            <PasswordBox x:Name="PinPasswordBox" PlaceholderText="PIN"
+                                         Height="36" Padding="12,8" CornerRadius="8" FontSize="13"
+                                         PasswordChanged="OnPinPasswordChanged"/>
+                            <TextBox x:Name="PinVisibleBox" Visibility="Collapsed"
                                      Height="36" Padding="12,8" CornerRadius="8" FontSize="13"
-                                     PasswordChanged="OnPinPasswordChanged"/>
-                        <TextBox x:Name="PinVisibleBox" Visibility="Collapsed"
-                                 Height="36" Padding="12,8" CornerRadius="8" FontSize="13"
-                                 TextChanged="OnPinTextChanged"/>
-                    </Grid>
-                    <Button Grid.Column="4" x:Name="PinToggleBtn" Width="40" Height="36" Padding="0"
-                            Click="OnPinToggleClick" CornerRadius="8" Margin="8,0,8,0"
-                            AutomationProperties.Name="显示或隐藏 PIN"
-                            ToolTipService.ToolTip="显示/隐藏 PIN" VerticalAlignment="Center">
-                        <FontIcon Glyph="&#xE8D4;" FontSize="16"/>
-                    </Button>
-                    <Button Grid.Column="5" Content="开始发送"
+                                     TextChanged="OnPinTextChanged"/>
+                        </Grid>
+                        <Button x:Name="PinToggleBtn" Width="40" Height="36" Padding="0"
+                                Click="OnPinToggleClick" CornerRadius="8"
+                                AutomationProperties.Name="显示或隐藏 PIN"
+                                ToolTipService.ToolTip="显示/隐藏 PIN" VerticalAlignment="Center">
+                            <FontIcon Glyph="&#xE8D4;" FontSize="16"/>
+                        </Button>
+                    </StackPanel>
+                    <Button Content="开始发送"
                             Command="{x:Bind ViewModel.StartSendCommand}"
                             AutomationProperties.Name="开始发送"
                             ToolTipService.ToolTip="{x:Bind ViewModel.SendDisabledHint, Mode=OneWay}"
@@ -243,7 +240,7 @@
                             </DataTemplate>
                         </Button.ContentTemplate>
                     </Button>
-                </Grid>
+                </ctrls:FlowPanel>
 
                 <Border Grid.Row="1" Margin="0,12,0,12" Padding="14,12" CornerRadius="12"
                         Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"

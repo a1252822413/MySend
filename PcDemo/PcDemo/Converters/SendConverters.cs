@@ -13,6 +13,14 @@ public sealed class NullToCollapsed : IValueConverter
     public object ConvertBack(object value, Type targetType, object parameter, string language) => throw new NotSupportedException();
 }
 
+/// <summary>null 或空字符串 -> Collapsed，否则 Visible（用于状态提示文字，无内容时不占位）。</summary>
+public sealed class EmptyToCollapsed : IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, string language)
+        => string.IsNullOrWhiteSpace(value as string) ? Visibility.Collapsed : Visibility.Visible;
+    public object ConvertBack(object value, Type targetType, object parameter, string language) => throw new NotSupportedException();
+}
+
 public sealed class BytesToString : IValueConverter
 {
     public object Convert(object value, Type targetType, object parameter, string language)
