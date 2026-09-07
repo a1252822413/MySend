@@ -46,8 +46,27 @@ public partial class SendViewModel : ViewModelBase,
     /// <summary>UI 处理器：会话结束（完成/取消/失败）时关闭进度对话框（UI 线程触发）。</summary>
     public Action? ProgressFinished { get; set; }
 
-    /// <summary>选中设备（Devices 网格选中的那个；不选则按钮灰）。</summary>
-    [ObservableProperty] private Device? _selectedTarget;
+    /// <summary>选中的目标设备集合（多选；点“开始发送”逐台排队发送）。</summary>
+    public ObservableCollection<Device> SelectedTargets { get; } = new();
+
+    /// <summary>首个选中设备（兼容旧绑定/双击跳转：ShellWindow 置此字段 = 单选该设备）。</summary>
+    public Device? SelectedTarget => SelectedTargets.FirstOrDefault();
+
+    /// <summary>选中横幅展示文本：单台显示设备详情，多台显示“已选 N 台设备”。</summary>
+    public string SelectedTargetSummary
+    {
+        get
+        {
+            var n = SelectedTargets.Count;
+            if (n == 0) return string.Empty;
+            if (n == 1)
+            {
+                var d = SelectedTargets[0];
+                return $"{d.Alias}  ·  {d.Ip}:{d.Port}  ·  {d.DeviceModel}";
+            }
+            return $"已选 {n} 台设备";
+        }
+    }
 
     /// <summary>拆分的置灰条件（单一 computed 集中管理，UI 可据此显示原因）。</summary>
     [ObservableProperty] private bool _hasSelectedTarget;
@@ -62,12 +81,39 @@ public partial class SendViewModel : ViewModelBase,
     {
         get
         {
-            if (!HasSelectedTarget) return "⚠️ 请先在上方设备网格中点击选择一个目标设备";
+            if (!HasSelectedTarget) return "⚠️ 请先在上方设备网格中勾选一个或多个目标设备";
             if (!HasPendingFiles)    return "⚠️ 请先添加要发送的文件";
             if (!IsIdleOrFinished)   return "⏳ 正在发送，请等待完成或点击“取消”后再发送";
             return "可以发送";
         }
     }
+
+    // ---------- 多设备群发状态 ----------
+    /// <summary>是否正处于多设备群发（并行发送）中。为 true 时不弹单台 toast、结束后统一汇总。</summary>
+    [ObservableProperty] private bool _isQueueSending;
+
+    /// <summary>群发成功/失败计数（结束时汇总）。</summary>
+    private int _queueOkCount;
+    private int _queueFailCount;
+
+    /// <summary>批次总台数 / 剩余未收尾台数（UI 线程维护）。</summary>
+    private int _queueTotal;
+    private int _queuePending;
+
+    /// <summary>批次全部会话（ShowResult/兜底据此判断“是否群发中”并抑制单台 toast）。</summary>
+    private readonly HashSet<SendSession> _queueSessions = new();
+
+    /// <summary>已完成收尾的会话（防 ShowResult 与异常兜底重复收尾/重复记历史）。</summary>
+    private readonly HashSet<SendSession> _queueSettled = new();
+
+    /// <summary>整批完成信号：UI 线程 pending 归零时触发，SendBatchAsync 据此收尾复位。</summary>
+    private TaskCompletionSource<bool>? _batchDoneTcs;
+
+    /// <summary>UI 处理器：整批会话创建后一次性传入（UI 线程触发）。
+    /// SendPage 用它弹“每台一行”的列表进度弹窗。</summary>
+    public Action<IReadOnlyList<SendSession>>? QueueBatchStarted { get; set; }
+
+    partial void OnIsQueueSendingChanged(bool value) => RecomputeCanSend();
 
     public bool HasDevices => Devices.Count > 0;
     public bool HasNoDevices => Devices.Count == 0;
@@ -98,6 +144,8 @@ public partial class SendViewModel : ViewModelBase,
         {
             OnPropertyChanged(nameof(HasDevices));
             OnPropertyChanged(nameof(HasNoDevices));
+            // 设备实例可能被 registry 原位更新（DeviceCollectionSync.Sync），重刷勾选高亮
+            SyncIsPickedFlags();
         };
         PendingFiles.CollectionChanged += (_, _) =>
         {
@@ -105,19 +153,57 @@ public partial class SendViewModel : ViewModelBase,
             OnPropertyChanged(nameof(HasNoFiles));
             RecomputeCanSend();
         };
+        SelectedTargets.CollectionChanged += (_, _) =>
+        {
+            SyncIsPickedFlags();
+            OnPropertyChanged(nameof(SelectedTarget));
+            OnPropertyChanged(nameof(SelectedTargetSummary));
+            OnPropertyChanged(nameof(HasSelectedTarget));
+            RecomputeCanSend();
+        };
     }
+
+    /// <summary>按 SelectedTargets 集合内容刷新设备卡 IsPicked 高亮。</summary>
+    private void SyncIsPickedFlags()
+    {
+        var picked = SelectedTargets.Select(d => d.Fingerprint).ToHashSet();
+        foreach (var d in Devices) d.IsPicked = d.Fingerprint is not null && picked.Contains(d.Fingerprint);
+    }
+
+    /// <summary>单选：清空多选，仅选中一台（兼容双击跳转/旧命令）。</summary>
+    public void SetSingleTarget(Device? d)
+    {
+        if (d is null) { SelectedTargets.Clear(); return; }
+        if (SelectedTargets.Count == 1 && ReferenceEquals(SelectedTargets[0], d)) return;
+        SelectedTargets.Clear();
+        SelectedTargets.Add(d);
+    }
+
+    /// <summary>切换某台设备的多选状态（UI 勾选设备卡调用）。</summary>
+    public void ToggleTarget(Device? d)
+    {
+        if (d is null || d.Fingerprint is null) return;
+        var existing = SelectedTargets.FirstOrDefault(x => x.Fingerprint == d.Fingerprint);
+        if (existing is not null) SelectedTargets.Remove(existing);
+        else SelectedTargets.Add(d);
+    }
+
+    /// <summary>是否已勾选该设备（供卡片显示勾选态）。</summary>
+    public bool IsTargetSelected(Device? d)
+        => d?.Fingerprint is not null && SelectedTargets.Any(x => x.Fingerprint == d.Fingerprint);
 
     /// <summary>重算所有置灰子条件并刷新 RelayCommand CanExecute + UI 绑定。</summary>
     private void RecomputeCanSend()
     {
-        HasSelectedTarget = SelectedTarget is not null;
+        HasSelectedTarget = SelectedTargets.Count > 0;
         HasPendingFiles   = PendingFiles.Count > 0;
-        IsIdleOrFinished  = Current is null
-            || Current.State == SendSessionState.Completed
-            || Current.State == SendSessionState.Cancelled
-            || Current.State == SendSessionState.Rejected
-            || Current.State == SendSessionState.Failed
-            || Current.State == SendSessionState.CancelledByPeer;
+        IsIdleOrFinished  = !IsQueueSending
+            && (Current is null
+                || Current.State == SendSessionState.Completed
+                || Current.State == SendSessionState.Cancelled
+                || Current.State == SendSessionState.Rejected
+                || Current.State == SendSessionState.Failed
+                || Current.State == SendSessionState.CancelledByPeer);
 
         OnPropertyChanged(nameof(CanSend));
         OnPropertyChanged(nameof(SendDisabledHint));
@@ -142,13 +228,6 @@ public partial class SendViewModel : ViewModelBase,
             foreach (var d in Devices) d.RefreshOnlineState();
         };
         heartbeat.Start();
-    }
-
-    partial void OnSelectedTargetChanged(Device? value)
-    {
-        // 同步设备卡选中高亮标记（引用相等比较，不破坏 ListView 选中引用）
-        foreach (var d in Devices) d.IsPicked = ReferenceEquals(d, value);
-        RecomputeCanSend();
     }
 
     partial void OnCurrentChanged(SendSession? value)
@@ -306,7 +385,7 @@ public partial class SendViewModel : ViewModelBase,
 
         PendingFiles.Add(CreateTransientTextItem(text));
 
-        if (SelectedTarget is null)
+        if (SelectedTargets.Count == 0)
         {
             _messenger.Send(new ShowToastMessage
             {
@@ -429,49 +508,192 @@ public partial class SendViewModel : ViewModelBase,
     [RelayCommand]
     private void ClearFiles() => PendingFiles.Clear();
 
-    /// <summary>设备网格选中（单向命令：点设备卡片 → 设 SelectedTarget）。</summary>
+    /// <summary>设备网格选中（单向命令：点设备卡片 → 单选该设备）。</summary>
     [RelayCommand]
-    private void SelectDevice(Device? d)
-    {
-        SelectedTarget = d;
-    }
+    private void SelectDevice(Device? d) => SetSingleTarget(d);
 
     [RelayCommand(CanExecute = nameof(CanSend))]
     private async Task StartSendAsync()
     {
-        if (SelectedTarget is null || PendingFiles.Count == 0) return;
+        if (SelectedTargets.Count == 0 || PendingFiles.Count == 0) return;
+        var targets = SelectedTargets.ToList();
 
-        // 从 PendingFiles 复制一份新实例（避免复用后 BytesSent 等遗留）
-        var files = PendingFiles.Select(f => new SendFileItem
-        {
-            Id = f.Id,
-            FileName = f.FileName,
-            Path = f.Path,
-            Size = f.Size,
-            FileKind = f.FileKind,
-            IsTransient = f.IsTransient,
-        }).ToList();
-        var session = _sendMgr.CreateSession(SelectedTarget, files);
-        Current = session;
-        OnPropertyChanged(nameof(CanSend));
+        // 从 PendingFiles 复制一份“模板”（每台设备再各克隆一份，避免多台共享文件对象导致进度互相污染）
+        var template = PendingFiles.Select(CloneFileItem).ToList();
 
         // 目标设备开启 PIN 校验时，把输入的 PIN 传给 prepare-upload（官方协议 ?pin=）
         var pin = string.IsNullOrWhiteSpace(Pin) ? null : Pin.Trim();
 
-        // UI 订阅：弹出发送进度对话框（UI 线程触发）
-        TransferStarted?.Invoke(session);
-
-        // 后台跑（不阻塞 UI 线程）
-        _ = Task.Run(async () =>
+        if (targets.Count == 1)
         {
-            await _sendMgr.RunAsync(session, pin, CancellationToken.None);
-        }, CancellationToken.None);
+            // 单台：维持原弹窗式进度对话框体验
+            var session = _sendMgr.CreateSession(targets[0], template);
+            Current = session;
+            OnPropertyChanged(nameof(CanSend));
+            TransferStarted?.Invoke(session);
+            _ = Task.Run(async () =>
+            {
+                await _sendMgr.RunAsync(session, pin, CancellationToken.None);
+            }, CancellationToken.None);
+            return;
+        }
+
+        // 多台：并行发送（各台独立会话同时跑，谁接受谁先传）
+        await SendBatchAsync(targets, template, pin);
     }
+
+    private CancellationTokenSource? _queueCts;
+
+    /// <summary>多设备群发（并行）：为每台创建独立会话并同时启动 RunAsync。
+    /// 所有会话“谁先接受谁先传”，互不等待；全部结束后统一汇总提示、关闭列表弹窗。</summary>
+    private async Task SendBatchAsync(List<Device> targets, List<SendFileItem> template, string? pin)
+    {
+        if (targets is null || targets.Count == 0) return;
+        var total = targets.Count;
+        IsQueueSending = true;
+        _queueOkCount = 0;
+        _queueFailCount = 0;
+        _queueSessions.Clear();
+        _queueSettled.Clear();
+        _sendMgr.SuppressCompletionToast = true; // 单台完成通知由本方法末尾统一汇总
+        _queueCts = new CancellationTokenSource();
+        var ct = _queueCts.Token;
+
+        // 一次性为每台创建独立会话（互不覆盖、互不取消）
+        var sessions = new List<SendSession>(total);
+        for (var i = 0; i < total; i++)
+        {
+            var files = template.Select(CloneFileItem).ToList();
+            var session = _sendMgr.CreateSession(targets[i], files);
+            sessions.Add(session);
+            _queueSessions.Add(session);
+            App.LogDiag($"[SendVM] 群发 {i + 1}/{total} → {targets[i].Alias} ({targets[i].Ip})");
+        }
+        Current = sessions[0];
+        OnPropertyChanged(nameof(CanSend));
+
+        // 通知 UI：打开“每台一行”的列表弹窗（一次性传入整批会话，之后各自独立刷新）
+        if (_dispatcher is not null && QueueBatchStarted is not null)
+        {
+            var snapshot = sessions.ToList();
+            _dispatcher.TryEnqueue(() => QueueBatchStarted?.Invoke(snapshot));
+        }
+
+        _queueTotal = total;
+        _queuePending = total;
+        var doneTcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        _batchDoneTcs = doneTcs;
+
+        // 并行启动每台：各会话独立跑 prepare → upload
+        foreach (var s in sessions)
+        {
+            var session = s;
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await _sendMgr.RunAsync(session, pin, ct);
+                }
+                catch (Exception ex)
+                {
+                    App.LogDiag($"[SendVM] 群发单台异常（兜底收尾继续其它台）：{ex}");
+                }
+                finally
+                {
+                    // 正常路径：RunAsync 已触发 NotifySendFinished → ShowResult 收尾；
+                    // 异常逃逸路径：ShowResult 未触发，这里在 UI 线程补一次收尾（幂等防双计）。
+                    _dispatcher?.TryEnqueue(() =>
+                    {
+                        if (_queueSessions.Contains(session) && !_queueSettled.Contains(session))
+                        {
+                            if (session.State is not (SendSessionState.Completed
+                                or SendSessionState.Rejected or SendSessionState.Cancelled
+                                or SendSessionState.CancelledByPeer or SendSessionState.Failed))
+                            {
+                                session.State = SendSessionState.Failed;
+                                session.ErrorMessage = "发送中断";
+                            }
+                            SettleQueueSession(session);
+                        }
+                    });
+                }
+            }, CancellationToken.None);
+        }
+
+        // 等全部会话在 UI 线程收尾完成（状态已最终化、历史已记录）
+        await doneTcs.Task;
+
+        // —— 以下在 UI 线程（await 恢复于命令的 UI 上下文）——
+        var ok = _queueOkCount;
+        var fail = _queueFailCount;
+        _sendMgr.SuppressCompletionToast = false;
+        _queueCts?.Dispose();
+        _queueCts = null;
+        _queueSettled.Clear();
+        IsQueueSending = false;
+        Current = null;
+        // 群发多台共享同一临时文本文件，整批结束后才清理
+        CleanupQueueTransients(template);
+        OnPropertyChanged(nameof(CanSend));
+        OnPropertyChanged(nameof(SendDisabledHint));
+        StartSendCommand.NotifyCanExecuteChanged();
+
+        // 汇总提示（成功/失败统计）
+        var done = ok + fail;
+        if (done > 0)
+        {
+            var msg = fail == 0
+                ? $"已成功发送给全部 {done} 台设备"
+                : ok == 0
+                    ? $"发送给 {done} 台设备均失败"
+                    : $"成功 {ok} 台，失败 {fail} 台（共 {done} 台）";
+            _messenger.Send(new ShowToastMessage { Kind = fail == 0 ? ToastKind.Success : ToastKind.Warning, Message = $"群发完成\n{msg}" });
+        }
+
+        // 群发结束 → 关闭列表弹窗（与单发共用 ProgressFinished）
+        ProgressFinished?.Invoke();
+
+        // 让最后可能仍在队列里的 ShowResult 先跑完，再清空会话集合
+        await Task.Yield();
+        _queueSessions.Clear();
+    }
+
+    /// <summary>单台会话收尾（UI 线程）：记录历史、统计成功/失败，批次最后一台结束时置位完成信号。
+    /// 幂等：同一会话只收尾一次（_queueSettled 判重）。</summary>
+    private void SettleQueueSession(SendSession s)
+    {
+        if (!_queueSessions.Contains(s)) return;
+        if (!_queueSettled.Add(s)) return; // 已收尾（ShowResult / 兜底 / 正常路径可能重入）
+
+        RecordHistory(s);
+
+        if (s.State == SendSessionState.Completed) _queueOkCount++;
+        else _queueFailCount++;
+
+        _queuePending--;
+        if (_queuePending <= 0)
+        {
+            _batchDoneTcs?.TrySetResult(true);
+        }
+    }
+
+    /// <summary>克隆一个 SendFileItem（保留 Id 以匹配接收端文件 token；进度状态字段为新实例）。</summary>
+    private static SendFileItem CloneFileItem(SendFileItem f) => new()
+    {
+        Id = f.Id,
+        FileName = f.FileName,
+        Path = f.Path,
+        Size = f.Size,
+        FileKind = f.FileKind,
+        IsTransient = f.IsTransient,
+    };
 
     [RelayCommand]
     private void CancelSend()
     {
-        _sendMgr.CancelCurrent();
+        // 群发中：取消整批所有活动会话；单发：取消当前会话
+        _queueCts?.Cancel();
+        _sendMgr.CancelAll();
     }
 
     // ---------- 设备名单快捷操作（右键菜单调用） ----------
@@ -509,14 +731,26 @@ public partial class SendViewModel : ViewModelBase,
             if (d is not null)
             {
                 Devices.Remove(d);
-                if (ReferenceEquals(SelectedTarget, d)) SelectedTarget = null;
+                // 若离线的是已勾选目标，把它从多选集移除（避免对已消失设备发送）
+                var picked = SelectedTargets.FirstOrDefault(x => x.Fingerprint == message.Fingerprint);
+                if (picked is not null) SelectedTargets.Remove(picked);
             }
         });
     }
 
     public void Receive(SendSessionFinishedMessage message)
     {
-        _dispatcher?.TryEnqueue(() => ShowResult(message.Session));
+        // 群发中这条消息由 SendSessionManager.NotifySendFinished 的 messenger.Send 同步投递；
+        // 这里必须 try/catch，避免本处理方法抛异常反向传染回 RunAsync 的 catch 块（会绕过
+        // 其平级 catch(Exception) 直接逃逸 → tcs 永不完成、群发卡死）。
+        try
+        {
+            _dispatcher?.TryEnqueue(() => ShowResult(message.Session));
+        }
+        catch (Exception ex)
+        {
+            App.LogDiag($"[SendVM] SendSessionFinishedMessage 处理异常：{ex}");
+        }
     }
 
     /// <summary>从发送会话构建逐文件明细快照（发送项无保存路径）。</summary>
@@ -545,29 +779,18 @@ public partial class SendViewModel : ViewModelBase,
 
     private void ShowResult(SendSession s)
     {
-        // 会话结束 → 关闭进度对话框（若开着）
-        ProgressFinished?.Invoke();
-
-        // 一次性文本消息：发送结束清理临时文件并从待发列表移除
-        CleanupTransient(s);
-
-        // 记录传输历史
-        _history.Add(new TransferHistoryItem
+        // 群发中（并行多台）：每台完成只做历史与计数（SettleQueueSession 幂等收尾），
+        // 不弹单台 toast、不关列表弹窗（整批结束由 SendBatchAsync 统一关闭）。
+        if (_queueSessions.Contains(s))
         {
-            Direction = TransferDirection.Send,
-            PeerName = s.Target.Alias,
-            FileCount = s.Files.Count,
-            TotalBytes = s.TotalBytesSent,
-            Result = s.State switch
-            {
-                SendSessionState.Completed => TransferResult.Success,
-                SendSessionState.Failed => TransferResult.Failed,
-                _ => TransferResult.Canceled,
-            },
-            FinishedAt = DateTime.Now,
-            FirstFileName = s.Files.Count == 1 ? System.IO.Path.GetFileName(s.Files[0].Path) : null,
-            Files = BuildDetails(s),
-        });
+            SettleQueueSession(s);
+            return;
+        }
+
+        // —— 单发路径 ——
+        ProgressFinished?.Invoke();   // 会话结束 → 关闭进度对话框
+        CleanupTransient(s);
+        RecordHistory(s);
 
         var failedCount = s.Files.Count(f => f.Status == SendFileStatus.Failed);
         var info = $"{s.CompletedFiles}/{s.Files.Count} 个文件 · {FormatBytes(s.TotalBytesSent)}";
@@ -591,6 +814,41 @@ public partial class SendViewModel : ViewModelBase,
             Message = title == message ? message : $"{title}\n{message}",
             Kind = kind,
         });
+    }
+
+    /// <summary>记录一条发送历史（单发路径用；群发路径经 SettleQueueSession 调用）。</summary>
+    private void RecordHistory(SendSession s)
+    {
+        _history.Add(new TransferHistoryItem
+        {
+            Direction = TransferDirection.Send,
+            PeerName = s.Target.Alias,
+            FileCount = s.Files.Count,
+            TotalBytes = s.TotalBytesSent,
+            Result = s.State switch
+            {
+                SendSessionState.Completed => TransferResult.Success,
+                SendSessionState.Failed => TransferResult.Failed,
+                _ => TransferResult.Canceled,
+            },
+            FinishedAt = DateTime.Now,
+            FirstFileName = s.Files.Count == 1 ? System.IO.Path.GetFileName(s.Files[0].Path) : null,
+            Files = BuildDetails(s),
+        });
+    }
+
+    /// <summary>群发整批结束后：清理该批模板中的一次性文本临时文件（多台共享同一文件，不能逐台删）。</summary>
+    private void CleanupQueueTransients(List<SendFileItem> template)
+    {
+        if (template is null) return;
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var f in template)
+        {
+            if (!f.IsTransient || string.IsNullOrEmpty(f.Path) || !seen.Add(f.Path)) continue;
+            var pending = PendingFiles.FirstOrDefault(p => p.Id == f.Id && p.IsTransient);
+            if (pending is not null) PendingFiles.Remove(pending);
+            try { if (System.IO.File.Exists(f.Path)) System.IO.File.Delete(f.Path); } catch { }
+        }
     }
 
     private static string FormatBytes(long b)

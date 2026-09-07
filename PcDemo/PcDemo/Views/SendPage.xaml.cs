@@ -17,6 +17,7 @@ public sealed partial class SendPage : Page
     public SendViewModel ViewModel { get; }
 
     private ContentDialog? _progressDialog;
+    private SendProgressDialog? _queueDialog;
 
     public SendPage()
     {
@@ -39,6 +40,9 @@ public sealed partial class SendPage : Page
         // 覆盖式处理器（非事件累加），避免多次进入页面后重复弹框
         ViewModel.TransferStarted = session => _ = ShowSendProgressAsync(session);
 
+        // 群发：整批会话创建 → 弹出“每台一行”的列表进度弹窗（各会话独立刷新）
+        ViewModel.QueueBatchStarted = sessions => _ = ShowBatchProgressAsync(sessions);
+
         // 会话结束 → 关闭进度对话框（ProgressFinished 在 UI 线程触发）
         ViewModel.ProgressFinished = () => _progressDialog?.Hide();
     }
@@ -57,6 +61,37 @@ public sealed partial class SendPage : Page
         };
         _progressDialog = dialog;
         await dialog.ShowAsync();
+        if (_progressDialog == dialog) _progressDialog = null;
+    }
+
+    /// <summary>群发弹窗：整批会话 → 列表式进度弹窗（每台一行，各自独立刷新）。</summary>
+    private async Task ShowBatchProgressAsync(IReadOnlyList<PcDemo.Models.SendSession> sessions)
+    {
+        var root = App.MainWindow.Content?.XamlRoot;
+        if (root is null)
+        {
+            App.LogDiag("[SendPage] QueueBatchStarted: XamlRoot 为 null，进度弹窗跳过（后台继续发送）");
+            return;
+        }
+        if (sessions is null || sessions.Count == 0) return;
+
+        var dialog = new SendProgressDialog(
+            sessions,
+            () => ViewModel.CancelSendCommand.Execute(null))
+        {
+            XamlRoot = root,
+        };
+        _queueDialog = dialog;
+        _progressDialog = dialog;
+        try
+        {
+            await dialog.ShowAsync();
+        }
+        catch (Exception ex)
+        {
+            App.LogDiag($"[SendPage] 群发弹窗 ShowAsync 异常：{ex.Message}");
+        }
+        if (_queueDialog == dialog) _queueDialog = null;
         if (_progressDialog == dialog) _progressDialog = null;
     }
 
@@ -108,7 +143,13 @@ public sealed partial class SendPage : Page
 
     private void OnDeselectTargetClick(object sender, RoutedEventArgs e)
     {
-        ViewModel.SelectedTarget = null;
+        ViewModel.SelectedTargets.Clear();
+    }
+
+    /// <summary>设备卡单击 → 切换多选勾选状态（可多选群发）。</summary>
+    private void OnDeviceTileItemClick(object sender, ItemClickEventArgs e)
+    {
+        if (e.ClickedItem is Device d) ViewModel.ToggleTarget(d);
     }
 
     // 设备卡片右键菜单 → 加入白/黑名单

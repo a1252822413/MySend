@@ -1,4 +1,6 @@
-// ISendSessionManager / SendSessionManager：一次发送会话的编排（prepare → 逐个 upload → 状态机/进度/取消）。
+// ISendSessionManager / SendSessionManager：发送会话的编排（prepare → upload → 状态机/进度/取消）。
+// 支持多会话并发（多设备群发时每台一个会话同时跑，采样/取消按会话隔离）。
+using System.Collections.Concurrent;
 using System.Diagnostics;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Messaging;
@@ -11,17 +13,23 @@ namespace PcDemo.Services;
 
 public interface ISendSessionManager
 {
-    /// <summary>当前活动会话（null = 没有）。</summary>
+    /// <summary>最近创建的会话（null = 没有）。并发下仅用于跟踪“最新”，具体会话由调用方持有。</summary>
     SendSession? Current { get; }
 
-    /// <summary>创建新会话（目标设备 + 文件）。覆盖旧会话。</summary>
+    /// <summary>创建新会话（目标设备 + 文件）。不取消其它已存在的会话（支持多会话并行）。</summary>
     SendSession CreateSession(Device target, IEnumerable<SendFileItem> files);
 
-    /// <summary>启动新创建的会话：prepare-upload → 顺序 upload。</summary>
+    /// <summary>启动指定会话：prepare-upload → 顺序 upload。多个会话可并发调用。</summary>
     Task RunAsync(SendSession session, string? pin = null, CancellationToken ct = default);
 
-    /// <summary>取消当前活动会话（best-effort 通知对方）。</summary>
+    /// <summary>取消最近创建的会话（best-effort 通知对方）。</summary>
     void CancelCurrent();
+
+    /// <summary>取消全部活动会话（多设备群发一键取消）。</summary>
+    void CancelAll();
+
+    /// <summary>群发时抑制单台完成 toast（由调用方在整批结束后统一汇总提示）。</summary>
+    bool SuppressCompletionToast { get; set; }
 }
 
 public partial class SendSessionManager : ObservableObject, ISendSessionManager
@@ -32,8 +40,24 @@ public partial class SendSessionManager : ObservableObject, ISendSessionManager
 
     [ObservableProperty] private SendSession? _current;
 
-    /// <summary>当前活动会话的取消 token 源（UI Cancel 按钮调用 CancelCurrent 时触发）。</summary>
-    private CancellationTokenSource? _cts;
+    /// <summary>群发时抑制单台完成 toast（整批结束后由 UI 统一汇总）。</summary>
+    public bool SuppressCompletionToast { get; set; }
+
+    /// <summary>按会话隔离的运行状态：每会话独立的取消源 + 进度节流/速度采样基线。
+    /// 上传回调在后台线程、状态更新在 UI 线程，用字典避免并发会话互相污染。</summary>
+    private sealed class SessionRuntime
+    {
+        public CancellationTokenSource? Cts;
+        public readonly object ProgressGate = new();
+        public SendFileItem? ProgressLastFile;
+        public long ProgressLastBytes;
+        public long ProgressLastTimestamp;
+        public long SpeedLastTicks;
+        public long SpeedLastBytes;
+        public double SpeedEma;
+    }
+
+    private readonly ConcurrentDictionary<SendSession, SessionRuntime> _runtimes = new();
 
     public SendSessionManager(SendClient client, IMessenger messenger,
         DispatcherQueue dispatcher)
@@ -45,17 +69,12 @@ public partial class SendSessionManager : ObservableObject, ISendSessionManager
 
     public SendSession CreateSession(Device target, IEnumerable<SendFileItem> files)
     {
-        CancelCurrent();
-        // 重置速度采样（上一个会话的采样残留不能带入新会话）
-        _speedLastTicks = 0;
-        _speedLastBytes = 0;
-        _speedEma = 0;
-        _progressLastBytes = 0;
-        _progressLastTimestamp = 0;
-        _progressLastFile = null;
+        // 只为本会话登记全新运行时（采样/取消按会话隔离）；不取消其它会话（多设备群发要并行）。
         var session = new SendSession { Target = target };
         foreach (var f in files) session.Files.Add(f);
-        // 监控每个文件 BytesSent → 推高会话 TotalBytesSent
+        _runtimes[session] = new SessionRuntime();
+
+        // 监控每个文件 BytesSent → 推高会话 TotalBytesSent（仅读写本会话的运行时）
         foreach (var f in session.Files)
         {
             f.PropertyChanged += (_, e) =>
@@ -70,13 +89,25 @@ public partial class SendSessionManager : ObservableObject, ISendSessionManager
 
     public void CancelCurrent()
     {
-        try { _cts?.Cancel(); } catch { }
+        if (Current is { } s && _runtimes.TryGetValue(s, out var rt))
+        {
+            try { rt.Cts?.Cancel(); } catch { }
+        }
+    }
+
+    public void CancelAll()
+    {
+        foreach (var rt in _runtimes.Values)
+        {
+            try { rt.Cts?.Cancel(); } catch { }
+        }
     }
 
     public async Task RunAsync(SendSession session, string? pin = null, CancellationToken external = default)
     {
+        var rt = _runtimes.GetOrAdd(session, _ => new SessionRuntime());
         var cts = CancellationTokenSource.CreateLinkedTokenSource(external);
-        _cts = cts;
+        rt.Cts = cts;
         var ct = cts.Token;
         var target = session.Target;
 
@@ -140,9 +171,9 @@ public partial class SendSessionManager : ObservableObject, ISendSessionManager
                         await _client.UploadAsync(proto, target.Ip,
                             session.RemoteSessionId!, f.Id, token,
                             f.Path, f.Size,
-                            bytes => SetFileProgress(f, bytes),
+                            bytes => SetFileProgress(session, f, bytes),
                             ct);
-                        SetFileProgress(f, f.Size, force: true); // 补推最终字节，保证进度收尾准确
+                        SetFileProgress(session, f, f.Size, force: true); // 补推最终字节，保证进度收尾准确
                         SetFileStatus(f, SendFileStatus.Done);
                         sentCount++;
                         break;
@@ -173,7 +204,7 @@ public partial class SendSessionManager : ObservableObject, ISendSessionManager
                         if (attempt == 1)
                         {
                             App.LogDiag($"[Send] ↻ upload retry: {f.FileName}: {ex.Message}");
-                            SetFileProgress(f, 0, force: true);
+                            SetFileProgress(session, f, 0, force: true);
                             SetFileStatus(f, SendFileStatus.Uploading);
                             continue;
                         }
@@ -191,14 +222,16 @@ public partial class SendSessionManager : ObservableObject, ISendSessionManager
             {
                 SetState(session, SendSessionState.Failed);
                 session.ErrorMessage = failedFiles > 0 ? "所有文件发送失败（详见文件明细）" : "没有文件发送成功";
-                App.ShowTransferToast("发送失败", $"未能向 {session.Target.Alias} 发送任何文件");
+                if (!SuppressCompletionToast)
+                    App.ShowTransferToast("发送失败", $"未能向 {session.Target.Alias} 发送任何文件");
             }
             else
             {
                 SetState(session, SendSessionState.Completed);
                 if (failedFiles > 0) session.ErrorMessage = $"{failedFiles} 个文件发送失败";
-                App.ShowTransferToast(failedFiles > 0 ? "发送完成（部分失败）" : "发送完成",
-                    $"已向 {session.Target.Alias} 发送 {sentCount}/{session.Files.Count} 个文件{(failedFiles > 0 ? $"，{failedFiles} 个失败" : "")}");
+                if (!SuppressCompletionToast)
+                    App.ShowTransferToast(failedFiles > 0 ? "发送完成（部分失败）" : "发送完成",
+                        $"已向 {session.Target.Alias} 发送 {sentCount}/{session.Files.Count} 个文件{(failedFiles > 0 ? $"，{failedFiles} 个失败" : "")}");
             }
             App.LogDiag($"[Send] ✓ finished {sentCount}/{session.Files.Count} files (failed={failedFiles})");
             NotifySendFinished(session);
@@ -237,11 +270,13 @@ public partial class SendSessionManager : ObservableObject, ISendSessionManager
         finally
         {
             ClearSpeed(session);
-            if (_cts == cts)
+            if (rt.Cts == cts)
             {
                 cts.Dispose();
-                _cts = null;
+                rt.Cts = null;
             }
+            // 会话已结束，移除运行时（避免长期持有 Session 引用防 GC）
+            _runtimes.TryRemove(session, out _);
         }
     }
 
@@ -260,77 +295,73 @@ public partial class SendSessionManager : ObservableObject, ISendSessionManager
     // 若每块都 TryEnqueue + 全量 Sum 会造成 UI 队列洪水。对齐接收端 FileSaver 策略：
     // ≥512KB 或 ≥250ms 才推一次（回调线程直接判断，不入队）。
     // 节流基线按单个文件计算（文件切换时重置），否则上一文件的字节残留会跨文件污染增量判断。
+    // 基线存于会话运行时：多会话并发时各自独立，互不干扰。
     private const long ProgressMinBytesDelta = 512 * 1024;
     private const int ProgressMinIntervalMs = 250;
-    private readonly object _progressGate = new();
-    private SendFileItem? _progressLastFile;
-    private long _progressLastBytes;
-    private long _progressLastTimestamp;
 
-    private void SetFileProgress(SendFileItem f, long bytes, bool force = false)
+    private void SetFileProgress(SendSession s, SendFileItem f, long bytes, bool force = false)
     {
+        var rt = _runtimes[s];
         var now = Stopwatch.GetTimestamp();
         if (!force)
         {
-            lock (_progressGate)
+            lock (rt.ProgressGate)
             {
-                if (!ReferenceEquals(f, _progressLastFile))
+                if (!ReferenceEquals(f, rt.ProgressLastFile))
                 {
                     // 文件切换：重置基线并立即推送首包进度
-                    _progressLastFile = f;
-                    _progressLastBytes = bytes;
-                    _progressLastTimestamp = now;
+                    rt.ProgressLastFile = f;
+                    rt.ProgressLastBytes = bytes;
+                    rt.ProgressLastTimestamp = now;
                 }
                 else
                 {
-                    var delta = bytes - _progressLastBytes;
-                    var elapsedMs = (now - _progressLastTimestamp) * 1000 / Stopwatch.Frequency;
+                    var delta = bytes - rt.ProgressLastBytes;
+                    var elapsedMs = (now - rt.ProgressLastTimestamp) * 1000 / Stopwatch.Frequency;
                     if (delta < ProgressMinBytesDelta && elapsedMs < ProgressMinIntervalMs)
                         return; // 吞掉本次，保留最新值到下一次达标回调
-                    _progressLastBytes = bytes;
-                    _progressLastTimestamp = now;
+                    rt.ProgressLastBytes = bytes;
+                    rt.ProgressLastTimestamp = now;
                 }
             }
         }
         else
         {
-            _progressLastBytes = bytes;
-            _progressLastTimestamp = now;
+            rt.ProgressLastBytes = bytes;
+            rt.ProgressLastTimestamp = now;
         }
         _dispatcher.TryEnqueue(() => f.BytesSent = bytes);
     }
 
     // ---------- 速度采样（EMA：瞬时 = Δbytes/Δt，平滑后算 ETA） ----------
-    private long _speedLastTicks;
-    private long _speedLastBytes;
-    private double _speedEma;
-
+    // 采样基线存于会话运行时：多会话并发时各自独立。
     private void RecalcTotalSent(SendSession session)
     {
+        if (!_runtimes.TryGetValue(session, out var rt)) return; // 会话已结束，忽略迟到的采样
         var sum = session.Files.Sum(f => f.BytesSent);
         var now = Stopwatch.GetTimestamp();
 
-        var elapsed = _speedLastTicks == 0
+        var elapsed = rt.SpeedLastTicks == 0
             ? 0
-            : (now - _speedLastTicks) / (double)Stopwatch.Frequency;
+            : (now - rt.SpeedLastTicks) / (double)Stopwatch.Frequency;
 
         // 每 ≥0.5s 采一个样：瞬时速度 → EMA(0.3 新 + 0.7 旧)，重传回退时瞬时值 clamp 到 0
         if (elapsed >= 0.5)
         {
-            var inst = Math.Max(0, (sum - _speedLastBytes) / elapsed);
-            _speedEma = _speedEma == 0 ? inst : _speedEma * 0.7 + inst * 0.3;
-            _speedLastBytes = sum;
-            _speedLastTicks = now;
+            var inst = Math.Max(0, (sum - rt.SpeedLastBytes) / elapsed);
+            rt.SpeedEma = rt.SpeedEma == 0 ? inst : rt.SpeedEma * 0.7 + inst * 0.3;
+            rt.SpeedLastBytes = sum;
+            rt.SpeedLastTicks = now;
         }
-        else if (_speedLastTicks == 0)
+        else if (rt.SpeedLastTicks == 0)
         {
-            _speedLastBytes = sum;
-            _speedLastTicks = now;
+            rt.SpeedLastBytes = sum;
+            rt.SpeedLastTicks = now;
         }
 
         var remaining = Math.Max(0, session.TotalBytes - sum);
-        var eta = _speedEma > 1024 ? remaining / _speedEma : 0; // 速度太低(<1KB/s)时不显示 ETA
-        var speed = (long)_speedEma;
+        var eta = rt.SpeedEma > 1024 ? remaining / rt.SpeedEma : 0; // 速度太低(<1KB/s)时不显示 ETA
+        var speed = (long)rt.SpeedEma;
 
         _dispatcher.TryEnqueue(() =>
         {

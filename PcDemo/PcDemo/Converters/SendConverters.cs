@@ -21,6 +21,15 @@ public sealed class EmptyToCollapsed : IValueConverter
     public object ConvertBack(object value, Type targetType, object parameter, string language) => throw new NotSupportedException();
 }
 
+/// <summary>bool true -> Visible，false -> Collapsed。</summary>
+public sealed class BoolToVisibility : IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, string language)
+        => value is true ? Visibility.Visible : Visibility.Collapsed;
+    public object ConvertBack(object value, Type targetType, object parameter, string language)
+        => value is Visibility.Visible;
+}
+
 public sealed class BytesToString : IValueConverter
 {
     public object Convert(object value, Type targetType, object parameter, string language)
@@ -165,7 +174,7 @@ public sealed class BoolToHintColor : IValueConverter
 public sealed class BoolToReadyTarget : IValueConverter
 {
     public object Convert(object value, Type targetType, object parameter, string language)
-        => value is true ? "✅ 已选目标设备" : "❌ 未选目标设备（点上方设备卡片）";
+        => value is true ? "✅ 已选目标设备" : "❌ 未选目标设备（点上方设备卡片，可多选）";
     public object ConvertBack(object value, Type targetType, object parameter, string language) => throw new NotSupportedException();
 }
 

@@ -61,8 +61,8 @@ public sealed partial class ShellWindow : Window
                 break;
             }
         }
-        // 再设置目标设备：SendViewModel 是单例，SendPage 的 SelectedItem(双向) 会同步高亮选中
-        App.Services.GetRequiredService<SendViewModel>().SelectedTarget = device;
+        // 再设置目标设备：SendViewModel 是单例；SetSingleTarget 会更新多选集合并同步卡片高亮
+        App.Services.GetRequiredService<SendViewModel>().SetSingleTarget(device);
     }
 
     // 最小窗口逻辑尺寸（避免布局被压缩破坏）
