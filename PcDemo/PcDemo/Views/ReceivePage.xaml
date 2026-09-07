@@ -101,13 +101,13 @@
                           Visibility="{x:Bind ViewModel.HasDevices, Mode=OneWay}">
                 <ItemsRepeater ItemsSource="{x:Bind ViewModel.Devices}">
                     <ItemsRepeater.Layout>
-                        <UniformGridLayout MinItemWidth="300" MinItemHeight="120"
+                        <UniformGridLayout MinItemWidth="300" MinItemHeight="100"
                                            MinColumnSpacing="10" MinRowSpacing="10"
                                            ItemsStretch="Fill"/>
                     </ItemsRepeater.Layout>
                     <ItemsRepeater.ItemTemplate>
                         <DataTemplate>
-                            <Border Padding="14" CornerRadius="12" Margin="0"
+                            <Border Padding="12" CornerRadius="12" Margin="0"
                                     DoubleTapped="OnDeviceCardDoubleTapped"
                                     ToolTipService.ToolTip="双击 → 发送文件给该设备"
                                     AutomationProperties.Name="{Binding Alias}"

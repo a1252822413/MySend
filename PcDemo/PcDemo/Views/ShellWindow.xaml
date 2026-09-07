@@ -40,7 +40,7 @@
             x:Name="NavView"
             Grid.Row="1"
             PaneDisplayMode="Left"
-            OpenPaneLength="160"
+            OpenPaneLength="140"
             CompactPaneLength="48"
             IsBackButtonVisible="Collapsed"
             IsPaneToggleButtonVisible="False"

@@ -98,13 +98,13 @@
                     <!-- 官方网格布局：列间距(10)只存在于卡片之间，两侧零空隙，自动等宽铺满 -->
                     <ItemsRepeater ItemsSource="{x:Bind ViewModel.Devices}">
                         <ItemsRepeater.Layout>
-                            <UniformGridLayout MinItemWidth="300" MinItemHeight="120"
+                            <UniformGridLayout MinItemWidth="300" MinItemHeight="100"
                                                MinColumnSpacing="10" MinRowSpacing="10"
                                                ItemsStretch="Fill"/>
                         </ItemsRepeater.Layout>
                         <ItemsRepeater.ItemTemplate>
                             <DataTemplate>
-                                <Border Padding="14" CornerRadius="12" Margin="0"
+                                <Border Padding="12" CornerRadius="12" Margin="0"
                                         Tapped="OnDeviceTileTapped"
                                         Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                                         BorderBrush="{Binding IsPicked, Mode=OneWay, Converter={StaticResource PickBrush}}"
