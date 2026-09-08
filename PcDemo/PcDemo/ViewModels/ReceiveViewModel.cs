@@ -115,9 +115,6 @@ public partial class ReceiveViewModel : ViewModelBase,
             DoCopy();
     }
 
-    // 通知（接收成功/失败提示）
-    [ObservableProperty] private bool _canOpenFolder;
-
     public ReceiveViewModel(ISettingsService settings, IReceiveSessionManager sessions, IMessenger messenger,
         MulticastDiscoveryService discovery, TransferHistoryService history, IDeviceRegistry registry,
         IDeviceListService deviceLists)
@@ -545,7 +542,6 @@ public partial class ReceiveViewModel : ViewModelBase,
                 ReceiveSessionStatus.Rejected => "已拒绝",
                 _ => "服务运行中",
             };
-            CanOpenFolder = session.Status == ReceiveSessionStatus.Completed;
             _messenger.Send(new ShowToastMessage
             {
                 Kind = kind,

@@ -96,8 +96,7 @@ public partial class SendViewModel : ViewModelBase,
     private int _queueOkCount;
     private int _queueFailCount;
 
-    /// <summary>批次总台数 / 剩余未收尾台数（UI 线程维护）。</summary>
-    private int _queueTotal;
+    /// <summary>批次剩余未收尾台数（UI 线程维护）。</summary>
     private int _queuePending;
 
     /// <summary>批次全部会话（ShowResult/兜底据此判断“是否群发中”并抑制单台 toast）。</summary>
@@ -579,7 +578,6 @@ public partial class SendViewModel : ViewModelBase,
             _dispatcher.TryEnqueue(() => QueueBatchStarted?.Invoke(snapshot));
         }
 
-        _queueTotal = total;
         _queuePending = total;
         var doneTcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
         _batchDoneTcs = doneTcs;

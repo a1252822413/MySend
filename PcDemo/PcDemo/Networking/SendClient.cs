@@ -212,7 +212,7 @@ public class SendClient
     private static List<(string scheme, int port)> BuildCandidateList(Device target)
     {
         var result = new List<(string, int)>(capacity: 8);
-        var declaredPort = target.Port != 0 ? target.Port : 53317;
+        var declaredPort = target.Port != 0 ? target.Port : Models.AppSettings.DefaultPort;
         void Add((string s, int p) v) { if (!result.Contains(v)) result.Add(v); }
 
         // 1. 对方公告声明的协议+端口（官方语义精确：HTTPS-only 时就在同一端口跑 HTTPS，不是 +1）
@@ -223,10 +223,10 @@ public class SendClient
         }
 
         // 2. 常见组合兜底
-        Add(("https", 53317));
-        Add(("https", 53318));
-        Add(("http", 53317));
-        Add(("http", 53318));
+        Add(("https", Models.AppSettings.DefaultPort));
+        Add(("https", Models.AppSettings.DefaultPort + 1));
+        Add(("http", Models.AppSettings.DefaultPort));
+        Add(("http", Models.AppSettings.DefaultPort + 1));
         Add(("https", declaredPort + 1));
         Add(("https", declaredPort - 1));
 

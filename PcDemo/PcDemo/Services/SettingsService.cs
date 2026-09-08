@@ -17,9 +17,9 @@ public sealed class SettingsService : ISettingsService
 
     public void Load()
     {
+        var path = PathHelper.SettingsFilePath;
         try
         {
-            var path = PathHelper.SettingsFilePath;
             if (!File.Exists(path))
             {
                 EnsureDefaults(_current);
@@ -31,10 +31,28 @@ public sealed class SettingsService : ISettingsService
             EnsureDefaults(loaded);
             _current = loaded;
         }
-        catch
+        catch (Exception ex)
         {
+            // 设置文件损坏：记录日志 + 备份原文件（方便手动恢复）+ 重建默认设置
+            // 不再静默丢失，避免用户别名/端口/下载目录等配置被悄悄重置
+            App.LogDiag($"[Settings] settings.json 加载失败，已备份并重建默认值：{ex.GetType().Name}: {ex.Message}");
+            try
+            {
+                if (File.Exists(path))
+                {
+                    var bak = path + ".bak";
+                    // 覆盖旧备份（只保留最近一次损坏文件，避免无限累积）
+                    if (File.Exists(bak)) File.Delete(bak);
+                    File.Move(path, bak);
+                }
+            }
+            catch (Exception bakEx)
+            {
+                App.LogDiag($"[Settings] 备份损坏文件失败：{bakEx.Message}");
+            }
             _current = new AppSettings();
             EnsureDefaults(_current);
+            Save(_current);
         }
     }
 
@@ -75,10 +93,10 @@ public sealed class SettingsService : ISettingsService
             s.Alias = Environment.MachineName;
 
         if (s.Port == 0)
-            s.Port = 53317;
+            s.Port = AppSettings.DefaultPort;
 
         if (string.IsNullOrWhiteSpace(s.MulticastGroup))
-            s.MulticastGroup = "224.0.0.167";
+            s.MulticastGroup = AppSettings.DefaultMulticastGroup;
 
         if (string.IsNullOrWhiteSpace(s.Destination))
             s.Destination = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile) is var home && !string.IsNullOrEmpty(home)

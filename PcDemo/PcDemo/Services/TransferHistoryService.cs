@@ -8,7 +8,7 @@ using PcDemo.Models;
 
 namespace PcDemo.Services;
 
-public sealed class TransferHistoryService
+public sealed class TransferHistoryService : IDisposable
 {
     private const int MaxItems = 50;
     private const int PersistDelayMs = 1500;
@@ -127,4 +127,7 @@ public sealed class TransferHistoryService
             App.LogDiag($"[History] 持久化失败：{ex.Message}");
         }
     }
+
+    /// <summary>释放定时器（单例随进程结束，但显式 Dispose 更规范；DI 容器会调用）。</summary>
+    public void Dispose() => _persistTimer.Dispose();
 }

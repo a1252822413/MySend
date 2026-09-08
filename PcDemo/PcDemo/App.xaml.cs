@@ -46,6 +46,31 @@ public partial class App : Application, IRecipient<DeviceDiscoveredMessage>
     public App()
     {
         this.InitializeComponent();
+        RegisterGlobalExceptionHandlers();
+    }
+
+    /// <summary>全局异常兜底：三层捕获，统一写入 diag.log，避免未观测异常导致进程静默崩溃。</summary>
+    private void RegisterGlobalExceptionHandlers()
+    {
+        // 1) WinUI 3 XAML 线程未处理异常（控件事件/绑定/async void 回调抛出）
+        this.UnhandledException += (s, e) =>
+        {
+            LogDiag($"[FATAL] XAML UnhandledException: {e.Exception}");
+            e.Handled = true; // 防止进程被终止
+        };
+
+        // 2) 非 UI 线程未处理异常（后台线程 / 线程池工作项直接抛）
+        AppDomain.CurrentDomain.UnhandledException += (s, e) =>
+        {
+            LogDiag($"[FATAL] AppDomain UnhandledException (terminating={e.IsTerminating}): {e.ExceptionObject}");
+        };
+
+        // 3) Task 未观测异常（async Task 抛异常但无 await / try-catch）
+        TaskScheduler.UnobservedTaskException += (s, e) =>
+        {
+            LogDiag($"[FATAL] UnobservedTaskException: {e.Exception}");
+            e.SetObserved(); // 避免终结器线程抛出导致进程崩溃
+        };
     }
 
     protected override void OnLaunched(LaunchActivatedEventArgs args)
@@ -270,20 +295,28 @@ public partial class App : Application, IRecipient<DeviceDiscoveredMessage>
         {
             if (_kestrelStarted) return;
 
-            _http ??= Services.GetRequiredService<LocalSendHttpServer>();
-            if (!_http.IsRunning)
+            try
             {
-                _http.Start();
-                LogDiag($"HTTP server started on port {_http.RunningPort} (always-on)");
+                _http ??= Services.GetRequiredService<LocalSendHttpServer>();
+                if (!_http.IsRunning)
+                {
+                    _http.Start();
+                    LogDiag($"HTTP server started on port {_http.RunningPort} (always-on)");
+                }
+
+                // Kestrel 就绪后才能发公告——否则其他设备收到公告后发 prepare-upload 会连不上
+                _multicast ??= Services.GetRequiredService<MulticastDiscoveryService>();
+                _ = _multicast.AnnounceOnceAsync();
+                _multicast.StartPeriodicAnnounce(TimeSpan.FromSeconds(3));
+
+                _kestrelStarted = true;
+                LogDiag("Kestrel + periodic announce activated");
             }
-
-            // Kestrel 就绪后才能发公告——否则其他设备收到公告后发 prepare-upload 会连不上
-            _multicast ??= Services.GetRequiredService<MulticastDiscoveryService>();
-            _ = _multicast.AnnounceOnceAsync();
-            _multicast.StartPeriodicAnnounce(TimeSpan.FromSeconds(3));
-
-            _kestrelStarted = true;
-            LogDiag("Kestrel + periodic announce activated");
+            catch (Exception ex)
+            {
+                // 启动失败不崩溃：留日志，下次设置变更或手动刷新时重试
+                LogDiag($"EnsureKestrelRunning failed: {ex}");
+            }
         }
     }
 

@@ -6,14 +6,20 @@ namespace PcDemo.Models;
 
 public sealed class AppSettings
 {
+    /// <summary>官方 LocalSend 协议默认服务端口。</summary>
+    public const ushort DefaultPort = 53317;
+
+    /// <summary>官方 LocalSend 协议默认多播组。</summary>
+    public const string DefaultMulticastGroup = "224.0.0.167";
+
     /// <summary>本机显示别名。默认主机名。</summary>
     public string Alias { get; set; } = Environment.MachineName;
 
     /// <summary>HTTP/UDP 服务端口。默认 53317。</summary>
-    public ushort Port { get; set; } = 53317;
+    public ushort Port { get; set; } = DefaultPort;
 
     /// <summary>多播组 IPv4。默认 224.0.0.167。</summary>
-    public string MulticastGroup { get; set; } = "224.0.0.167";
+    public string MulticastGroup { get; set; } = DefaultMulticastGroup;
 
     /// <summary>接收文件保存目录。默认 Downloads。</summary>
     public string Destination { get; set; } =

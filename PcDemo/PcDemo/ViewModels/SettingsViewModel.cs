@@ -69,7 +69,7 @@ public partial class SettingsViewModel : ViewModelBase
         {
             s.Alias = Alias?.Trim() is { Length: > 0 } a ? a : Environment.MachineName;
             s.Port = (ushort)Math.Clamp(Port, 1, 65535);
-            s.MulticastGroup = string.IsNullOrWhiteSpace(MulticastGroup) ? "224.0.0.167" : MulticastGroup.Trim();
+            s.MulticastGroup = string.IsNullOrWhiteSpace(MulticastGroup) ? Models.AppSettings.DefaultMulticastGroup : MulticastGroup.Trim();
             s.Destination = string.IsNullOrWhiteSpace(Destination)
                 ? Environment.GetFolderPath(Environment.SpecialFolder.UserProfile) is var home && !string.IsNullOrEmpty(home)
                     ? System.IO.Path.Combine(home, "Downloads")

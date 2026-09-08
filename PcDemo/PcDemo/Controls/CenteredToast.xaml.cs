@@ -245,9 +245,7 @@ public sealed partial class CenteredToast : UserControl
 file static class ShowToastMessageExtensions
 {
     public static string Title(this ShowToastMessage m)
-        => !string.IsNullOrWhiteSpace(m.Message) && m.Message.Contains('\n')
-            ? Default(m.Kind)
-            : Default(m.Kind);
+        => Default(m.Kind);
 
     private static string Default(ToastKind k) => k switch
     {
