@@ -12,6 +12,8 @@
         <converters:RefreshingTextConverter x:Key="RefreshingTextConverter"/>
         <converters:BoolToOnlineDot x:Key="BoolToOnlineDot"/>
         <converters:BoolToOnlineLabel x:Key="BoolToOnlineLabel"/>
+        <converters:BoolToVisibility x:Key="BoolToVisibility"/>
+        <converters:BlacklistOpacityConverter x:Key="BlacklistOpacity"/>
     </Page.Resources>
 
     <Grid Padding="24" RowDefinitions="Auto,Auto,Auto,*">
@@ -113,7 +115,8 @@
                                     AutomationProperties.Name="{Binding Alias}"
                                     AutomationProperties.HelpText="双击发送文件给该设备；右键加入白名单或黑名单"
                                     Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1">
+                                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1"
+                                    Opacity="{Binding IsBlacklisted, Mode=OneWay, Converter={StaticResource BlacklistOpacity}}">
                                 <Border.ContextFlyout>
                                     <MenuFlyout>
                                         <MenuFlyoutItem Text="加入白名单"
@@ -136,7 +139,23 @@
                                                    AutomationProperties.Name="{Binding DeviceType}"/>
                                     </Border>
                                     <StackPanel Grid.Column="2" Margin="12,0,0,0" Spacing="3" VerticalAlignment="Center">
-                                        <TextBlock Text="{Binding Alias}" FontWeight="SemiBold" FontSize="14" TextTrimming="CharacterEllipsis"/>
+                                        <StackPanel Orientation="Horizontal" Spacing="6">
+                                            <TextBlock Text="{Binding Alias}" FontWeight="SemiBold" FontSize="14" TextTrimming="CharacterEllipsis"/>
+                                            <!-- 白名单徽章 -->
+                                            <Border Padding="5,1" CornerRadius="8"
+                                                    Background="#2FB054"
+                                                    Visibility="{Binding IsWhitelisted, Mode=OneWay, Converter={StaticResource BoolToVisibility}}">
+                                                <TextBlock Text="白名单" FontSize="9" Foreground="White"
+                                                           AutomationProperties.AccessibilityView="Raw"/>
+                                            </Border>
+                                            <!-- 黑名单徽章 -->
+                                            <Border Padding="5,1" CornerRadius="8"
+                                                    Background="#C62828"
+                                                    Visibility="{Binding IsBlacklisted, Mode=OneWay, Converter={StaticResource BoolToVisibility}}">
+                                                <TextBlock Text="黑名单" FontSize="9" Foreground="White"
+                                                           AutomationProperties.AccessibilityView="Raw"/>
+                                            </Border>
+                                        </StackPanel>
                                         <StackPanel Orientation="Horizontal" Spacing="5">
                                             <TextBlock Text="🌐" FontSize="10" Opacity="0.7" VerticalAlignment="Center"
                                                        AutomationProperties.AccessibilityView="Raw"/>

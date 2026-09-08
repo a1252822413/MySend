@@ -211,3 +211,11 @@ public sealed class BoolToOnlineLabel : IValueConverter
         => value is true ? "在线" : "可能离线";
     public object ConvertBack(object value, Type targetType, object parameter, string language) => throw new NotSupportedException();
 }
+
+/// <summary>Device.IsBlacklisted → 置灰透明度。True=0.4（灰显不可选感），False=1.0（正常）。</summary>
+public sealed class BlacklistOpacityConverter : IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, string language)
+        => value is true ? 0.4 : 1.0;
+    public object ConvertBack(object value, Type targetType, object parameter, string language) => throw new NotSupportedException();
+}

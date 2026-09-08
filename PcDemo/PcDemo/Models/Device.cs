@@ -35,6 +35,22 @@ public sealed class Device : INotifyPropertyChanged
         set { if (_isPicked != value) { _isPicked = value; OnPropertyChanged(nameof(IsPicked)); } }
     }
 
+    private bool _isBlacklisted;
+    /// <summary>是否在黑名单中（黑名单设备不可选择/发送，卡片置灰显示）。</summary>
+    public bool IsBlacklisted
+    {
+        get => _isBlacklisted;
+        set { if (_isBlacklisted != value) { _isBlacklisted = value; OnPropertyChanged(nameof(IsBlacklisted)); } }
+    }
+
+    private bool _isWhitelisted;
+    /// <summary>是否在白名单中（卡片显示白名单徽章）。</summary>
+    public bool IsWhitelisted
+    {
+        get => _isWhitelisted;
+        set { if (_isWhitelisted != value) { _isWhitelisted = value; OnPropertyChanged(nameof(IsWhitelisted)); } }
+    }
+
     public event PropertyChangedEventHandler? PropertyChanged;
 
     /// <summary>刷新 IsOnline 视觉（时间滚动时手动触发 UI 刷新）。</summary>

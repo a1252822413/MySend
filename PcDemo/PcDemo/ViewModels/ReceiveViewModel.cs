@@ -132,18 +132,31 @@ public partial class ReceiveViewModel : ViewModelBase,
         // （设备可能在 VM 构造前就已 Upsert 到 registry，去抖会阻止后续重复广播，
         //   不从 registry 加载的话 Devices 集合会永远为空）
         foreach (var d in _registry.GetSnapshot()) Devices.Add(d);
+        SyncDeviceListFlags();
+        _deviceLists.Changed += (_, _) => SyncDeviceListFlags();
 
         // 列表增删时同步空状态属性
         Devices.CollectionChanged += (_, _) =>
         {
             OnPropertyChanged(nameof(HasDevices));
             OnPropertyChanged(nameof(HasNoDevices));
+            SyncDeviceListFlags();
         };
 
         RefreshFromSettings();
 
         // 设置变化（含 HTTPS 开关/端口）→ 刷新接收页显示的端口与协议徽标
         _settings.Changed += (_, _) => RefreshFromSettings();
+    }
+
+    /// <summary>刷新所有设备的白/黑名单状态（名单变更/设备列表变更时调用）。</summary>
+    private void SyncDeviceListFlags()
+    {
+        foreach (var d in Devices)
+        {
+            d.IsBlacklisted = _deviceLists.IsBlacklisted(d.Fingerprint);
+            d.IsWhitelisted = _deviceLists.FindWhitelist(d.Fingerprint) is not null;
+        }
     }
 
     public void SetDispatcher(DispatcherQueue dq)

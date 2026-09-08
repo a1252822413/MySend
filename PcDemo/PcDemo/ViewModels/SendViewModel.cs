@@ -139,12 +139,15 @@ public partial class SendViewModel : ViewModelBase,
 
         // 注入启动时 registry 已有的设备
         foreach (var d in _registry.GetSnapshot()) Devices.Add(d);
+        SyncDeviceListFlags();
+        _deviceLists.Changed += (_, _) => SyncDeviceListFlags();
         Devices.CollectionChanged += (_, _) =>
         {
             OnPropertyChanged(nameof(HasDevices));
             OnPropertyChanged(nameof(HasNoDevices));
             // 设备实例可能被 registry 原位更新（DeviceCollectionSync.Sync），重刷勾选高亮
             SyncIsPickedFlags();
+            SyncDeviceListFlags();
         };
         PendingFiles.CollectionChanged += (_, _) =>
         {
@@ -169,6 +172,16 @@ public partial class SendViewModel : ViewModelBase,
         foreach (var d in Devices) d.IsPicked = d.Fingerprint is not null && picked.Contains(d.Fingerprint);
     }
 
+    /// <summary>刷新所有设备的白/黑名单状态（名单变更/设备列表变更时调用）。</summary>
+    private void SyncDeviceListFlags()
+    {
+        foreach (var d in Devices)
+        {
+            d.IsBlacklisted = _deviceLists.IsBlacklisted(d.Fingerprint);
+            d.IsWhitelisted = _deviceLists.FindWhitelist(d.Fingerprint) is not null;
+        }
+    }
+
     /// <summary>单选：清空多选，仅选中一台（兼容双击跳转/旧命令）。</summary>
     public void SetSingleTarget(Device? d)
     {
@@ -178,10 +191,21 @@ public partial class SendViewModel : ViewModelBase,
         SelectedTargets.Add(d);
     }
 
-    /// <summary>切换某台设备的多选状态（UI 勾选设备卡调用）。</summary>
+    /// <summary>切换某台设备的多选状态（UI 勾选设备卡调用）。黑名单设备不可选中。</summary>
     public void ToggleTarget(Device? d)
     {
         if (d is null || d.Fingerprint is null) return;
+        // 黑名单设备拦截：不允许选择/发送
+        if (_deviceLists.IsBlacklisted(d.Fingerprint))
+        {
+            _messenger.Send(new ShowToastMessage
+            {
+                Kind = ToastKind.Warning,
+                Message = $"「{d.Alias}」已在黑名单中，无法选择发送",
+                DurationMs = 1800,
+            });
+            return;
+        }
         var existing = SelectedTargets.FirstOrDefault(x => x.Fingerprint == d.Fingerprint);
         if (existing is not null) SelectedTargets.Remove(existing);
         else SelectedTargets.Add(d);
