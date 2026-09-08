@@ -146,16 +146,19 @@ public partial class ReceiveViewModel : ViewModelBase,
         RefreshFromSettings();
 
         // 设置变化（含 HTTPS 开关/端口）→ 刷新接收页显示的端口与协议徽标
-        _settings.Changed += (_, _) => RefreshFromSettings();
+        _settings.Changed += (_, _) => { RefreshFromSettings(); SyncDeviceListFlags(); };
     }
 
     /// <summary>刷新所有设备的白/黑名单状态（名单变更/设备列表变更时调用）。</summary>
     private void SyncDeviceListFlags()
     {
+        var whitelistOnly = _settings.Current.WhitelistOnly;
         foreach (var d in Devices)
         {
             d.IsBlacklisted = _deviceLists.IsBlacklisted(d.Fingerprint);
             d.IsWhitelisted = _deviceLists.FindWhitelist(d.Fingerprint) is not null;
+            if (whitelistOnly && !d.IsWhitelisted)
+                d.IsBlacklisted = true;
         }
     }
 

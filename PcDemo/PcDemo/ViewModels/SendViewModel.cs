@@ -26,6 +26,7 @@ public partial class SendViewModel : ViewModelBase,
     private readonly IMessenger _messenger;
     private readonly TransferHistoryService _history;
     private readonly IDeviceListService _deviceLists;
+    private readonly ISettingsService _settings;
     private DispatcherQueue? _dispatcher;
 
     public ObservableCollection<Device> Devices { get; } = new();
@@ -127,7 +128,7 @@ public partial class SendViewModel : ViewModelBase,
 
     public SendViewModel(ISendSessionManager sendMgr, IDeviceRegistry registry,
         MulticastDiscoveryService discovery, IMessenger messenger, TransferHistoryService history,
-        IDeviceListService deviceLists)
+        IDeviceListService deviceLists, ISettingsService settings)
     {
         _sendMgr = sendMgr;
         _registry = registry;
@@ -135,12 +136,14 @@ public partial class SendViewModel : ViewModelBase,
         _messenger = messenger;
         _history = history;
         _deviceLists = deviceLists;
+        _settings = settings;
         _messenger.RegisterAll(this);
 
         // 注入启动时 registry 已有的设备
         foreach (var d in _registry.GetSnapshot()) Devices.Add(d);
         SyncDeviceListFlags();
         _deviceLists.Changed += (_, _) => SyncDeviceListFlags();
+        _settings.Changed += (_, _) => SyncDeviceListFlags();
         Devices.CollectionChanged += (_, _) =>
         {
             OnPropertyChanged(nameof(HasDevices));
@@ -172,13 +175,17 @@ public partial class SendViewModel : ViewModelBase,
         foreach (var d in Devices) d.IsPicked = d.Fingerprint is not null && picked.Contains(d.Fingerprint);
     }
 
-    /// <summary>刷新所有设备的白/黑名单状态（名单变更/设备列表变更时调用）。</summary>
+    /// <summary>刷新所有设备的白/黑名单状态（名单变更/设备列表变更/白名单模式切换时调用）。</summary>
     private void SyncDeviceListFlags()
     {
+        var whitelistOnly = _settings.Current.WhitelistOnly;
         foreach (var d in Devices)
         {
             d.IsBlacklisted = _deviceLists.IsBlacklisted(d.Fingerprint);
             d.IsWhitelisted = _deviceLists.FindWhitelist(d.Fingerprint) is not null;
+            // 白名单模式开启时，非白名单设备也置灰（复用 IsBlacklisted 的置灰效果）
+            if (whitelistOnly && !d.IsWhitelisted)
+                d.IsBlacklisted = true;
         }
     }
 
@@ -191,17 +198,28 @@ public partial class SendViewModel : ViewModelBase,
         SelectedTargets.Add(d);
     }
 
-    /// <summary>切换某台设备的多选状态（UI 勾选设备卡调用）。黑名单设备不可选中。</summary>
+    /// <summary>切换某台设备的多选状态（UI 勾选设备卡调用）。黑名单设备及白名单模式下的非白名单设备不可选中。</summary>
     public void ToggleTarget(Device? d)
     {
         if (d is null || d.Fingerprint is null) return;
-        // 黑名单设备拦截：不允许选择/发送
+        // 黑名单设备拦截
         if (_deviceLists.IsBlacklisted(d.Fingerprint))
         {
             _messenger.Send(new ShowToastMessage
             {
                 Kind = ToastKind.Warning,
                 Message = $"「{d.Alias}」已在黑名单中，无法选择发送",
+                DurationMs = 1800,
+            });
+            return;
+        }
+        // 白名单模式拦截：非白名单设备不可选择
+        if (_settings.Current.WhitelistOnly && _deviceLists.FindWhitelist(d.Fingerprint) is null)
+        {
+            _messenger.Send(new ShowToastMessage
+            {
+                Kind = ToastKind.Warning,
+                Message = $"「{d.Alias}」不在白名单中（仅白名单模式已开启）",
                 DurationMs = 1800,
             });
             return;

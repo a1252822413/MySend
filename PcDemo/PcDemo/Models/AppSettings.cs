@@ -49,4 +49,7 @@ public sealed class AppSettings
 
     /// <summary>接收 PIN 码。空 = 不启用；非空时对方 prepare-upload 必须带 ?pin= 精确匹配。</summary>
     public string Pin { get; set; } = string.Empty;
+
+    /// <summary>仅白名单模式：true 时只接收白名单设备的文件、只允许向白名单设备发送。</summary>
+    public bool WhitelistOnly { get; set; } = false;
 }

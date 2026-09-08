@@ -88,6 +88,17 @@
                         <ToggleSwitch Grid.Column="1" IsOn="{x:Bind ViewModel.HttpsEnabled, Mode=TwoWay}"
                                       OnContent="开" OffContent="关" VerticalAlignment="Center"/>
                     </Grid>
+                    <Grid ColumnDefinitions="120,*,Auto" VerticalAlignment="Center">
+                        <StackPanel Grid.Column="0" Spacing="2" VerticalAlignment="Center">
+                            <TextBlock Text="仅白名单模式" VerticalAlignment="Center"/>
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" Spacing="4">
+                            <ToggleSwitch IsOn="{x:Bind ViewModel.WhitelistOnlyEnabled, Mode=TwoWay}"
+                                          OnContent="开" OffContent="关" VerticalAlignment="Center"
+                                          ToolTipService.ToolTip="开启后只接收白名单设备发来的文件，且发送页仅可选择白名单设备。即时生效，无需保存。"/>
+                            <TextBlock Text="开启后非白名单设备将被置灰且无法收发。" Opacity="0.6" FontSize="12"/>
+                        </StackPanel>
+                    </Grid>
                 </StackPanel>
             </Border>
 

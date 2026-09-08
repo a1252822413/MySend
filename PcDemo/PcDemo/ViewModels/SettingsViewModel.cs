@@ -27,8 +27,14 @@ public partial class SettingsViewModel : ViewModelBase
     [ObservableProperty] private string _autoLaunchInfo = string.Empty;
     [ObservableProperty] private string _pin = string.Empty; // 接收 PIN（空=不启用）
     [ObservableProperty] private bool _autoAcceptEnabled;    // 自动接收（官方 download 字段语义）
+    [ObservableProperty] private bool _whitelistOnlyEnabled; // 仅白名单模式（顶栏快捷开关，即时生效）
 
     [ObservableProperty] private string _saveStatus = string.Empty;
+
+    /// <summary>顶栏白名单开关即时生效：切换立即写回 settings，不依赖"保存"按钮。
+    /// 触发 SettingsChanged → SendVM/ReceiveVM 的 SyncDeviceListFlags 刷新设备置灰状态。</summary>
+    partial void OnWhitelistOnlyEnabledChanged(bool value)
+        => _settings.Update(s => s.WhitelistOnly = value);
 
     /// <summary>防火墙入站放行状态文本（设置页「网络与防火墙」卡片）。</summary>
     [ObservableProperty] private string _firewallStatus = "未检测";
@@ -60,6 +66,7 @@ public partial class SettingsViewModel : ViewModelBase
         HttpsEnabled = s.Https;
         Pin = s.Pin;
         AutoAcceptEnabled = s.Download;
+        WhitelistOnlyEnabled = s.WhitelistOnly;
     }
 
     [RelayCommand]
@@ -81,6 +88,7 @@ public partial class SettingsViewModel : ViewModelBase
             s.Https = HttpsEnabled;
             s.Pin = Pin?.Trim() ?? string.Empty;
             s.Download = AutoAcceptEnabled;
+            s.WhitelistOnly = WhitelistOnlyEnabled;
         });
 
         // 主题即时切换

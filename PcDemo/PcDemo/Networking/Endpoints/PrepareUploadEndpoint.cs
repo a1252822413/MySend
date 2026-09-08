@@ -50,6 +50,16 @@ public static class PrepareUploadEndpoint
                 JsonOptions.Default, contentType: "application/json", statusCode: 403);
         }
 
+        // 白名单模式：仅白名单模式开启时，非白名单设备直接 403 拒绝
+        if (settings.Current.WhitelistOnly &&
+            (req.Info is null || deviceLists.FindWhitelist(req.Info.Fingerprint) is null))
+        {
+            var fp = req.Info?.Fingerprint ?? "(unknown)";
+            App.LogDiag($"[PrepareUpload] 拒绝非白名单设备（仅白名单模式）fp={(fp.Length >= 8 ? fp[..8] : fp)} alias={req.Info?.Alias}");
+            return Results.Json(new ErrorResponse { Message = "Not in whitelist" },
+                JsonOptions.Default, contentType: "application/json", statusCode: 403);
+        }
+
         // PIN 校验：接收端开启了 PIN（settings.Pin 非空）时，请求必须带 ?pin= 精确匹配 → 否则 401
         var expectedPin = settings.Current.Pin;
         if (!string.IsNullOrWhiteSpace(expectedPin))
