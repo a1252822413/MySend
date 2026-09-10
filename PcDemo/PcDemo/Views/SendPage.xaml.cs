@@ -3,6 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Input;
 using PcDemo.Helpers;
 using PcDemo.Models;
 using PcDemo.ViewModels;
@@ -24,6 +25,10 @@ public sealed partial class SendPage : Page
         ViewModel = App.Services.GetRequiredService<SendViewModel>();
         this.InitializeComponent();
         ViewModel.SetDispatcher(DispatcherQueue.GetForCurrentThread());
+
+        // Ctrl+V 粘贴文件：PreviewKeyDown 比 KeyboardAccelerator 更可靠，
+        // 在 Page 的子控件获得焦点时也能触发（KeyboardAccelerator 在 WinUI3 Page 上有已知问题）。
+        this.PreviewKeyDown += OnPastePreviewKeyDown;
 
         // “导入中…”指示：VM 后台导入时切换标题旁状态可见性
         ViewModel.PropertyChanged += (_, e) =>
@@ -284,5 +289,55 @@ public sealed partial class SendPage : Page
             PinVisibleBox.Visibility = Visibility.Collapsed;
         }
         _pinSyncing = false;
+    }
+
+    /// <summary>Ctrl+V：从剪贴板读取文件并加入待发列表。
+    /// 当焦点在 TextBox/PasswordBox 时不拦截（让控件正常粘贴文本）。</summary>
+    private async void OnPastePreviewKeyDown(object sender, KeyRoutedEventArgs e)
+    {
+        // 只处理 Ctrl+V
+        if (e.Key != Windows.System.VirtualKey.V) return;
+        var ctrl = Microsoft.UI.Input.InputKeyboardSource
+            .GetKeyStateForCurrentThread(Windows.System.VirtualKey.Control);
+        if ((ctrl & Windows.UI.Core.CoreVirtualKeyStates.Down) != Windows.UI.Core.CoreVirtualKeyStates.Down)
+            return;
+
+        // 焦点在文本输入框时不拦截，让控件正常粘贴
+        var focused = Microsoft.UI.Xaml.Input.FocusManager.GetFocusedElement();
+        if (focused is TextBox or PasswordBox) return;
+
+        e.Handled = true;
+        try
+        {
+            var content = Windows.ApplicationModel.DataTransfer.Clipboard.GetContent();
+            if (content.Contains("StorageItems"))
+            {
+                var items = await content.GetStorageItemsAsync();
+                if (items.Count > 0)
+                {
+                    await ViewModel.AddStorageItemsAsync(items);
+                    App.LogDiag($"[SendPage] Ctrl+V: 粘贴 {items.Count} 个文件");
+                }
+                return;
+            }
+            // 兜底：从纯文本路径解析
+            if (content.Contains(StandardDataFormats.Text))
+            {
+                var text = await content.GetTextAsync();
+                var paths = text.Split('\n', '\r')
+                    .Select(s => s.Trim().Trim('"'))
+                    .Where(s => !string.IsNullOrEmpty(s) && System.IO.File.Exists(s))
+                    .ToList();
+                if (paths.Count > 0)
+                {
+                    ViewModel.AddFiles(paths);
+                    App.LogDiag($"[SendPage] Ctrl+V: 从文本解析 {paths.Count} 个文件路径");
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            App.LogDiag($"[SendPage] Ctrl+V 粘贴失败：{ex.Message}");
+        }
     }
 }

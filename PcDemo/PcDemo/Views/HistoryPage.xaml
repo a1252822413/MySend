@@ -6,7 +6,7 @@
     xmlns:m="using:PcDemo.Models"
     NavigationCacheMode="Enabled">
 
-    <Grid RowDefinitions="Auto,*" Padding="24">
+    <Grid RowDefinitions="Auto,Auto,*" Padding="24">
         <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto">
             <StackPanel Grid.Column="0" Spacing="2" VerticalAlignment="Center">
                 <TextBlock Text="传输历史" FontSize="22" FontWeight="SemiBold"/>
@@ -15,7 +15,23 @@
             <Button Grid.Column="2" Content="清空" Click="OnClearClick" Padding="10,6" CornerRadius="8"
                     Visibility="{x:Bind ViewModel.HasItems, Mode=OneWay}"/>
         </Grid>
-        <ListView Grid.Row="1" Margin="0,12,0,0" ItemsSource="{x:Bind ViewModel.Items}" SelectionMode="None">
+
+        <!-- 筛选栏：方向切换 + 搜索框 -->
+        <Grid Grid.Row="1" Margin="0,8,0,0" ColumnDefinitions="Auto,*,Auto">
+            <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="2" VerticalAlignment="Center">
+                <Button Click="OnFilterAllClick" Content="全部" Padding="12,6" CornerRadius="8" Margin="0,0,4,0"
+                        x:Name="FilterAllBtn"/>
+                <Button Click="OnFilterSendClick" Content="发送" Padding="12,6" CornerRadius="8" Margin="0,0,4,0"
+                        x:Name="FilterSendBtn"/>
+                <Button Click="OnFilterReceiveClick" Content="接收" Padding="12,6" CornerRadius="8"
+                        x:Name="FilterReceiveBtn"/>
+            </StackPanel>
+            <TextBox Grid.Column="2" x:Name="SearchBox" Width="240" PlaceholderText="搜索设备名/文件名"
+                     Text="{x:Bind ViewModel.SearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                     CornerRadius="8" Padding="12,8"/>
+        </Grid>
+
+        <ListView Grid.Row="2" Margin="0,12,0,0" ItemsSource="{x:Bind ViewModel.FilteredItems, Mode=OneWay}" SelectionMode="None">
             <ListView.ItemContainerStyle>
                 <Style TargetType="ListViewItem">
                     <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
@@ -67,7 +83,7 @@
                 </DataTemplate>
             </ListView.ItemTemplate>
         </ListView>
-        <StackPanel Grid.Row="1" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="8"
+        <StackPanel Grid.Row="2" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="8"
                     Visibility="{x:Bind ViewModel.IsEmpty, Mode=OneWay}">
             <FontIcon Glyph="&#xE81C;" FontSize="40" Opacity="0.35"/>
             <TextBlock Text="暂无传输记录" FontSize="14" Opacity="0.6" HorizontalAlignment="Center"/>
