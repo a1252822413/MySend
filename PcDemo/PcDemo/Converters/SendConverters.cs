@@ -76,22 +76,24 @@ public sealed class PendingOnlyToVisible : IValueConverter
     public object ConvertBack(object value, Type targetType, object parameter, string language) => throw new NotSupportedException();
 }
 
+// Segoe Fluent Icons 字形（配合 FontFamily="Segoe Fluent Icons" 使用）。
+// 文档类（pdf/word/excel/ppt/text）MDL2 无专用字形，统一用 Page（E7C3），类型区分交给颜色/扩展名。
 public sealed class FileKindToGlyphConverter : IValueConverter
 {
     public object Convert(object value, Type targetType, object parameter, string language) =>
         value switch
         {
-            FileKind.Image => "🖼️",
-            FileKind.Video => "🎬",
-            FileKind.Audio => "🎵",
-            FileKind.Pdf => "📕",
-            FileKind.Zip => "🗜️",
-            FileKind.Word => "📘",
-            FileKind.Excel => "📊",
-            FileKind.PowerPoint => "📽️",
-            FileKind.Text => "📄",
-            FileKind.Apk => "📦",
-            _ => "📎",
+            FileKind.Image => "\uE8B9",        // Picture
+            FileKind.Video => "\uE714",        // Video
+            FileKind.Audio => "\uE8D6",        // Audio
+            FileKind.Pdf => "\uE7C3",          // Page
+            FileKind.Zip => "\uE7B8",          // Package
+            FileKind.Word => "\uE7C3",         // Page
+            FileKind.Excel => "\uE7C3",        // Page
+            FileKind.PowerPoint => "\uE7C3",  // Page
+            FileKind.Text => "\uE7C3",        // Page
+            FileKind.Apk => "\uE7B8",          // Package
+            _ => "\uE723",                     // Attach
         };
     public object ConvertBack(object value, Type targetType, object parameter, string language) => throw new NotSupportedException();
 }
@@ -140,67 +142,68 @@ public sealed class SendSessionStateToText : IValueConverter
     public object ConvertBack(object value, Type targetType, object parameter, string language) => throw new NotSupportedException();
 }
 
-/// <summary>Device.IsPicked → 选中高亮边框色。True=强调蓝 / False=透明（占位防布局跳动）。</summary>
+/// <summary>Device.IsPicked -> 选中高亮边框色。True=品牌 accent / False=透明（占位防布局跳动）。</summary>
 public sealed class BoolToSelectionBrush : IValueConverter
 {
-    private static readonly Brush Picked = new SolidColorBrush(Windows.UI.Color.FromArgb(0xFF, 0x5A, 0x81, 0xF7));
     private static readonly Brush None = new SolidColorBrush(Windows.UI.Color.FromArgb(0x00, 0x00, 0x00, 0x00));
     public object Convert(object value, Type targetType, object parameter, string language)
-        => value is true ? Picked : None;
+        => value is true ? ThemeBrushHelper.Get("AccentFillColorDefaultBrush") : None;
     public object ConvertBack(object value, Type targetType, object parameter, string language) => throw new NotSupportedException();
 }
 
-/// <summary>bool → 状态小灯颜色：True 绿 (#3FB668) / False 红 (#D13438)。</summary>
+/// <summary>bool -> 状态小灯颜色：True 成功绿 / False 错误红（主题资源，深浅色自适应）。</summary>
 public sealed class BoolToPassColor : IValueConverter
 {
-    private static readonly Brush Pass = new SolidColorBrush(Windows.UI.Color.FromArgb(0xFF, 0x3F, 0xB6, 0x68));
-    private static readonly Brush Fail = new SolidColorBrush(Windows.UI.Color.FromArgb(0xFF, 0xD1, 0x34, 0x38));
     public object Convert(object value, Type targetType, object parameter, string language)
-        => value is true ? Pass : Fail;
+        => value is true ? ThemeBrushHelper.Get("SystemFillColorSuccessBrush") : ThemeBrushHelper.Get("SystemFillColorCriticalBrush");
     public object ConvertBack(object value, Type targetType, object parameter, string language) => throw new NotSupportedException();
 }
 
-/// <summary>bool → 提示文字颜色：True 绿（通过）/ False 橙（提醒）。</summary>
+/// <summary>bool -> 提示文字颜色：True 成功绿 / False 警告橙（主题资源）。</summary>
 public sealed class BoolToHintColor : IValueConverter
 {
-    private static readonly Brush Ok = new SolidColorBrush(Windows.UI.Color.FromArgb(0xFF, 0x3F, 0xB6, 0x68));
-    private static readonly Brush Warn = new SolidColorBrush(Windows.UI.Color.FromArgb(0xFF, 0xFF, 0x8C, 0x00));
     public object Convert(object value, Type targetType, object parameter, string language)
-        => value is true ? Ok : Warn;
+        => value is true ? ThemeBrushHelper.Get("SystemFillColorSuccessBrush") : ThemeBrushHelper.Get("SystemFillColorCautionBrush");
     public object ConvertBack(object value, Type targetType, object parameter, string language) => throw new NotSupportedException();
 }
 
-/// <summary>是否选目标设备：✅ / ❌ 前缀 + 文字。</summary>
+/// <summary>每次调用从当前主题取资源 Brush（不缓存实例，主题切换后自动跟随）。</summary>
+internal static class ThemeBrushHelper
+{
+    public static Brush Get(string key)
+        => Application.Current.Resources[key] as Brush
+           ?? new SolidColorBrush(Windows.UI.Color.FromArgb(0xFF, 0x80, 0x80, 0x80));
+}
+
+/// <summary>是否选目标设备（状态灯已由 BoolToPassColor 呈现，文字不再带图标前缀）。</summary>
 public sealed class BoolToReadyTarget : IValueConverter
 {
     public object Convert(object value, Type targetType, object parameter, string language)
-        => value is true ? "✅ 已选目标设备" : "❌ 未选目标设备（点上方设备卡片，可多选）";
+        => value is true ? "已选目标设备" : "未选目标设备（点上方设备卡片，可多选）";
     public object ConvertBack(object value, Type targetType, object parameter, string language) => throw new NotSupportedException();
 }
 
-/// <summary>是否有待发文件：✅ / ❌ 前缀 + 文字。</summary>
+/// <summary>是否有待发文件。</summary>
 public sealed class BoolToReadyFile : IValueConverter
 {
     public object Convert(object value, Type targetType, object parameter, string language)
-        => value is true ? "✅ 已添加文件" : "❌ 未添加文件（点“添加文件”）";
+        => value is true ? "已添加文件" : "未添加文件（点“添加文件”）";
     public object ConvertBack(object value, Type targetType, object parameter, string language) => throw new NotSupportedException();
 }
 
-/// <summary>是否空闲可发：✅ / ❌ 前缀 + 文字。</summary>
+/// <summary>是否空闲可发。</summary>
 public sealed class BoolToReadyState : IValueConverter
 {
     public object Convert(object value, Type targetType, object parameter, string language)
-        => value is true ? "✅ 当前可发送（未占用）" : "❌ 正在发送中";
+        => value is true ? "当前可发送（未占用）" : "正在发送中";
     public object ConvertBack(object value, Type targetType, object parameter, string language) => throw new NotSupportedException();
 }
 
-/// <summary>Device.IsOnline → 在线点颜色。True=绿，False=灰。</summary>
+/// <summary>Device.IsOnline → 在线点颜色。True=成功绿，False=中性灰（主题资源）。</summary>
 public sealed class BoolToOnlineDot : IValueConverter
 {
-    private static readonly Brush On  = new SolidColorBrush(Windows.UI.Color.FromArgb(0xFF, 0x3F, 0xB6, 0x68));
-    private static readonly Brush Off = new SolidColorBrush(Windows.UI.Color.FromArgb(0xFF, 0x8A, 0x8A, 0x8A));
     public object Convert(object value, Type targetType, object parameter, string language)
-        => value is true ? On : Off;
+        => value is true ? ThemeBrushHelper.Get("SystemFillColorSuccessBrush") : ThemeBrushHelper.Get("SystemFillColorNeutralBrush");
     public object ConvertBack(object value, Type targetType, object parameter, string language) => throw new NotSupportedException();
 }
 

@@ -107,6 +107,21 @@ public sealed partial class SendPage : Page
             ViewModel.ToggleTarget(d);
     }
 
+    // 目标设备卡 hover：只换背景（BorderBrush 绑定 IsPicked 的选中绿边，不能覆盖）。
+    private void OnDeviceTilePointerEntered(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
+    {
+        if (sender is not Border card) return;
+        card.Background = Application.Current.Resources["CardBackgroundFillColorSecondaryBrush"]
+                          as Microsoft.UI.Xaml.Media.Brush ?? card.Background;
+    }
+
+    private void OnDeviceTilePointerExited(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
+    {
+        if (sender is not Border card) return;
+        card.Background = Application.Current.Resources["CardBackgroundFillColorDefaultBrush"]
+                          as Microsoft.UI.Xaml.Media.Brush ?? card.Background;
+    }
+
     private async void OnPickFilesClick(object sender, RoutedEventArgs e)
     {
         var picker = new Windows.Storage.Pickers.FileOpenPicker

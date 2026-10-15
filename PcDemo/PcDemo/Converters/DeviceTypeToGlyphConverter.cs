@@ -1,4 +1,7 @@
-// 设备类型 -> 图标字符 转换器（mobile/desktop/web/headless/server -> 对应 Emoji/Segoe 字形）。
+// 设备类型 -> 图标字形 转换器（mobile/desktop/web/headless/server -> Segoe Fluent Icons 字形）。
+// 输出为 PUA 字形字符，必须配合 FontFamily="Segoe Fluent Icons" 的 TextBlock/FontIcon 使用（否则显示 tofu）。
+// 字形码点依据 Segoe MDL2/Fluent Icons 官方表：E8EA CellPhone / E7F4 TVMonitor / E774 Globe /
+// E968 Network / E950 Component。
 using Microsoft.UI.Xaml.Data;
 using PcDemo.Models.Dto;
 
@@ -10,12 +13,12 @@ public sealed class DeviceTypeToGlyphConverter : IValueConverter
     {
         return value switch
         {
-            DeviceType.Mobile => "📱",
-            DeviceType.Desktop => "💻",
-            DeviceType.Web => "🌐",
-            DeviceType.Headless => "🖥️",
-            DeviceType.Server => "🗄️",
-            _ => "💻",
+            DeviceType.Mobile => "\uE8EA",    // CellPhone
+            DeviceType.Desktop => "\uE7F4",   // TVMonitor
+            DeviceType.Web => "\uE774",       // Globe
+            DeviceType.Headless => "\uE968",  // Network（无头设备 = 网络节点）
+            DeviceType.Server => "\uE950",    // Component（芯片组件）
+            _ => "\uE7F4",
         };
     }
 

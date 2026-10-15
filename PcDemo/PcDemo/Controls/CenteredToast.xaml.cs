@@ -22,26 +22,22 @@ namespace PcDemo.Controls;
 
 public sealed partial class CenteredToast : UserControl
 {
-    // ---------- 颜色：左竖条 + 图标背景 + 图标前景（统一色，强对比度）----------
-    private static readonly (Brush Bar, Brush IconBg, Brush IconFg) SuccessStyle = (
-        new SolidColorBrush(Color.FromArgb(0xFF, 0x2F, 0xB0, 0x54)),   // #2FB054
-        new SolidColorBrush(Color.FromArgb(0x16, 0x2F, 0xB0, 0x54)),   // 8.8% 绿
-        new SolidColorBrush(Color.FromArgb(0xFF, 0x2F, 0xB0, 0x54)));
+    // ---------- 颜色：从当前主题取 SystemFillColor*（成功绿/错误红/信息蓝/警告橙）----------
+    // 浅色主题为深色实色、深色主题为亮色实色，随 RequestedTheme 自动切换；
+    // 不再用硬编码 hex（深色主题下会破相）。图标背景 = 同色 10% 透明变体。
+    private static (Brush Bar, Brush IconBg, Brush IconFg) FillStyle(string colorKey)
+    {
+        var c = (Color)Application.Current.Resources[colorKey];  // SystemFillColorSuccess 等 Color 资源
+        return (
+            new SolidColorBrush(c),                                 // 左竖条
+            new SolidColorBrush(Color.FromArgb(0x1A, c.R, c.G, c.B)), // 图标底 ~10% 同色
+            new SolidColorBrush(c));                                 // 图标前景
+    }
 
-    private static readonly (Brush Bar, Brush IconBg, Brush IconFg) ErrorStyle = (
-        new SolidColorBrush(Color.FromArgb(0xFF, 0xC6, 0x28, 0x28)),   // #C62828
-        new SolidColorBrush(Color.FromArgb(0x16, 0xC6, 0x28, 0x28)),   // 8.8% 红
-        new SolidColorBrush(Color.FromArgb(0xFF, 0xC6, 0x28, 0x28)));
-
-    private static readonly (Brush Bar, Brush IconBg, Brush IconFg) InfoStyle = (
-        new SolidColorBrush(Color.FromArgb(0xFF, 0x00, 0x6C, 0xBE)),   // #006CBE
-        new SolidColorBrush(Color.FromArgb(0x16, 0x00, 0x6C, 0xBE)),   // 8.8% 蓝
-        new SolidColorBrush(Color.FromArgb(0xFF, 0x00, 0x6C, 0xBE)));
-
-    private static readonly (Brush Bar, Brush IconBg, Brush IconFg) WarningStyle = (
-        new SolidColorBrush(Color.FromArgb(0xFF, 0xE8, 0x7D, 0x00)),   // #E87D00
-        new SolidColorBrush(Color.FromArgb(0x16, 0xE8, 0x7D, 0x00)),   // 8.8% 橙
-        new SolidColorBrush(Color.FromArgb(0xFF, 0xE8, 0x7D, 0x00)));
+    private static (Brush Bar, Brush IconBg, Brush IconFg) SuccessStyle => FillStyle("SystemFillColorSuccess");
+    private static (Brush Bar, Brush IconBg, Brush IconFg) ErrorStyle   => FillStyle("SystemFillColorCritical");
+    private static (Brush Bar, Brush IconBg, Brush IconFg) InfoStyle    => FillStyle("SystemFillColorAttention");
+    private static (Brush Bar, Brush IconBg, Brush IconFg) WarningStyle => FillStyle("SystemFillColorCaution");
 
     // Segoe MDL2 Assets glyphs
     private const string GSuccess = "\uE73E"; // ✓

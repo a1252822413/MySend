@@ -68,7 +68,18 @@
             <!-- Frame 作为 NavigationView 的隐式 Content（内容区），
                  用稍不同的 LayerOnMicaBaseAltFillColorTransparentBrush 形成与侧边栏的色差 -->
             <Frame x:Name="ContentFrame"
-                   Background="{ThemeResource LayerOnMicaBaseAltFillColorTransparentBrush}"/>
+                   Background="{ThemeResource LayerOnMicaBaseAltFillColorTransparentBrush}">
+                <!-- 页面切换过渡：横向滑入 + 淡入（默认无过渡会生硬跳变） -->
+                <Frame.ContentTransitions>
+                    <TransitionCollection>
+                        <NavigationThemeTransition>
+                            <NavigationThemeTransition.DefaultNavigationTransitionInfo>
+                                <SlideNavigationTransitionInfo Effect="FromRight"/>
+                            </NavigationThemeTransition.DefaultNavigationTransitionInfo>
+                        </NavigationThemeTransition>
+                    </TransitionCollection>
+                </Frame.ContentTransitions>
+            </Frame>
         </NavigationView>
     </Grid>
 </Window>

@@ -8,6 +8,10 @@
             <ResourceDictionary.MergedDictionaries>
                 <XamlControlsResources xmlns="using:Microsoft.UI.Xaml.Controls" />
             </ResourceDictionary.MergedDictionaries>
+
+            <!-- 品牌绿（LocalSend 识别色）：覆盖系统 accent，
+                 AccentFillColorDefaultBrush / 选中态 / 进度环等全部自动跟随，深浅主题均有派生 -->
+            <Color x:Key="SystemAccentColor">#16A34A</Color>
         </ResourceDictionary>
     </Application.Resources>
 </Application>

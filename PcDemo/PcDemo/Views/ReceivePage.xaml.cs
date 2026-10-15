@@ -98,6 +98,26 @@ public sealed partial class ReceivePage : Page
             App.MainWindow.ShowSendPageForDevice(d);
     }
 
+    // 设备卡 hover 高亮：Border 无 VisualState，用 code-behind 换主题画刷。
+    // 接收页卡片边框是静态资源（无绑定），进/出可安全还原。
+    private void OnDeviceCardPointerEntered(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
+    {
+        if (sender is not Border card) return;
+        card.BorderBrush = ThemeBrush("AccentFillColorDefaultBrush", card.BorderBrush);
+        card.Background = ThemeBrush("CardBackgroundFillColorSecondaryBrush", card.Background);
+    }
+
+    private void OnDeviceCardPointerExited(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
+    {
+        if (sender is not Border card) return;
+        card.BorderBrush = ThemeBrush("CardStrokeColorDefaultBrush", card.BorderBrush);
+        card.Background = ThemeBrush("CardBackgroundFillColorDefaultBrush", card.Background);
+    }
+
+    /// <summary>按 key 取当前主题画刷；取不到则退回原值（避免 hover 把卡片颜色刷丢）。</summary>
+    private static Microsoft.UI.Xaml.Media.Brush ThemeBrush(string key, Microsoft.UI.Xaml.Media.Brush fallback)
+        => Application.Current.Resources[key] as Microsoft.UI.Xaml.Media.Brush ?? fallback;
+
     private async Task ShowReceiveProgressAsync(ReceiveSession session)
     {
         var root = App.MainWindow.Content?.XamlRoot;

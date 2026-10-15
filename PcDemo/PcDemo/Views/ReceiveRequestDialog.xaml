@@ -22,14 +22,15 @@
                 <!-- 发送方头像图标 -->
                 <Border Grid.Column="0" Width="44" Height="44" CornerRadius="22"
                         Background="{ThemeResource AccentFillColorDefaultBrush}">
-                    <TextBlock Text="👤" FontSize="20" HorizontalAlignment="Center" VerticalAlignment="Center"
-                               Foreground="{ThemeResource TextOnAccentFillColorDefaultBrush}"
-                               AutomationProperties.Name="发送方头像"/>
+                    <FontIcon Glyph="&#xE77B;" FontSize="18"
+                              Foreground="{ThemeResource TextOnAccentFillColorDefaultBrush}"
+                              HorizontalAlignment="Center" VerticalAlignment="Center"
+                              AutomationProperties.Name="发送方头像"/>
                 </Border>
                 <StackPanel Grid.Column="1" Margin="12,0,0,0" Spacing="2" VerticalAlignment="Center">
                     <TextBlock Text="{Binding SenderAlias}" FontWeight="SemiBold" FontSize="15"/>
                     <StackPanel Orientation="Horizontal" Spacing="6">
-                        <TextBlock Text="🌐" FontSize="11" Opacity="0.7" VerticalAlignment="Center"/>
+                        <FontIcon Glyph="&#xE774;" FontSize="11" Opacity="0.7" VerticalAlignment="Center"/>
                         <TextBlock Text="{Binding SenderIp}" Opacity="0.7" FontSize="12"/>
                     </StackPanel>
                 </StackPanel>
@@ -84,8 +85,9 @@
                                       AutomationProperties.Name="{Binding FileName}"
                                       MinWidth="0" Padding="0"
                                       VerticalAlignment="Center"/>
-                            <!-- 文件类型图标：固定列，与勾选框间距 8 -->
-                            <TextBlock Grid.Column="1" Text="{Binding FileIcon}" FontSize="20"
+                            <!-- 文件类型图标：固定列，与勾选框间距 8（PUA 字形需 Fluent Icons 字体） -->
+                            <TextBlock Grid.Column="1" Text="{Binding FileIcon}" FontSize="16"
+                                       FontFamily="Segoe Fluent Icons"
                                        Margin="8,0,0,0" VerticalAlignment="Center"
                                        AutomationProperties.AccessibilityView="Raw"/>
                             <!-- 文件名 + 大小：剩余宽度，与图标间距 10 -->

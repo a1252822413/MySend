@@ -82,9 +82,9 @@ public partial class SendViewModel : ViewModelBase,
     {
         get
         {
-            if (!HasSelectedTarget) return "⚠️ 请先在上方设备网格中勾选一个或多个目标设备";
-            if (!HasPendingFiles)    return "⚠️ 请先添加要发送的文件";
-            if (!IsIdleOrFinished)   return "⏳ 正在发送，请等待完成或点击“取消”后再发送";
+            if (!HasSelectedTarget) return "请先在上方设备网格中勾选一个或多个目标设备";
+            if (!HasPendingFiles)    return "请先添加要发送的文件";
+            if (!IsIdleOrFinished)   return "正在发送，请等待完成或点击“取消”后再发送";
             return "可以发送";
         }
     }

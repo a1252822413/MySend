@@ -25,20 +25,21 @@ public sealed partial class ReceiveFileItem : ObservableObject
         _ => $"{Size / 1024.0 / 1024 / 1024:F2} GB",
     };
 
-    /// <summary>根据 FileType 推断文件图标 Emoji（图片/视频/音频/文档/压缩包/其他）。</summary>
+    /// <summary>根据 FileType 推断文件图标字形（Segoe Fluent Icons，XAML 侧须配 FontFamily="Segoe Fluent Icons"）。
+    /// 文档类（pdf/word/excel/ppt/text）无专用字形，统一 Page；压缩包/安装包用 Package。</summary>
     public string FileIcon => FileType switch
     {
-        var t when t.StartsWith("image/") => "🖼️",
-        var t when t.StartsWith("video/") => "🎬",
-        var t when t.StartsWith("audio/") => "🎵",
-        "application/pdf" => "📕",
+        var t when t.StartsWith("image/") => "\uE8B9",  // Picture
+        var t when t.StartsWith("video/") => "\uE714",  // Video
+        var t when t.StartsWith("audio/") => "\uE8D6",  // Audio
+        "application/pdf" => "\uE7C3",                 // Page
         "application/zip" or "application/x-zip-compressed" or "application/x-rar-compressed"
-            or "application/x-7z-compressed" or "application/gzip" => "🗜️",
-        var t when t.StartsWith("text/") => "📄",
-        var t when t.Contains("word") => "📘",
-        var t when t.Contains("excel") || t.Contains("spreadsheet") => "📊",
-        var t when t.Contains("powerpoint") || t.Contains("presentation") => "📽️",
-        _ => "📎",
+            or "application/x-7z-compressed" or "application/gzip" => "\uE7B8",  // Package
+        var t when t.StartsWith("text/") => "\uE7C3",   // Page
+        var t when t.Contains("word") => "\uE7C3",    // Page
+        var t when t.Contains("excel") || t.Contains("spreadsheet") => "\uE7C3", // Page
+        var t when t.Contains("powerpoint") || t.Contains("presentation") => "\uE7C3", // Page
+        _ => "\uE723",                                  // Attach
     };
 }
 
