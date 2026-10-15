@@ -1,6 +1,7 @@
 /.trae
 /localsend-main
 /CatShare-main
+/.workbuddy
 
 # Visual Studio / Rider 缓存
 .vs/
