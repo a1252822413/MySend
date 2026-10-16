@@ -9,9 +9,43 @@
                 <XamlControlsResources xmlns="using:Microsoft.UI.Xaml.Controls" />
             </ResourceDictionary.MergedDictionaries>
 
-            <!-- 品牌绿（LocalSend 识别色）：覆盖系统 accent，
-                 AccentFillColorDefaultBrush / 选中态 / 进度环等全部自动跟随，深浅主题均有派生 -->
+            <!-- ② 双保险：把内置 accent 画刷本身也钉成品牌绿。
+                 ①（下方调色板）走的是"派生色 → 画刷"的间接链路；这里直接覆盖按钮/开关/
+                 选中态/进度环实际消费的那几个画刷，即使调色板某处被系统值抢先，
+                 主强调色也不会回落成系统蓝。两个主题都给同一品牌绿，保证观感一致。 -->
+            <ResourceDictionary.ThemeDictionaries>
+                <ResourceDictionary x:Key="Light">
+                    <SolidColorBrush x:Key="AccentFillColorDefaultBrush" Color="#16A34A" />
+                    <SolidColorBrush x:Key="AccentFillColorSecondaryBrush" Color="#16A34A" Opacity="0.9" />
+                    <SolidColorBrush x:Key="AccentFillColorTertiaryBrush" Color="#16A34A" Opacity="0.8" />
+                </ResourceDictionary>
+                <ResourceDictionary x:Key="Dark">
+                    <SolidColorBrush x:Key="AccentFillColorDefaultBrush" Color="#16A34A" />
+                    <SolidColorBrush x:Key="AccentFillColorSecondaryBrush" Color="#16A34A" Opacity="0.9" />
+                    <SolidColorBrush x:Key="AccentFillColorTertiaryBrush" Color="#16A34A" Opacity="0.8" />
+                </ResourceDictionary>
+            </ResourceDictionary.ThemeDictionaries>
+
+            <!-- ① 品牌绿调色板（LocalSend 识别色）
+
+                 重要（踩过的坑）：只覆盖 SystemAccentColor 是**无效**的。
+                 WinUI 的强调色画刷不直接引用基色，而是引用系统派生出的明暗档：
+                   · 亮色主题 AccentFillColorDefaultBrush = SystemAccentColorLight2
+                   · 暗色主题 AccentFillColorDefaultBrush = SystemAccentColorDark1
+                 而 Light1..3 / Dark1..3 是 Windows 按"系统主题色"预先算好的快照，
+                 覆盖基色并不会让它们重算 —— 这正是"改了品牌色却只有零星几处变绿、
+                 按钮/选中态/进度环仍是系统蓝"的原因。
+                 官方文档示例只给了基色一行，容易误导；要让品牌色真正生效必须整套七个值一起覆盖。
+
+                 取值策略：Light2 与 Dark1 才是两个主题下真正的强调填充，二者都取品牌绿，
+                 保证两个主题强调色一致；其余档位给协调的深浅阶梯供其他 accent 资源使用。 -->
             <Color x:Key="SystemAccentColor">#16A34A</Color>
+            <Color x:Key="SystemAccentColorLight1">#15803D</Color>
+            <Color x:Key="SystemAccentColorLight2">#16A34A</Color>
+            <Color x:Key="SystemAccentColorLight3">#1CB454</Color>
+            <Color x:Key="SystemAccentColorDark1">#16A34A</Color>
+            <Color x:Key="SystemAccentColorDark2">#12833C</Color>
+            <Color x:Key="SystemAccentColorDark3">#0E6B31</Color>
         </ResourceDictionary>
     </Application.Resources>
 </Application>
