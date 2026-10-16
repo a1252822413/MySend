@@ -50,9 +50,11 @@
                                            ToolTipService.ToolTip="{Binding FileName}"/>
                                 <TextBlock Text="{Binding SizeText}" FontSize="11" Opacity="0.55"/>
                             </StackPanel>
+                            <!-- 状态 chip：浅底深字（系统语义色），与历史页列表保持一致 -->
                             <Border Grid.Column="1" Padding="8,3" CornerRadius="8" VerticalAlignment="Center"
-                                    Background="{Binding StatusBrush}">
-                                <TextBlock Text="{Binding StatusText}" FontSize="11" Foreground="White"/>
+                                    Background="{Binding StatusBackgroundBrush}">
+                                <TextBlock Text="{Binding StatusText}" FontSize="11"
+                                           Foreground="{Binding StatusForegroundBrush}"/>
                             </Border>
                             <Button Grid.Column="2" Content="打开位置" Click="OnOpenDetailFileClick"
                                     Padding="8,4" CornerRadius="6" FontSize="11" VerticalAlignment="Center"

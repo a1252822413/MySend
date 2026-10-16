@@ -41,6 +41,9 @@ public sealed partial class ReceiveProgressDialog : ContentDialog
         FilesTextBlock.Text = FilesText;
         StatTextBlock.Text = ComputeStatText();
         ProgressRingControl.Value = RingValue;
+        // 不确定态（准备/校验）无确定进度，中央百分比隐藏
+        RingPercentTextBlock.Text = $"{RingValue:0}%";
+        RingPercentTextBlock.Visibility = P.IsIndeterminate ? Visibility.Collapsed : Visibility.Visible;
     }
 
     private void OnProgressChanged()
@@ -51,6 +54,10 @@ public sealed partial class ReceiveProgressDialog : ContentDialog
             _completed = true;
             _confirming = false;
             Title = "接收完成";
+            // 完成态：阶段文字转成功语义色，环形进度转绿，与"打开文件夹"主按钮形成一致的正向反馈
+            PhaseTextBlock.Foreground = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["SystemFillColorSuccessBrush"];
+            ProgressRingControl.Foreground = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["SystemFillColorSuccessBrush"];
+            RingPercentTextBlock.Foreground = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["SystemFillColorSuccessBrush"];
             PrimaryButtonText = "打开文件夹";
             SecondaryButtonText = "关闭";
             // 主动作用官方强调色（accent 蓝底白字）

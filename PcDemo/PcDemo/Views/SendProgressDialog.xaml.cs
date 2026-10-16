@@ -79,11 +79,37 @@ public sealed partial class SendProgressDialog : ContentDialog
         if (_single is null) return;
         TargetTextBlock.Text = TargetText;
         StateTextBlock.Text = StateText;
+        StateTextBlock.Foreground = StateBrush(_single.State);
         FilesTextBlock.Text = FilesText;
         StatTextBlock.Text = ComputeStatText(_single);
         ProgressRingControl.IsIndeterminate = IsWaiting;
         ProgressRingControl.Value = RingValue;
+        // 等待确认时环形是转圈态（无确定进度），中央百分比隐藏
+        RingPercentTextBlock.Text = $"{RingValue:0}%";
+        RingPercentTextBlock.Visibility = IsWaiting ? Visibility.Collapsed : Visibility.Visible;
     }
+
+    /// <summary>会话状态 → 状态文字色（语义主题资源，深浅主题自适应）。</summary>
+    private static Microsoft.UI.Xaml.Media.Brush StateBrush(SendSessionState state)
+        => (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources[state switch
+        {
+            SendSessionState.Completed => "SystemFillColorSuccessBrush",
+            SendSessionState.Rejected or SendSessionState.Failed or SendSessionState.CancelledByPeer
+                => "SystemFillColorCriticalBrush",
+            SendSessionState.Cancelled => "SystemFillColorCautionBrush",
+            _ => "TextFillColorSecondaryBrush",
+        }];
+
+    /// <summary>会话状态 → 进度条颜色：进行中/等待走品牌 accent，结束态跟随结果语义色。</summary>
+    private static Microsoft.UI.Xaml.Media.Brush BarBrush(SendSessionState state)
+        => (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources[state switch
+        {
+            SendSessionState.Completed => "SystemFillColorSuccessBrush",
+            SendSessionState.Rejected or SendSessionState.Failed or SendSessionState.CancelledByPeer
+                => "SystemFillColorCriticalBrush",
+            SendSessionState.Cancelled => "SystemFillColorCautionBrush",
+            _ => "AccentFillColorDefaultBrush",
+        }];
 
     // ---------- x:Bind 绑定源 ----------
     public string TargetText => $"发送到 {_single!.Target.Alias}";
@@ -168,17 +194,20 @@ public sealed partial class SendProgressDialog : ContentDialog
         var row = _rows.FirstOrDefault(r => ReferenceEquals(r.Session, s));
         if (row is null) return;
         row.NameText.Text = s.Target.Alias;
+        // 状态文案不带 ✓/✗ 前缀：状态语义交由文字颜色 + 进度条颜色表达（与全局去 emoji 一致）
         row.StateText.Text = s.State switch
         {
             SendSessionState.WaitingForReceiver => "等待确认…",
             SendSessionState.InProgress => "传输中",
-            SendSessionState.Completed => "✓ 已完成",
+            SendSessionState.Completed => "已完成",
             SendSessionState.Cancelled => "已取消",
             SendSessionState.CancelledByPeer => "对方中断",
-            SendSessionState.Rejected => "✗ 对方拒绝",
-            SendSessionState.Failed => "✗ 发送失败",
+            SendSessionState.Rejected => "对方拒绝",
+            SendSessionState.Failed => "发送失败",
             _ => "准备中",
         };
+        row.StateText.Foreground = StateBrush(s.State);
+        row.Bar.Foreground = BarBrush(s.State);
         var waiting = s.State == SendSessionState.WaitingForReceiver;
         row.Bar.IsIndeterminate = waiting;
         row.Bar.Value = waiting ? 0 : Math.Clamp(s.Progress * 100.0, 0, 100);

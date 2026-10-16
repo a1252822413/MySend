@@ -27,6 +27,12 @@ public partial class DeviceListViewModel : ViewModelBase
     [ObservableProperty] private string _newAlias = string.Empty;
     [ObservableProperty] private string _statusText = string.Empty;
 
+    /// <summary>白名单为空 → UI 显示空态提示。</summary>
+    [ObservableProperty] private bool _hasNoWhitelist = true;
+
+    /// <summary>黑名单为空 → UI 显示空态提示。</summary>
+    [ObservableProperty] private bool _hasNoBlacklist = true;
+
     public DeviceListViewModel(IDeviceListService service, IDeviceRegistry registry)
     {
         _service = service;
@@ -59,6 +65,8 @@ public partial class DeviceListViewModel : ViewModelBase
     {
         SyncList(Whitelist, _service.Whitelist);
         SyncList(Blacklist, _service.Blacklist);
+        HasNoWhitelist = Whitelist.Count == 0;
+        HasNoBlacklist = Blacklist.Count == 0;
     }
 
     private static void SyncList(ObservableCollection<DeviceListEntry> target, IReadOnlyList<DeviceListEntry> source)

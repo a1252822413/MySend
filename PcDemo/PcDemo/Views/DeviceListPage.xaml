@@ -10,10 +10,11 @@
 
     <Page.Resources>
         <c:EmptyToCollapsed x:Key="EmptyToCollapsed"/>
+        <c:DeviceTypeToGlyphConverter x:Key="DeviceTypeGlyph"/>
     </Page.Resources>
 
     <ScrollViewer Padding="24">
-        <StackPanel Spacing="16">
+        <StackPanel Spacing="16" MaxWidth="880" HorizontalAlignment="Left">
 
             <!-- 页面标题 -->
             <StackPanel Spacing="2" Margin="0,0,0,8">
@@ -22,59 +23,119 @@
             </StackPanel>
 
             <!-- 添加设备（共用） -->
-            <Border Padding="18,14" CornerRadius="12"
+            <Border Padding="18,16" CornerRadius="12"
                     Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                     BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1">
                 <StackPanel Spacing="12">
-                    <TextBlock Text="添加设备" FontSize="14" FontWeight="SemiBold" Opacity="0.85"/>
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <FontIcon Glyph="&#xE710;" FontSize="14" VerticalAlignment="Center"
+                                  Foreground="{ThemeResource AccentFillColorDefaultBrush}"
+                                  AutomationProperties.AccessibilityView="Raw"/>
+                        <TextBlock Text="添加设备" FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                    </StackPanel>
 
                     <!-- 从已发现设备选 -->
                     <Grid ColumnDefinitions="160,*,Auto" VerticalAlignment="Center">
-                        <TextBlock Grid.Column="0" Text="已发现设备" VerticalAlignment="Center"/>
+                        <TextBlock Grid.Column="0" Text="已发现设备" VerticalAlignment="Center" Opacity="0.85"/>
                         <ComboBox Grid.Column="1" ItemsSource="{x:Bind ViewModel.DiscoveredDevices, Mode=OneWay}"
                                   SelectedItem="{x:Bind ViewModel.SelectedDiscovered, Mode=TwoWay}"
                                   DisplayMemberPath="Alias"
                                   PlaceholderText="点击刷新或选择设备" HorizontalAlignment="Stretch"/>
-                        <Button Grid.Column="2" Content="刷新" Click="OnRefreshDiscoveredClick" Margin="8,0,0,0"/>
+                        <Button Grid.Column="2" Click="OnRefreshDiscoveredClick" Margin="8,0,0,0"
+                                Padding="12,6" CornerRadius="8" ToolTipService.ToolTip="重新读取附近设备列表">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <FontIcon Glyph="&#xE72C;" FontSize="13" VerticalAlignment="Center"
+                                          AutomationProperties.AccessibilityView="Raw"/>
+                                <TextBlock Text="刷新" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Button>
                     </Grid>
                     <Grid ColumnDefinitions="160,Auto,Auto" VerticalAlignment="Center">
-                        <TextBlock Grid.Column="0" Text="加入" VerticalAlignment="Center"/>
-                        <Button Grid.Column="1" Content="→ 白名单" Click="OnAddWhitelistFromDiscoveredClick"
-                                Padding="12,6" CornerRadius="8" Margin="0,0,8,0"/>
-                        <Button Grid.Column="2" Content="→ 黑名单" Click="OnAddBlacklistFromDiscoveredClick"
-                                Padding="12,6" CornerRadius="8"/>
+                        <TextBlock Grid.Column="0" Text="加入" VerticalAlignment="Center" Opacity="0.85"/>
+                        <Button Grid.Column="1" Click="OnAddWhitelistFromDiscoveredClick"
+                                Padding="12,6" CornerRadius="8" Margin="0,0,8,0">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <FontIcon Glyph="&#xE73E;" FontSize="13" VerticalAlignment="Center"
+                                          AutomationProperties.AccessibilityView="Raw"/>
+                                <TextBlock Text="白名单" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Button>
+                        <Button Grid.Column="2" Click="OnAddBlacklistFromDiscoveredClick"
+                                Padding="12,6" CornerRadius="8">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <FontIcon Glyph="&#xE8F8;" FontSize="13" VerticalAlignment="Center"
+                                          AutomationProperties.AccessibilityView="Raw"/>
+                                <TextBlock Text="黑名单" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Button>
                     </Grid>
 
                     <!-- 手动输入（离线设备） -->
                     <Grid ColumnDefinitions="160,*,Auto" VerticalAlignment="Center">
-                        <TextBlock Grid.Column="0" Text="设备指纹" VerticalAlignment="Center"/>
+                        <TextBlock Grid.Column="0" Text="设备指纹" VerticalAlignment="Center" Opacity="0.85"/>
                         <TextBox Grid.Column="1" Text="{x:Bind ViewModel.NewFingerprint, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                  PlaceholderText="粘贴对方 fingerprint"/>
                     </Grid>
                     <Grid ColumnDefinitions="160,*,Auto" VerticalAlignment="Center">
-                        <TextBlock Grid.Column="0" Text="别名（可选）" VerticalAlignment="Center"/>
+                        <TextBlock Grid.Column="0" Text="别名（可选）" VerticalAlignment="Center" Opacity="0.85"/>
                         <TextBox Grid.Column="1" Text="{x:Bind ViewModel.NewAlias, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                  PlaceholderText="便于识别的名字"/>
                     </Grid>
                     <Grid ColumnDefinitions="160,Auto,Auto" VerticalAlignment="Center">
-                        <TextBlock Grid.Column="0" Text="加入" VerticalAlignment="Center"/>
-                        <Button Grid.Column="1" Content="→ 白名单" Click="OnAddWhitelistManualClick"
-                                Padding="12,6" CornerRadius="8" Margin="0,0,8,0"/>
-                        <Button Grid.Column="2" Content="→ 黑名单" Click="OnAddBlacklistManualClick"
-                                Padding="12,6" CornerRadius="8"/>
+                        <TextBlock Grid.Column="0" Text="加入" VerticalAlignment="Center" Opacity="0.85"/>
+                        <Button Grid.Column="1" Click="OnAddWhitelistManualClick"
+                                Padding="12,6" CornerRadius="8" Margin="0,0,8,0">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <FontIcon Glyph="&#xE73E;" FontSize="13" VerticalAlignment="Center"
+                                          AutomationProperties.AccessibilityView="Raw"/>
+                                <TextBlock Text="白名单" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Button>
+                        <Button Grid.Column="2" Click="OnAddBlacklistManualClick"
+                                Padding="12,6" CornerRadius="8">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <FontIcon Glyph="&#xE8F8;" FontSize="13" VerticalAlignment="Center"
+                                          AutomationProperties.AccessibilityView="Raw"/>
+                                <TextBlock Text="黑名单" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Button>
                     </Grid>
-                    <TextBlock Text="{x:Bind ViewModel.StatusText, Mode=OneWay}" Opacity="0.7" FontSize="12"
-                               Visibility="{x:Bind ViewModel.StatusText, Mode=OneWay, Converter={StaticResource EmptyToCollapsed}}"/>
+
+                    <!-- 操作结果提示：语义色状态条 -->
+                    <Border Padding="12,8" CornerRadius="8"
+                            Background="{ThemeResource ControlFillColorSecondaryBrush}"
+                            Visibility="{x:Bind ViewModel.StatusText, Mode=OneWay, Converter={StaticResource EmptyToCollapsed}}">
+                        <TextBlock Text="{x:Bind ViewModel.StatusText, Mode=OneWay}" FontSize="12" Opacity="0.85"/>
+                    </Border>
                 </StackPanel>
             </Border>
 
             <!-- 白名单 -->
-            <Border Padding="18,14" CornerRadius="12"
+            <Border Padding="18,16" CornerRadius="12"
                     Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                     BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1">
                 <StackPanel Spacing="10">
-                    <TextBlock Text="白名单" FontSize="14" FontWeight="SemiBold" Opacity="0.85"/>
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <FontIcon Glyph="&#xE73E;" FontSize="14" VerticalAlignment="Center"
+                                  Foreground="{ThemeResource SystemFillColorSuccessBrush}"
+                                  AutomationProperties.AccessibilityView="Raw"/>
+                        <TextBlock Text="白名单" FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                    </StackPanel>
                     <TextBlock Text="白名单设备不会被自动拒绝；勾选「自动接收」可跳过确认弹窗直接保存文件。" Opacity="0.6" FontSize="12"/>
+
+                    <!-- 空态 -->
+                    <Border Padding="24,20" CornerRadius="8"
+                            Background="{ThemeResource SubtleFillColorTransparentBrush}"
+                            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1"
+                            Visibility="{x:Bind ViewModel.HasNoWhitelist, Mode=OneWay}">
+                        <StackPanel Spacing="6" HorizontalAlignment="Center">
+                            <FontIcon Glyph="&#xE8FB;" FontSize="24" Opacity="0.4" HorizontalAlignment="Center"
+                                      AutomationProperties.AccessibilityView="Raw"/>
+                            <TextBlock Text="白名单为空" FontSize="13" Opacity="0.7" HorizontalAlignment="Center"/>
+                            <TextBlock Text="从上方选择已发现设备，或粘贴指纹手动加入" FontSize="11.5" Opacity="0.5"
+                                       HorizontalAlignment="Center"/>
+                        </StackPanel>
+                    </Border>
 
                     <ListView ItemsSource="{x:Bind ViewModel.Whitelist, Mode=OneWay}"
                               SelectionMode="None" HorizontalContentAlignment="Stretch">
@@ -88,25 +149,49 @@
                         </ListView.ItemContainerStyle>
                         <ListView.ItemTemplate>
                             <DataTemplate x:DataType="models:DeviceListEntry">
-                                <Border Padding="14" CornerRadius="8"
+                                <Border Padding="14" CornerRadius="10"
                                         Background="{ThemeResource SubtleFillColorTransparentBrush}"
                                         BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1">
-                                    <Grid ColumnDefinitions="*,Auto,Auto" VerticalAlignment="Center">
-                                        <StackPanel Grid.Column="0" Spacing="2">
-                                            <TextBlock Text="{x:Bind Alias, Mode=OneWay}" FontWeight="SemiBold" FontSize="13"/>
-                                            <TextBlock Text="{x:Bind Fingerprint, Mode=OneWay}" Opacity="0.5" FontSize="11" TextTrimming="CharacterEllipsis"/>
+                                    <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="12" VerticalAlignment="Center">
+                                        <!-- 设备类型头像瓦片 -->
+                                        <Border Grid.Column="0" Width="38" Height="38" CornerRadius="12"
+                                                Background="{ThemeResource AccentFillColorDefaultBrush}"
+                                                VerticalAlignment="Center">
+                                            <TextBlock Text="{x:Bind DeviceType, Mode=OneWay, Converter={StaticResource DeviceTypeGlyph}}"
+                                                       FontFamily="Segoe Fluent Icons" FontSize="16"
+                                                       Foreground="{ThemeResource TextOnAccentFillColorDefaultBrush}"
+                                                       HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                       AutomationProperties.AccessibilityView="Raw"/>
+                                        </Border>
+                                        <StackPanel Grid.Column="1" Spacing="2" VerticalAlignment="Center">
+                                            <TextBlock Text="{x:Bind Alias, Mode=OneWay}" FontWeight="SemiBold" FontSize="13"
+                                                       TextTrimming="CharacterEllipsis"/>
+                                            <TextBlock Text="{x:Bind Fingerprint, Mode=OneWay}" Opacity="0.5" FontSize="11"
+                                                       TextTrimming="CharacterEllipsis"/>
                                         </StackPanel>
-                                        <ToggleSwitch Grid.Column="1" Header="自动接收" OffContent="关" OnContent="开"
+                                        <ToggleSwitch Grid.Column="2" Header="自动接收" OffContent="关" OnContent="开"
                                                       IsOn="{x:Bind AutoAccept, Mode=OneWay}"
                                                       Toggled="OnWhitelistAutoAcceptToggled"
                                                       DataContext="{x:Bind}"/>
-                                        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8"
-                                                    Margin="12,0,0,0">
-                                            <Button Content="重命名" Click="OnRenameWhitelistClick"
+                                        <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="8">
+                                            <Button Click="OnRenameWhitelistClick"
                                                     DataContext="{x:Bind}" Padding="10,6" CornerRadius="8"
-                                                    ToolTipService.ToolTip="修改本地显示名称"/>
-                                            <Button Content="移除" Click="OnRemoveWhitelistClick"
-                                                    DataContext="{x:Bind}" Padding="10,6" CornerRadius="8"/>
+                                                    ToolTipService.ToolTip="修改本地显示名称">
+                                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                                    <FontIcon Glyph="&#xE70F;" FontSize="12" VerticalAlignment="Center"
+                                                              AutomationProperties.AccessibilityView="Raw"/>
+                                                    <TextBlock Text="重命名" VerticalAlignment="Center"/>
+                                                </StackPanel>
+                                            </Button>
+                                            <Button Click="OnRemoveWhitelistClick"
+                                                    DataContext="{x:Bind}" Padding="10,6" CornerRadius="8"
+                                                    ToolTipService.ToolTip="从白名单移除">
+                                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                                    <FontIcon Glyph="&#xE738;" FontSize="12" VerticalAlignment="Center"
+                                                              AutomationProperties.AccessibilityView="Raw"/>
+                                                    <TextBlock Text="移除" VerticalAlignment="Center"/>
+                                                </StackPanel>
+                                            </Button>
                                         </StackPanel>
                                     </Grid>
                                 </Border>
@@ -117,15 +202,34 @@
             </Border>
 
             <!-- 黑名单 -->
-            <Border Padding="18,14" CornerRadius="12"
+            <Border Padding="18,16" CornerRadius="12"
                     Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                     BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1">
                 <StackPanel Spacing="10">
-                    <TextBlock Text="黑名单" FontSize="14" FontWeight="SemiBold" Opacity="0.85"/>
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <FontIcon Glyph="&#xE8F8;" FontSize="14" VerticalAlignment="Center"
+                                  Foreground="{ThemeResource SystemFillColorCriticalBrush}"
+                                  AutomationProperties.AccessibilityView="Raw"/>
+                        <TextBlock Text="黑名单" FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                    </StackPanel>
                     <TextBlock Text="黑名单设备的文件请求会在 HTTP 层直接拒绝（403 Blocked by blacklist）。" Opacity="0.6" FontSize="12"/>
 
+                    <!-- 空态 -->
+                    <Border Padding="24,20" CornerRadius="8"
+                            Background="{ThemeResource SubtleFillColorTransparentBrush}"
+                            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1"
+                            Visibility="{x:Bind ViewModel.HasNoBlacklist, Mode=OneWay}">
+                        <StackPanel Spacing="6" HorizontalAlignment="Center">
+                            <FontIcon Glyph="&#xE8F8;" FontSize="24" Opacity="0.4" HorizontalAlignment="Center"
+                                      AutomationProperties.AccessibilityView="Raw"/>
+                            <TextBlock Text="黑名单为空" FontSize="13" Opacity="0.7" HorizontalAlignment="Center"/>
+                            <TextBlock Text="被拉黑的设备将无法向本机发送任何文件" FontSize="11.5" Opacity="0.5"
+                                       HorizontalAlignment="Center"/>
+                        </StackPanel>
+                    </Border>
+
                     <ListView ItemsSource="{x:Bind ViewModel.Blacklist, Mode=OneWay}"
-                              SelectionMode="None">
+                              SelectionMode="None" HorizontalContentAlignment="Stretch">
                         <ListView.ItemContainerStyle>
                             <Style TargetType="ListViewItem">
                                 <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
@@ -136,21 +240,44 @@
                         </ListView.ItemContainerStyle>
                         <ListView.ItemTemplate>
                             <DataTemplate x:DataType="models:DeviceListEntry">
-                                <Border Padding="14" CornerRadius="8"
+                                <Border Padding="14" CornerRadius="10"
                                         Background="{ThemeResource SubtleFillColorTransparentBrush}"
                                         BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1">
-                                    <Grid ColumnDefinitions="*,Auto" VerticalAlignment="Center">
-                                        <StackPanel Grid.Column="0" Spacing="2">
-                                            <TextBlock Text="{x:Bind Alias, Mode=OneWay}" FontWeight="SemiBold" FontSize="13"/>
-                                            <TextBlock Text="{x:Bind Fingerprint, Mode=OneWay}" Opacity="0.5" FontSize="11" TextTrimming="CharacterEllipsis"/>
+                                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12" VerticalAlignment="Center">
+                                        <Border Grid.Column="0" Width="38" Height="38" CornerRadius="12"
+                                                Background="{ThemeResource ControlFillColorSecondaryBrush}"
+                                                VerticalAlignment="Center">
+                                            <TextBlock Text="{x:Bind DeviceType, Mode=OneWay, Converter={StaticResource DeviceTypeGlyph}}"
+                                                       FontFamily="Segoe Fluent Icons" FontSize="16" Opacity="0.75"
+                                                       Foreground="{ThemeResource TextFillColorPrimaryBrush}"
+                                                       HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                       AutomationProperties.AccessibilityView="Raw"/>
+                                        </Border>
+                                        <StackPanel Grid.Column="1" Spacing="2" VerticalAlignment="Center">
+                                            <TextBlock Text="{x:Bind Alias, Mode=OneWay}" FontWeight="SemiBold" FontSize="13"
+                                                       TextTrimming="CharacterEllipsis"/>
+                                            <TextBlock Text="{x:Bind Fingerprint, Mode=OneWay}" Opacity="0.5" FontSize="11"
+                                                       TextTrimming="CharacterEllipsis"/>
                                         </StackPanel>
-                                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8"
-                                                    Margin="12,0,0,0">
-                                            <Button Content="重命名" Click="OnRenameBlacklistClick"
+                                        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8">
+                                            <Button Click="OnRenameBlacklistClick"
                                                     DataContext="{x:Bind}" Padding="10,6" CornerRadius="8"
-                                                    ToolTipService.ToolTip="修改本地显示名称"/>
-                                            <Button Content="移除" Click="OnRemoveBlacklistClick"
-                                                    DataContext="{x:Bind}" Padding="10,6" CornerRadius="8"/>
+                                                    ToolTipService.ToolTip="修改本地显示名称">
+                                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                                    <FontIcon Glyph="&#xE70F;" FontSize="12" VerticalAlignment="Center"
+                                                              AutomationProperties.AccessibilityView="Raw"/>
+                                                    <TextBlock Text="重命名" VerticalAlignment="Center"/>
+                                                </StackPanel>
+                                            </Button>
+                                            <Button Click="OnRemoveBlacklistClick"
+                                                    DataContext="{x:Bind}" Padding="10,6" CornerRadius="8"
+                                                    ToolTipService.ToolTip="从黑名单移除">
+                                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                                    <FontIcon Glyph="&#xE738;" FontSize="12" VerticalAlignment="Center"
+                                                              AutomationProperties.AccessibilityView="Raw"/>
+                                                    <TextBlock Text="移除" VerticalAlignment="Center"/>
+                                                </StackPanel>
+                                            </Button>
                                         </StackPanel>
                                     </Grid>
                                 </Border>

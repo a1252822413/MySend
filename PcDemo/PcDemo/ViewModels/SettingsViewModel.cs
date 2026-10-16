@@ -39,6 +39,9 @@ public partial class SettingsViewModel : ViewModelBase
     /// <summary>防火墙入站放行状态文本（设置页「网络与防火墙」卡片）。</summary>
     [ObservableProperty] private string _firewallStatus = "未检测";
 
+    /// <summary>防火墙状态级别：0=检测中/未知 1=已放行 2=未放行 3=检测或添加失败（驱动图标+颜色）。</summary>
+    [ObservableProperty] private int _firewallLevel;
+
     /// <summary>正在检测防火墙（防止重复触发）。</summary>
     [ObservableProperty] private bool _isCheckingFirewall;
 
@@ -173,6 +176,7 @@ public partial class SettingsViewModel : ViewModelBase
         if (IsCheckingFirewall) return;
         IsCheckingFirewall = true;
         FirewallStatus = "正在检测…";
+        FirewallLevel = 0;
         try { await DoCheckCoreAsync(); }
         finally { IsCheckingFirewall = false; }
     }
@@ -185,6 +189,12 @@ public partial class SettingsViewModel : ViewModelBase
             var udpPort = (int)_settings.Current.Port;
             var tcpPort = EndpointConfig.ServicePort(_settings);
             var state = await Task.Run(() => FirewallHelper.CheckState(udpPort, tcpPort));
+            FirewallLevel = state switch
+            {
+                FirewallState.Allowed => 1,
+                FirewallState.NotAllowed => 2,
+                _ => 2,
+            };
             FirewallStatus = state switch
             {
                 FirewallState.Allowed => $"已放行：UDP {udpPort} / TCP {tcpPort} 入站规则",
@@ -194,6 +204,7 @@ public partial class SettingsViewModel : ViewModelBase
         }
         catch (Exception ex)
         {
+            FirewallLevel = 3;
             FirewallStatus = $"检测失败：{ex.Message}";
         }
     }
@@ -207,6 +218,7 @@ public partial class SettingsViewModel : ViewModelBase
         var udpPort = (int)_settings.Current.Port;
         var tcpPort = EndpointConfig.ServicePort(_settings);
         FirewallStatus = "正在请求管理员授权…";
+        FirewallLevel = 0;
         try
         {
             var ok = await Task.Run(() => FirewallHelper.AddRules(udpPort, tcpPort));
@@ -219,11 +231,13 @@ public partial class SettingsViewModel : ViewModelBase
             }
             else
             {
+                FirewallLevel = 2;
                 FirewallStatus = "未放行：已在 UAC 弹窗中取消授权";
             }
         }
         catch (Exception ex)
         {
+            FirewallLevel = 3;
             FirewallStatus = $"添加失败：{ex.Message}";
         }
         finally

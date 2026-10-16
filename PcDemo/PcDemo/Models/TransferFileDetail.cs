@@ -44,13 +44,23 @@ public sealed class TransferFileDetail
         _ => "跳过",
     };
 
-    [JsonIgnore] public Brush StatusBrush => Result switch
+    /// <summary>状态 chip 的前景色（深色字）：系统语义色，深浅主题自适应。</summary>
+    [JsonIgnore] public Brush StatusForegroundBrush => ThemeBrushHelper.Get(Result switch
     {
-        FileDetailResult.Success => new SolidColorBrush(Windows.UI.Color.FromArgb(255, 63, 182, 104)),
-        FileDetailResult.Failed => new SolidColorBrush(Windows.UI.Color.FromArgb(255, 224, 90, 79)),
-        FileDetailResult.Canceled => new SolidColorBrush(Windows.UI.Color.FromArgb(255, 232, 163, 61)),
-        _ => new SolidColorBrush(Windows.UI.Color.FromArgb(255, 140, 140, 140)),
-    };
+        FileDetailResult.Success => "SystemFillColorSuccessBrush",
+        FileDetailResult.Failed => "SystemFillColorCriticalBrush",
+        FileDetailResult.Canceled => "SystemFillColorCautionBrush",
+        _ => "SystemFillColorNeutralBrush",
+    });
+
+    /// <summary>状态 chip 的背景色（低饱和浅底）：与 StatusForegroundBrush 配对。</summary>
+    [JsonIgnore] public Brush StatusBackgroundBrush => ThemeBrushHelper.Get(Result switch
+    {
+        FileDetailResult.Success => "SystemFillColorSuccessBackgroundBrush",
+        FileDetailResult.Failed => "SystemFillColorCriticalBackgroundBrush",
+        FileDetailResult.Canceled => "SystemFillColorCautionBackgroundBrush",
+        _ => "SystemFillColorNeutralBackgroundBrush",
+    });
 
     /// <summary>接收成功且有保存路径 → 详情行显示"打开位置"。</summary>
     [JsonIgnore] public Microsoft.UI.Xaml.Visibility OpenVisibility =>

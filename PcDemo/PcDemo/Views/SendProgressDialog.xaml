@@ -11,11 +11,19 @@
     SecondaryButtonClick="OnContinueClick">
 
     <Grid MinWidth="480">
-        <!-- 单发面板：单个设备 → 环形进度 -->
+        <!-- 单发面板：单个设备 → 环形进度（中央叠百分比数字） -->
         <StackPanel x:Name="SinglePanel" Spacing="14" Padding="0,4,0,0">
-            <TextBlock x:Name="TargetTextBlock" FontSize="14" Opacity="0.8"
-                       HorizontalAlignment="Center"/>
-            <ProgressRing x:Name="ProgressRingControl" Width="84" Height="84"/>
+            <Border HorizontalAlignment="Center" Padding="10,3" CornerRadius="10"
+                    Background="{ThemeResource ControlFillColorSecondaryBrush}">
+                <TextBlock x:Name="TargetTextBlock" FontSize="12" Opacity="0.85"/>
+            </Border>
+            <Grid Width="104" Height="104" HorizontalAlignment="Center">
+                <ProgressRing x:Name="ProgressRingControl" Width="104" Height="104"
+                              Foreground="{ThemeResource AccentFillColorDefaultBrush}"/>
+                <!-- 等待对方确认时 IsIndeterminate → 无确定进度，百分比数字隐藏（code-behind 控制） -->
+                <TextBlock x:Name="RingPercentTextBlock" FontSize="22" FontWeight="SemiBold"
+                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            </Grid>
             <StackPanel Spacing="4" HorizontalAlignment="Center">
                 <TextBlock x:Name="StateTextBlock" FontSize="15" FontWeight="SemiBold"
                            HorizontalAlignment="Center"/>

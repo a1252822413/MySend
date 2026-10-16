@@ -41,12 +41,21 @@ public sealed class TransferHistoryItem
         TransferResult.Failed => "失败",
         _ => "已取消",
     };
-    [JsonIgnore] public Brush StatusBrush => Result switch
+    /// <summary>状态 chip 的前景色（深色字）：走系统语义色，深浅主题自适应。</summary>
+    [JsonIgnore] public Brush StatusForegroundBrush => ThemeBrushHelper.Get(Result switch
     {
-        TransferResult.Success => new SolidColorBrush(Windows.UI.Color.FromArgb(255, 63, 182, 104)),
-        TransferResult.Failed => new SolidColorBrush(Windows.UI.Color.FromArgb(255, 224, 90, 79)),
-        _ => new SolidColorBrush(Windows.UI.Color.FromArgb(255, 232, 163, 61)),
-    };
+        TransferResult.Success => "SystemFillColorSuccessBrush",
+        TransferResult.Failed => "SystemFillColorCriticalBrush",
+        _ => "SystemFillColorCautionBrush",
+    });
+
+    /// <summary>状态 chip 的背景色（低饱和浅底）：与 StatusForegroundBrush 配对。</summary>
+    [JsonIgnore] public Brush StatusBackgroundBrush => ThemeBrushHelper.Get(Result switch
+    {
+        TransferResult.Success => "SystemFillColorSuccessBackgroundBrush",
+        TransferResult.Failed => "SystemFillColorCriticalBackgroundBrush",
+        _ => "SystemFillColorCautionBackgroundBrush",
+    });
     [JsonIgnore] public string SizeText => ByteFormatter.Format(TotalBytes);
     [JsonIgnore] public string FilesText => $"{FileCount} 个文件";
     [JsonIgnore] public string TimeText => FinishedAt.ToString("MM-dd HH:mm");

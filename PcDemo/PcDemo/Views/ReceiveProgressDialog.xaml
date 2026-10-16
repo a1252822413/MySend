@@ -14,10 +14,18 @@
         <StackPanel Spacing="14" Padding="0,4,0,0">
             <!-- 计算属性(SenderText/Ring/FilesText/StatText)不做 x:Bind：由 P.PropertyChanged →
                  OnProgressChanged → RefreshUi() 只更新变化节点。P.* 实现 INPC 保持自动绑定。 -->
-            <TextBlock x:Name="SenderTextBlock" FontSize="14" Opacity="0.8"
-                       HorizontalAlignment="Center"/>
-            <ProgressRing x:Name="ProgressRingControl" Width="84" Height="84"
-                          IsIndeterminate="{x:Bind P.IsIndeterminate, Mode=OneWay}"/>
+            <Border HorizontalAlignment="Center" Padding="10,3" CornerRadius="10"
+                    Background="{ThemeResource ControlFillColorSecondaryBrush}">
+                <TextBlock x:Name="SenderTextBlock" FontSize="12" Opacity="0.85"/>
+            </Border>
+            <Grid Width="104" Height="104" HorizontalAlignment="Center">
+                <ProgressRing x:Name="ProgressRingControl" Width="104" Height="104"
+                              Foreground="{ThemeResource AccentFillColorDefaultBrush}"
+                              IsIndeterminate="{x:Bind P.IsIndeterminate, Mode=OneWay}"/>
+                <!-- 不确定态（准备/校验阶段）无百分比可显示，数字由 code-behind 隐藏 -->
+                <TextBlock x:Name="RingPercentTextBlock" FontSize="22" FontWeight="SemiBold"
+                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            </Grid>
             <StackPanel Spacing="4" HorizontalAlignment="Center">
                 <TextBlock x:Name="PhaseTextBlock" FontSize="15" FontWeight="SemiBold"
                            HorizontalAlignment="Center"
