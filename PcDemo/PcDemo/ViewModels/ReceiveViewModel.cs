@@ -8,6 +8,7 @@ using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml.Controls;
 using PcDemo.Messages;
 using PcDemo.Models;
+using PcDemo.Models.Dto;
 using PcDemo.Networking;
 using PcDemo.Services;
 
@@ -61,6 +62,12 @@ public partial class ReceiveViewModel : ViewModelBase,
     [ObservableProperty] private string _statusText = "服务运行中";
     [ObservableProperty] private string _fingerprint = string.Empty;
     [ObservableProperty] private bool _isRefreshing;
+
+    /// <summary>本机设备类型（hero 身份卡头像图标用）。</summary>
+    [ObservableProperty] private DeviceType? _localDeviceType = Models.Dto.DeviceType.Desktop;
+
+    /// <summary>接收保存目录完整路径（hero 身份卡展示 + 「打开」）。</summary>
+    [ObservableProperty] private string _destination = string.Empty;
 
     /// <summary>缩略指纹：只显示前 8 位 + 省略号（64位 → 9 字符，不挤右侧空间）。</summary>
     public string FingerprintShort
@@ -226,6 +233,10 @@ public partial class ReceiveViewModel : ViewModelBase,
         }
     }
 
+    /// <summary>hero 身份卡「打开」按钮：在资源管理器中打开接收目录。</summary>
+    [RelayCommand]
+    private void OpenFolder() => OpenDestinationFolder();
+
     public void RefreshFromSettings()
     {
         var s = _settings.Current;
@@ -233,6 +244,8 @@ public partial class ReceiveViewModel : ViewModelBase,
         // 显示实际服务端口：HTTPS-only 时为 端口+1（如 53318）
         Port = EndpointConfig.ServicePort(_settings);
         Fingerprint = s.Fingerprint;
+        LocalDeviceType = s.DeviceType;
+        Destination = s.Destination;
         OnPropertyChanged(nameof(FingerprintShort));
         OnPropertyChanged(nameof(ProtocolText));
     }

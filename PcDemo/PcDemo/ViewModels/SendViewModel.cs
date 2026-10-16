@@ -126,6 +126,20 @@ public partial class SendViewModel : ViewModelBase,
     /// <summary>正在导入（拖拽/选文件夹后台枚举中）→ 发送页显示“导入中…”。</summary>
     [ObservableProperty] private bool _isImporting;
 
+    /// <summary>剪贴板中是否有可添加的文件（驱动发送页空态「一键添加」提示行）。</summary>
+    [ObservableProperty] private bool _hasClipboardFiles;
+
+    /// <summary>剪贴板提示文案（如「剪贴板中有 3 个文件」）。</summary>
+    [ObservableProperty] private string _clipboardHintText = string.Empty;
+
+    /// <summary>刷新剪贴板提示（UI 线程调用；读取失败传 0 即隐藏提示）。
+    /// 与 Ctrl+V 走同一套「StorageItems / 文本路径」判定，保证提示与粘贴行为一致。</summary>
+    public void SetClipboardHint(int fileCount)
+    {
+        HasClipboardFiles = fileCount > 0;
+        ClipboardHintText = fileCount > 0 ? $"剪贴板中有 {fileCount} 个文件" : string.Empty;
+    }
+
     public SendViewModel(ISendSessionManager sendMgr, IDeviceRegistry registry,
         MulticastDiscoveryService discovery, IMessenger messenger, TransferHistoryService history,
         IDeviceListService deviceLists, ISettingsService settings)

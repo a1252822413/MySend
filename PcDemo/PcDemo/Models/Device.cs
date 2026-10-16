@@ -40,8 +40,21 @@ public sealed class Device : INotifyPropertyChanged
     public bool IsBlacklisted
     {
         get => _isBlacklisted;
-        set { if (_isBlacklisted != value) { _isBlacklisted = value; OnPropertyChanged(nameof(IsBlacklisted)); } }
+        set
+        {
+            if (_isBlacklisted != value)
+            {
+                _isBlacklisted = value;
+                OnPropertyChanged(nameof(IsBlacklisted));
+                OnPropertyChanged(nameof(CardOpacity));
+            }
+        }
     }
+
+    /// <summary>设备卡整体透明度：黑名单 0.42（不可用感）&gt; 离线 0.62 &gt; 在线 1.0。
+    /// 供卡片 Opacity 直接绑定——把「黑名单 / 离线」两种降透明度收敛到一个属性，
+    /// 免去 XAML 里多布尔叠加需要 MultiBinding 的麻烦。</summary>
+    public double CardOpacity => IsBlacklisted ? 0.42 : (IsOnline ? 1.0 : 0.62);
 
     private bool _isWhitelisted;
     /// <summary>是否在白名单中（卡片显示白名单徽章）。</summary>
@@ -53,8 +66,12 @@ public sealed class Device : INotifyPropertyChanged
 
     public event PropertyChangedEventHandler? PropertyChanged;
 
-    /// <summary>刷新 IsOnline 视觉（时间滚动时手动触发 UI 刷新）。</summary>
-    public void RefreshOnlineState() => OnPropertyChanged(nameof(IsOnline));
+    /// <summary>刷新 IsOnline 视觉（时间滚动时手动触发 UI 刷新）；CardOpacity 随之重算。</summary>
+    public void RefreshOnlineState()
+    {
+        OnPropertyChanged(nameof(IsOnline));
+        OnPropertyChanged(nameof(CardOpacity));
+    }
 
     /// <summary>用新收到的消息就地更新字段（避免 Remove+Add 破坏 ListView 选中引用）。</summary>
     public void UpdateFrom(Device other)
@@ -76,6 +93,7 @@ public sealed class Device : INotifyPropertyChanged
         OnPropertyChanged(nameof(DeviceType));
         OnPropertyChanged(nameof(LastSeenUtcTicks));
         OnPropertyChanged(nameof(IsOnline));
+        OnPropertyChanged(nameof(CardOpacity));
     }
 
     private void OnPropertyChanged([CallerMemberName] string? name = null)

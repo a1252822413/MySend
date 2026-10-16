@@ -13,71 +13,96 @@
         <converters:BoolToOnlineDot x:Key="BoolToOnlineDot"/>
         <converters:BoolToOnlineLabel x:Key="BoolToOnlineLabel"/>
         <converters:BoolToVisibility x:Key="BoolToVisibility"/>
-        <converters:BlacklistOpacityConverter x:Key="BlacklistOpacity"/>
+
+        <!-- 空态搜索图标脉动：呼吸式明暗（AutoReverse + Forever），替代静态图标的"死板"感 -->
+        <Storyboard x:Name="EmptyPulseStoryboard" RepeatBehavior="Forever">
+            <DoubleAnimation Storyboard.TargetName="EmptyPulseIcon"
+                             Storyboard.TargetProperty="Opacity"
+                             From="0.3" To="1.0" Duration="0:0:1.4" AutoReverse="True">
+                <DoubleAnimation.EasingFunction>
+                    <SineEase EasingMode="EaseInOut"/>
+                </DoubleAnimation.EasingFunction>
+            </DoubleAnimation>
+        </Storyboard>
     </Page.Resources>
 
-    <Grid Padding="24" RowDefinitions="Auto,Auto,Auto,*">
+    <Grid Padding="24" RowDefinitions="Auto,Auto,*">
 
-        <!-- 页面标题 -->
-        <Grid Grid.Row="0" Margin="0,0,0,16" ColumnDefinitions="*,Auto">
-            <StackPanel Grid.Column="0" Spacing="2">
-                <TextBlock Text="接收文件" FontSize="22" FontWeight="SemiBold"/>
-                <TextBlock Text="等待附近设备发来文件" FontSize="12" Opacity="0.6"/>
-            </StackPanel>
-            <Border Grid.Column="1" Padding="14,6" CornerRadius="18" VerticalAlignment="Center"
-                    Background="{ThemeResource AccentFillColorDefaultBrush}">
-                <StackPanel Orientation="Horizontal" Spacing="6">
-                    <Ellipse Width="8" Height="8" Fill="{ThemeResource TextOnAccentFillColorDefaultBrush}"/>
-                    <TextBlock Text="{x:Bind ViewModel.StatusText, Mode=OneWay}" FontSize="12"
-                               Foreground="{ThemeResource TextOnAccentFillColorDefaultBrush}"/>
-                </StackPanel>
-            </Border>
-        </Grid>
-
-        <Border Grid.Row="1" Padding="14,10" CornerRadius="12"
+        <!-- ① Hero 身份卡：把原先散落的「标题 + 状态胶囊 + 端口/协议/别名/指纹信息条」收敛成一张卡 -->
+        <Border Grid.Row="0" Padding="20" CornerRadius="16" Margin="0,0,0,16"
                 Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1"
-                Margin="0,0,0,12">
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="*"/>
-                </Grid.ColumnDefinitions>
-                <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-                    <FontIcon Glyph="&#xE968;" FontSize="13" Opacity="0.7" VerticalAlignment="Center"
+                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1">
+            <Grid RowDefinitions="Auto,Auto">
+                <Grid Grid.Row="0" ColumnDefinitions="Auto,*">
+                    <!-- 本机设备头像（品牌绿圆底 + 设备类型字形） -->
+                    <Border Grid.Column="0" Width="56" Height="56" CornerRadius="28"
+                            Background="{ThemeResource AccentFillColorDefaultBrush}" VerticalAlignment="Center">
+                        <TextBlock Text="{x:Bind ViewModel.LocalDeviceType, Mode=OneWay, Converter={StaticResource DeviceTypeGlyph}}"
+                                   FontFamily="Segoe Fluent Icons"
+                                   FontSize="24" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                   Foreground="{ThemeResource TextOnAccentFillColorDefaultBrush}"
+                                   AutomationProperties.Name="本机设备类型"/>
+                    </Border>
+
+                    <StackPanel Grid.Column="1" Margin="16,0,0,0" Spacing="8" VerticalAlignment="Center">
+                        <!-- 设备名 + 状态胶囊 + 协议徽章 -->
+                        <StackPanel Orientation="Horizontal" Spacing="10">
+                            <TextBlock Text="{x:Bind ViewModel.Alias, Mode=OneWay}" FontSize="20" FontWeight="SemiBold"
+                                       VerticalAlignment="Center" MaxWidth="280"
+                                       TextTrimming="CharacterEllipsis"/>
+                            <Border Padding="9,2" CornerRadius="10" VerticalAlignment="Center"
+                                    Background="{ThemeResource ControlFillColorSecondaryBrush}">
+                                <TextBlock Text="{x:Bind ViewModel.StatusText, Mode=OneWay}" FontSize="11" Opacity="0.8"/>
+                            </Border>
+                            <Border Padding="9,2" CornerRadius="10" VerticalAlignment="Center"
+                                    Background="{ThemeResource ControlFillColorSecondaryBrush}">
+                                <TextBlock Text="{x:Bind ViewModel.ProtocolText, Mode=OneWay}" FontSize="11" Opacity="0.8"/>
+                            </Border>
+                        </StackPanel>
+
+                        <!-- 本机设备 · 端口 · 指纹（点击复制） -->
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <TextBlock Text="本机设备" FontSize="12" Opacity="0.55" VerticalAlignment="Center"/>
+                            <TextBlock Text="·" FontSize="12" Opacity="0.4" VerticalAlignment="Center"/>
+                            <TextBlock FontSize="12" Opacity="0.55" VerticalAlignment="Center">
+                                <Run Text="端口 "/>
+                                <Run Text="{x:Bind ViewModel.Port, Mode=OneWay}"/>
+                            </TextBlock>
+                            <TextBlock Text="·" FontSize="12" Opacity="0.4" VerticalAlignment="Center"/>
+                            <Button Background="Transparent" Padding="6,0" CornerRadius="6" BorderThickness="0"
+                                    Command="{x:Bind ViewModel.CopyFingerprintCommand, Mode=OneWay}"
+                                    VerticalAlignment="Center"
+                                    AutomationProperties.Name="复制设备指纹"
+                                    AutomationProperties.HelpText="{x:Bind ViewModel.Fingerprint, Mode=OneWay}"
+                                    ToolTipService.ToolTip="{x:Bind ViewModel.Fingerprint, Mode=OneWay}">
+                                <StackPanel Orientation="Horizontal" Spacing="5">
+                                    <TextBlock Text="指纹" FontSize="12" Opacity="0.55" VerticalAlignment="Center"/>
+                                    <TextBlock Text="{x:Bind ViewModel.FingerprintShort, Mode=OneWay}" FontSize="12"
+                                               Opacity="0.7" VerticalAlignment="Center"/>
+                                    <FontIcon Glyph="&#xE8C8;" FontSize="12" Opacity="0.6" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Button>
+                        </StackPanel>
+                    </StackPanel>
+                </Grid>
+
+                <!-- 保存目录行：一句线 + 打开按钮 -->
+                <Grid Grid.Row="1" Margin="0,16,0,0" ColumnDefinitions="Auto,*,Auto">
+                    <FontIcon Grid.Column="0" Glyph="&#xE8B7;" FontSize="14" Opacity="0.7" VerticalAlignment="Center"
                               AutomationProperties.AccessibilityView="Raw"/>
-                    <TextBlock Opacity="0.8" FontSize="13">
-                        <Run Text="端口 "/>
-                        <Run Text="{x:Bind ViewModel.Port, Mode=OneWay}" FontWeight="SemiBold"/>
-                    </TextBlock>
-                </StackPanel>
-                <Border Grid.Column="1" Margin="20,0,0,0" Padding="10,4" CornerRadius="10"
-                        Background="{ThemeResource ControlFillColorSecondaryBrush}">
-                    <TextBlock Text="{x:Bind ViewModel.ProtocolText, Mode=OneWay}" FontSize="11" Opacity="0.7"/>
-                </Border>
-                <TextBlock Grid.Column="2" Margin="16,0,0,0" FontSize="12" FontWeight="SemiBold"
-                           VerticalAlignment="Center" Text="{x:Bind ViewModel.Alias, Mode=OneWay}"/>
-                <Button Grid.Column="3" HorizontalAlignment="Right" VerticalAlignment="Center"
-                        Background="Transparent" Padding="8,2" CornerRadius="8"
-                        Command="{x:Bind ViewModel.CopyFingerprintCommand, Mode=OneWay}"
-                        AutomationProperties.Name="复制设备指纹"
-                        AutomationProperties.HelpText="{x:Bind ViewModel.Fingerprint, Mode=OneWay}"
-                        ToolTipService.ToolTip="{x:Bind ViewModel.Fingerprint, Mode=OneWay}"
-                        BorderThickness="0">
-                    <Grid ColumnDefinitions="Auto,Auto" VerticalAlignment="Center">
-                        <TextBlock Text="{x:Bind ViewModel.FingerprintShort, Mode=OneWay}"
-                                   Opacity="0.5" FontSize="11" VerticalAlignment="Center"/>
-                        <!-- 复制图标（Segoe MDL2 Assets Copy glyph），避免 emoji tofu -->
-                        <FontIcon Grid.Column="1" Glyph="&#xE8C8;" FontSize="12" Margin="6,0,0,0"
-                                  Opacity="0.55" VerticalAlignment="Center"/>
-                    </Grid>
-                </Button>
+                    <TextBlock Grid.Column="1" Margin="8,0,12,0" VerticalAlignment="Center" FontSize="12" Opacity="0.75"
+                               Text="{x:Bind ViewModel.Destination, Mode=OneWay}"
+                               TextTrimming="CharacterEllipsis"
+                               ToolTipService.ToolTip="{x:Bind ViewModel.Destination, Mode=OneWay}"/>
+                    <Button Grid.Column="2" Content="打开" Padding="12,2" CornerRadius="6" FontSize="12"
+                            Command="{x:Bind ViewModel.OpenFolderCommand, Mode=OneWay}"
+                            ToolTipService.ToolTip="在资源管理器中打开接收目录"/>
+                </Grid>
             </Grid>
         </Border>
 
-        <Grid Grid.Row="2" Margin="0,0,0,12" ColumnDefinitions="*,Auto">
+        <!-- ② 附近设备标题行 -->
+        <Grid Grid.Row="1" Margin="0,0,0,12" ColumnDefinitions="*,Auto">
             <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
                 <TextBlock Text="附近设备" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center"/>
                 <Border Padding="8,2" CornerRadius="10" Background="{ThemeResource CardStrokeColorDefaultBrush}"
@@ -96,21 +121,21 @@
             </Button>
         </Grid>
 
-        <Grid Grid.Row="3">
+        <Grid Grid.Row="2">
 
             <!-- 官方网格布局：列间距(10)只存在于卡片之间，两侧零空隙，自动等宽铺满 -->
             <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
                           Visibility="{x:Bind ViewModel.HasDevices, Mode=OneWay}">
                 <ItemsRepeater ItemsSource="{x:Bind ViewModel.Devices}">
                     <ItemsRepeater.Layout>
-                        <UniformGridLayout MinItemWidth="300" MinItemHeight="100"
+                        <UniformGridLayout MinItemWidth="300" MinItemHeight="104"
                                            MinColumnSpacing="10" MinRowSpacing="10"
                                            ItemsStretch="Fill"/>
                     </ItemsRepeater.Layout>
                     <ItemsRepeater.ItemTemplate>
                         <DataTemplate>
-                            <!-- 卡片入场：轻微上移淡入（滚动/刷新时也生效，视觉不突兀）；
-                                 hover 高亮由 code-behind 换主题画刷（Border 无 VisualState） -->
+                            <!-- 卡片入场：轻微上移淡入；hover 高亮由 code-behind 换主题画刷（Border 无 VisualState）。
+                                 Opacity 走 Device.CardOpacity：黑名单/离线统一降透明度，不再只靠一个小圆点 -->
                             <Border Padding="12" CornerRadius="12" Margin="0"
                                     DoubleTapped="OnDeviceCardDoubleTapped"
                                     PointerEntered="OnDeviceCardPointerEntered"
@@ -120,7 +145,7 @@
                                     AutomationProperties.HelpText="双击发送文件给该设备；右键加入白名单或黑名单"
                                     Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                                     BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1"
-                                    Opacity="{Binding IsBlacklisted, Mode=OneWay, Converter={StaticResource BlacklistOpacity}}">
+                                    Opacity="{Binding CardOpacity}">
                                 <Border.Transitions>
                                     <TransitionCollection>
                                         <EntranceThemeTransition FromVerticalOffset="16"/>
@@ -136,35 +161,38 @@
                                                         DataContext="{Binding}"/>
                                     </MenuFlyout>
                                 </Border.ContextFlyout>
-                                <Grid ColumnDefinitions="3,42,*,Auto" VerticalAlignment="Center">
-                                    <Border Grid.Column="0" Width="3" Height="42" CornerRadius="1.5"
+                                <Grid ColumnDefinitions="3,Auto,*,Auto" VerticalAlignment="Center">
+                                    <!-- 在线状态竖条 -->
+                                    <Border Grid.Column="0" Width="3" Height="44" CornerRadius="1.5"
                                             VerticalAlignment="Center" Margin="0,0,10,0"
                                             Background="{Binding IsOnline, Converter={StaticResource BoolToOnlineDot}}"/>
-                                    <Border Grid.Column="1" Width="42" Height="42" CornerRadius="21"
+                                    <!-- 设备类型图标瓦片（放大 + 大圆角，视觉重心更稳） -->
+                                    <Border Grid.Column="1" Width="48" Height="48" CornerRadius="14"
                                             Background="{ThemeResource AccentFillColorDefaultBrush}"
                                             VerticalAlignment="Center">
                                         <!-- PUA 字形，必须显式指定 Segoe Fluent Icons 字体 -->
                                         <TextBlock Text="{Binding DeviceType, Converter={StaticResource DeviceTypeGlyph}}"
                                                    FontFamily="Segoe Fluent Icons"
-                                                   FontSize="17" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                   FontSize="20" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                   Foreground="{ThemeResource TextOnAccentFillColorDefaultBrush}"
                                                    AutomationProperties.Name="{Binding DeviceType}"/>
                                     </Border>
                                     <StackPanel Grid.Column="2" Margin="12,0,0,0" Spacing="3" VerticalAlignment="Center">
                                         <StackPanel Orientation="Horizontal" Spacing="6">
                                             <TextBlock Text="{Binding Alias}" FontWeight="SemiBold" FontSize="14" TextTrimming="CharacterEllipsis"/>
                                             <!-- 白名单徽章：语义色主题资源（浅底深字，深浅主题自适应） -->
-                                            <Border Padding="5,1" CornerRadius="8"
+                                            <Border Padding="6,1" CornerRadius="8" VerticalAlignment="Center"
                                                     Background="{ThemeResource SystemFillColorSuccessBackgroundBrush}"
                                                     Visibility="{Binding IsWhitelisted, Mode=OneWay, Converter={StaticResource BoolToVisibility}}">
-                                                <TextBlock Text="白名单" FontSize="9"
+                                                <TextBlock Text="白名单" FontSize="10"
                                                            Foreground="{ThemeResource SystemFillColorSuccessBrush}"
                                                            AutomationProperties.AccessibilityView="Raw"/>
                                             </Border>
                                             <!-- 黑名单徽章 -->
-                                            <Border Padding="5,1" CornerRadius="8"
+                                            <Border Padding="6,1" CornerRadius="8" VerticalAlignment="Center"
                                                     Background="{ThemeResource SystemFillColorCriticalBackgroundBrush}"
                                                     Visibility="{Binding IsBlacklisted, Mode=OneWay, Converter={StaticResource BoolToVisibility}}">
-                                                <TextBlock Text="黑名单" FontSize="9"
+                                                <TextBlock Text="黑名单" FontSize="10"
                                                            Foreground="{ThemeResource SystemFillColorCriticalBrush}"
                                                            AutomationProperties.AccessibilityView="Raw"/>
                                             </Border>
@@ -180,7 +208,7 @@
                                     </StackPanel>
                                     <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="4"
                                                 VerticalAlignment="Top" Margin="0,2,0,0">
-                                        <Ellipse Width="7" Height="7"
+                                        <Ellipse Width="7" Height="7" VerticalAlignment="Center"
                                                  Fill="{Binding IsOnline, Converter={StaticResource BoolToOnlineDot}}"/>
                                         <TextBlock Text="{Binding IsOnline, Converter={StaticResource BoolToOnlineLabel}}"
                                                    FontSize="10" Opacity="0.7"/>
@@ -192,11 +220,13 @@
                 </ItemsRepeater>
             </ScrollViewer>
 
-            <StackPanel Spacing="6" HorizontalAlignment="Center" VerticalAlignment="Center"
+            <StackPanel Spacing="8" HorizontalAlignment="Center" VerticalAlignment="Center"
                     Visibility="{x:Bind ViewModel.HasNoDevices, Mode=OneWay}">
-                <FontIcon Glyph="&#xE721;" FontSize="40" HorizontalAlignment="Center"
+                <FontIcon x:Name="EmptyPulseIcon" Glyph="&#xE721;" FontSize="44" HorizontalAlignment="Center"
+                          Foreground="{ThemeResource AccentFillColorDefaultBrush}"
                           AutomationProperties.AccessibilityView="Raw"/>
-                <TextBlock Text="正在搜索附近设备..." FontSize="14" FontWeight="SemiBold" HorizontalAlignment="Center"/>
+                <TextBlock Text="正在搜索附近设备…" FontSize="15" FontWeight="SemiBold" HorizontalAlignment="Center"
+                           Margin="0,4,0,0"/>
                 <TextBlock Text="确保手机与电脑连接同一 Wi-Fi 网络" FontSize="12" Opacity="0.6" HorizontalAlignment="Center"/>
             </StackPanel>
         </Grid>

@@ -26,6 +26,9 @@ public sealed partial class SendPage : Page
         this.InitializeComponent();
         ViewModel.SetDispatcher(DispatcherQueue.GetForCurrentThread());
 
+        // 空态拖拽图标脉动 + 首次检测剪贴板（有文件才显示"一键添加"提示行）
+        this.Loaded += OnLoaded;
+
         // Ctrl+V 粘贴文件：PreviewKeyDown 比 KeyboardAccelerator 更可靠，
         // 在 Page 的子控件获得焦点时也能触发（KeyboardAccelerator 在 WinUI3 Page 上有已知问题）。
         this.PreviewKeyDown += OnPastePreviewKeyDown;
@@ -50,6 +53,84 @@ public sealed partial class SendPage : Page
 
         // 会话结束 → 关闭进度对话框（ProgressFinished 在 UI 线程触发）
         ViewModel.ProgressFinished = () => _progressDialog?.Hide();
+    }
+
+    private void OnLoaded(object sender, RoutedEventArgs e)
+    {
+        // 空态脉动动画（XAML 无 EventTrigger，需 code-behind 触发；NavigationCacheMode=Enabled
+        // 下每次进入页面都会重放一次 Loaded，动画随之重启，无害）
+        EmptyPulseStoryboard.Begin();
+
+        // 检测剪贴板：有文件时显示"点此添加"提示行
+        _ = RefreshClipboardHintAsync();
+    }
+
+    // ---------- 剪贴板：提示行 + 一键添加（与 Ctrl+V 共用同一套取用逻辑） ----------
+
+    /// <summary>刷新剪贴板提示：只统计 StorageItems（文件）；读取异常静默置 0（隐藏提示）。</summary>
+    private async Task RefreshClipboardHintAsync()
+    {
+        try
+        {
+            var content = Clipboard.GetContent();
+            if (content is not null && content.Contains("StorageItems"))
+            {
+                var items = await content.GetStorageItemsAsync();
+                ViewModel.SetClipboardHint(items?.Count ?? 0);
+                return;
+            }
+            ViewModel.SetClipboardHint(0);
+        }
+        catch (Exception ex)
+        {
+            App.LogDiag($"[SendPage] 剪贴板检测失败：{ex.Message}");
+            ViewModel.SetClipboardHint(0);
+        }
+    }
+
+    private async void OnAddClipboardClick(object sender, RoutedEventArgs e)
+        => await TryPasteFromClipboardAsync();
+
+    /// <summary>从剪贴板取文件加入待发列表：优先 StorageItems，兜底按文本路径解析。
+    /// Ctrl+V 与空态「点此添加」按钮共用此实现。</summary>
+    private async Task TryPasteFromClipboardAsync()
+    {
+        try
+        {
+            var content = Clipboard.GetContent();
+            if (content.Contains("StorageItems"))
+            {
+                var items = await content.GetStorageItemsAsync();
+                if (items.Count > 0)
+                {
+                    await ViewModel.AddStorageItemsAsync(items);
+                    App.LogDiag($"[SendPage] 剪贴板添加：{items.Count} 个文件");
+                }
+                return;
+            }
+            // 兜底：从纯文本路径解析
+            if (content.Contains(StandardDataFormats.Text))
+            {
+                var text = await content.GetTextAsync();
+                var paths = text.Split('\n', '\r')
+                    .Select(s => s.Trim().Trim('"'))
+                    .Where(s => !string.IsNullOrEmpty(s) && System.IO.File.Exists(s))
+                    .ToList();
+                if (paths.Count > 0)
+                {
+                    ViewModel.AddFiles(paths);
+                    App.LogDiag($"[SendPage] 剪贴板从文本解析 {paths.Count} 个文件路径");
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            App.LogDiag($"[SendPage] 剪贴板添加失败：{ex.Message}");
+        }
+        finally
+        {
+            await RefreshClipboardHintAsync();
+        }
     }
 
     private async Task ShowSendProgressAsync(PcDemo.Models.SendSession session)
@@ -167,6 +248,13 @@ public sealed partial class SendPage : Page
     private void OnDeselectTargetClick(object sender, RoutedEventArgs e)
     {
         ViewModel.SelectedTargets.Clear();
+    }
+
+    /// <summary>已选目标 chips 行的 × 按钮 → 移除该设备（ToggleTarget 对已选设备即取消选择）。</summary>
+    private void OnRemoveTargetChipClick(object sender, RoutedEventArgs e)
+    {
+        if (sender is FrameworkElement fe && fe.DataContext is Device d)
+            ViewModel.ToggleTarget(d);
     }
 
     // 设备卡片右键菜单 → 加入白/黑名单
@@ -322,37 +410,7 @@ public sealed partial class SendPage : Page
         if (focused is TextBox or PasswordBox) return;
 
         e.Handled = true;
-        try
-        {
-            var content = Windows.ApplicationModel.DataTransfer.Clipboard.GetContent();
-            if (content.Contains("StorageItems"))
-            {
-                var items = await content.GetStorageItemsAsync();
-                if (items.Count > 0)
-                {
-                    await ViewModel.AddStorageItemsAsync(items);
-                    App.LogDiag($"[SendPage] Ctrl+V: 粘贴 {items.Count} 个文件");
-                }
-                return;
-            }
-            // 兜底：从纯文本路径解析
-            if (content.Contains(StandardDataFormats.Text))
-            {
-                var text = await content.GetTextAsync();
-                var paths = text.Split('\n', '\r')
-                    .Select(s => s.Trim().Trim('"'))
-                    .Where(s => !string.IsNullOrEmpty(s) && System.IO.File.Exists(s))
-                    .ToList();
-                if (paths.Count > 0)
-                {
-                    ViewModel.AddFiles(paths);
-                    App.LogDiag($"[SendPage] Ctrl+V: 从文本解析 {paths.Count} 个文件路径");
-                }
-            }
-        }
-        catch (Exception ex)
-        {
-            App.LogDiag($"[SendPage] Ctrl+V 粘贴失败：{ex.Message}");
-        }
+        // 与空态「点此添加」按钮共用同一套剪贴板取用逻辑
+        await TryPasteFromClipboardAsync();
     }
 }

@@ -27,6 +27,9 @@ public sealed partial class ReceivePage : Page
 
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
+        // 空态搜索图标脉动动画（XAML 无法像 WPF 那样用 EventTrigger 自动起，需在 code-behind 触发）
+        EmptyPulseStoryboard.Begin();
+
         // 拿到 UI 线程 DispatcherQueue，便于跨线程同步 ObservableCollection
         ViewModel.SetDispatcher(DispatcherQueue.GetForCurrentThread());
 
