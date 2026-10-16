@@ -48,7 +48,8 @@
                     <Grid ColumnDefinitions="132,*,Auto" VerticalAlignment="Center">
                         <TextBlock Grid.Column="0" Text="设备类型" VerticalAlignment="Center" Opacity="0.85"/>
                         <ComboBox Grid.Column="1" ItemsSource="{x:Bind DeviceTypeOptions, Mode=OneTime}"
-                                  SelectedItem="{x:Bind ViewModel.DeviceType, Mode=TwoWay}"/>
+                                  SelectedItem="{x:Bind ViewModel.DeviceType, Mode=TwoWay}"
+                                  HorizontalAlignment="Stretch"/>
                     </Grid>
                     <Grid ColumnDefinitions="132,*,Auto" VerticalAlignment="Center">
                         <TextBlock Grid.Column="0" Text="设备指纹" VerticalAlignment="Center" Opacity="0.85"/>
@@ -72,7 +73,8 @@
                     <Grid ColumnDefinitions="132,*,Auto" VerticalAlignment="Center">
                         <TextBlock Grid.Column="0" Text="服务端口" VerticalAlignment="Center" Opacity="0.85"/>
                         <NumberBox Grid.Column="1" Value="{x:Bind ViewModel.Port, Mode=TwoWay}"
-                                   Minimum="1" Maximum="65535" SpinButtonPlacementMode="Compact"/>
+                                   Minimum="1" Maximum="65535" SpinButtonPlacementMode="Compact"
+                                   HorizontalAlignment="Stretch"/>
                     </Grid>
                     <Grid ColumnDefinitions="132,*,Auto" VerticalAlignment="Center">
                         <TextBlock Grid.Column="0" Text="多播组" VerticalAlignment="Center" Opacity="0.85"/>
@@ -197,7 +199,7 @@
                          用 TextTrimming 而非 TextWrapping：星号列内放自动换行文本会随测量宽度反复改变高度，
                          是 WinUI 布局不收敛的常见诱因；过长文本用 ToolTip 兜底。 -->
                     <Border Padding="12,8" CornerRadius="8"
-                            Background="{ThemeResource ControlFillColorSecondaryBrush}">
+                            Background="{ThemeResource ChipFillBrush}">
                         <Grid ColumnDefinitions="Auto,*">
                             <FontIcon Grid.Column="0" FontSize="14" VerticalAlignment="Center" Margin="0,0,8,0"
                                       Glyph="{x:Bind ViewModel.FirewallLevel, Mode=OneWay, Converter={StaticResource FirewallGlyph}}"

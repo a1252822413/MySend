@@ -105,7 +105,7 @@
 
                     <!-- 操作结果提示：语义色状态条 -->
                     <Border Padding="12,8" CornerRadius="8"
-                            Background="{ThemeResource ControlFillColorSecondaryBrush}"
+                            Background="{ThemeResource ChipFillBrush}"
                             Visibility="{x:Bind ViewModel.StatusText, Mode=OneWay, Converter={StaticResource EmptyToCollapsed}}">
                         <TextBlock Text="{x:Bind ViewModel.StatusText, Mode=OneWay}" FontSize="12" Opacity="0.85"/>
                     </Border>
@@ -247,7 +247,7 @@
                                         BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1">
                                     <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12" VerticalAlignment="Center">
                                         <Border Grid.Column="0" Width="38" Height="38" CornerRadius="12"
-                                                Background="{ThemeResource ControlFillColorSecondaryBrush}"
+                                                Background="{ThemeResource ChipFillBrush}"
                                                 VerticalAlignment="Center">
                                             <TextBlock Text="{x:Bind DeviceType, Mode=OneWay, Converter={StaticResource DeviceTypeGlyph}}"
                                                        FontFamily="Segoe Fluent Icons" FontSize="16" Opacity="0.75"

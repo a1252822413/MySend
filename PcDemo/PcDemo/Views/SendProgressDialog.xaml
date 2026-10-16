@@ -14,12 +14,15 @@
         <!-- 单发面板：单个设备 → 环形进度（中央叠百分比数字） -->
         <StackPanel x:Name="SinglePanel" Spacing="14" Padding="0,4,0,0">
             <Border HorizontalAlignment="Center" Padding="10,3" CornerRadius="10"
-                    Background="{ThemeResource ControlFillColorSecondaryBrush}">
+                    Background="{ThemeResource ChipFillBrush}">
                 <TextBlock x:Name="TargetTextBlock" FontSize="12" Opacity="0.85"/>
             </Border>
             <Grid Width="112" Height="112" HorizontalAlignment="Center">
+                <!-- Background = 环的轨道。WinUI 默认值是 ControlFillColorTransparentBrush（透明），
+                     所以低进度时只剩一小段弧，看起来像"一个点"。给个可见的中性轨道。 -->
                 <ProgressRing x:Name="ProgressRingControl" Width="112" Height="112"
-                              Foreground="{ThemeResource AccentFillColorDefaultBrush}"/>
+                              Foreground="{ThemeResource AccentFillColorDefaultBrush}"
+                              Background="{ThemeResource ControlStrokeColorSecondaryBrush}"/>
                 <!-- 中央百分比：始终显示（等待确认时为 0%，有确定进度后随进度跳动） -->
                 <TextBlock x:Name="RingPercentTextBlock" FontSize="26" FontWeight="SemiBold"
                            Foreground="{ThemeResource TextFillColorPrimaryBrush}"

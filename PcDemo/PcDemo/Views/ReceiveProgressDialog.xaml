@@ -15,12 +15,13 @@
             <!-- 计算属性(SenderText/Ring/FilesText/StatText)不做 x:Bind：由 P.PropertyChanged →
                  OnProgressChanged → RefreshUi() 只更新变化节点。P.* 实现 INPC 保持自动绑定。 -->
             <Border HorizontalAlignment="Center" Padding="10,3" CornerRadius="10"
-                    Background="{ThemeResource ControlFillColorSecondaryBrush}">
+                    Background="{ThemeResource ChipFillBrush}">
                 <TextBlock x:Name="SenderTextBlock" FontSize="12" Opacity="0.85"/>
             </Border>
             <Grid Width="112" Height="112" HorizontalAlignment="Center">
                 <ProgressRing x:Name="ProgressRingControl" Width="112" Height="112"
                               Foreground="{ThemeResource AccentFillColorDefaultBrush}"
+                              Background="{ThemeResource ControlStrokeColorSecondaryBrush}"
                               IsIndeterminate="{x:Bind P.IsIndeterminate, Mode=OneWay}"/>
                 <!-- 中央百分比：始终显示（等待下一个文件/校验阶段为 0%，接收中随进度跳动） -->
                 <TextBlock x:Name="RingPercentTextBlock" FontSize="26" FontWeight="SemiBold"

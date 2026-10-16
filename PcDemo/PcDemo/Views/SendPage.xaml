@@ -416,7 +416,7 @@
                                            FontSize="12" Opacity="0.6" HorizontalAlignment="Center"/>
                                 <!-- 剪贴板有文件 → 一键添加提示（读取失败/无文件时整行隐藏） -->
                                 <Button Click="OnAddClipboardClick" Margin="0,6,0,0" Padding="12,7" CornerRadius="14"
-                                        Background="{ThemeResource ControlFillColorSecondaryBrush}"
+                                        Background="{ThemeResource ChipFillBrush}"
                                         BorderThickness="0" HorizontalAlignment="Center"
                                         Visibility="{x:Bind ViewModel.HasClipboardFiles, Mode=OneWay}">
                                     <StackPanel Orientation="Horizontal" Spacing="6">

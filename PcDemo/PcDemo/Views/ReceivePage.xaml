@@ -51,11 +51,11 @@
                                        VerticalAlignment="Center" MaxWidth="280"
                                        TextTrimming="CharacterEllipsis"/>
                             <Border Padding="9,2" CornerRadius="10" VerticalAlignment="Center"
-                                    Background="{ThemeResource ControlFillColorSecondaryBrush}">
+                                    Background="{ThemeResource ChipFillBrush}">
                                 <TextBlock Text="{x:Bind ViewModel.StatusText, Mode=OneWay}" FontSize="11" Opacity="0.8"/>
                             </Border>
                             <Border Padding="9,2" CornerRadius="10" VerticalAlignment="Center"
-                                    Background="{ThemeResource ControlFillColorSecondaryBrush}">
+                                    Background="{ThemeResource ChipFillBrush}">
                                 <TextBlock Text="{x:Bind ViewModel.ProtocolText, Mode=OneWay}" FontSize="11" Opacity="0.8"/>
                             </Border>
                         </StackPanel>

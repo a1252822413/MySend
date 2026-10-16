@@ -40,7 +40,7 @@
         <!-- ② 筛选栏：分段控件（方向）+ 搜索框 -->
         <Grid Grid.Row="1" Margin="0,14,0,0" ColumnDefinitions="Auto,*,Auto">
             <Border Grid.Column="0" Padding="2" CornerRadius="10" VerticalAlignment="Center"
-                    Background="{ThemeResource ControlFillColorSecondaryBrush}">
+                    Background="{ThemeResource ChipFillBrush}">
                 <StackPanel Orientation="Horizontal" Spacing="2">
                     <Button Click="OnFilterAllClick" Content="全部" x:Name="FilterAllBtn"
                             Padding="14,5" CornerRadius="8" BorderThickness="0"/>

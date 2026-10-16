@@ -32,7 +32,10 @@ public sealed class TransferHistoryItem
     [JsonIgnore] public bool HasDetails => Files is { Count: > 0 };
 
     // ---------- UI 绑定计算属性 ----------
-    [JsonIgnore] public string IconGlyph => Direction == TransferDirection.Receive ? "\uE896" : "\uE798";
+    // 字形码点已用 fontTools 校验过存在于 C:/Windows/Fonts/SegoeIcons.ttf：
+    // E896=Download（接收）、E724=Send（发送）。注意 E798 并不存在（会渲染成空心方框），
+    // 之前这里的发送图标就是 E798，截图里那条"发往"记录的图标因此是个空框。
+    [JsonIgnore] public string IconGlyph => Direction == TransferDirection.Receive ? "\uE896" : "\uE724";
     [JsonIgnore] public string DirectionText => Direction == TransferDirection.Receive ? "接收" : "发送";
     [JsonIgnore] public string PeerText => Direction == TransferDirection.Receive ? $"来自 {PeerName}" : $"发往 {PeerName}";
     [JsonIgnore] public string StatusText => Result switch
