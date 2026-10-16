@@ -24,6 +24,10 @@
                          只剩内边距。这里改用深色微叠加，保证在两个主题下都真的看得见。 -->
                     <SolidColorBrush x:Key="ChipFillBrush" Color="#0F000000" />
                     <SolidColorBrush x:Key="ChipStrokeBrush" Color="#17000000" />
+                    <!-- 卡片对比度：原生值是 #B3FFFFFF（70% 白），叠在 Mica 页面上卡片边界几乎化开；
+                         这里提到 95% 让卡片边界清楚（hover 用更亮的 100%）。 -->
+                    <Color x:Key="CardBackgroundFillColorDefault">#F2FFFFFF</Color>
+                    <Color x:Key="CardBackgroundFillColorSecondary">#FFFFFFFF</Color>
                 </ResourceDictionary>
                 <ResourceDictionary x:Key="Dark">
                     <SolidColorBrush x:Key="AccentFillColorDefaultBrush" Color="#16A34A" />
@@ -31,6 +35,10 @@
                     <SolidColorBrush x:Key="AccentFillColorTertiaryBrush" Color="#16A34A" Opacity="0.8" />
                     <SolidColorBrush x:Key="ChipFillBrush" Color="#1AFFFFFF" />
                     <SolidColorBrush x:Key="ChipStrokeBrush" Color="#2EFFFFFF" />
+                    <!-- 暗色主题原生卡片只有 #0DFFFFFF（5% 白），在深色底上几乎看不见；
+                         提到 12%（hover 18%）才有"一张卡片"的存在感。 -->
+                    <Color x:Key="CardBackgroundFillColorDefault">#1FFFFFFF</Color>
+                    <Color x:Key="CardBackgroundFillColorSecondary">#2EFFFFFF</Color>
                 </ResourceDictionary>
             </ResourceDictionary.ThemeDictionaries>
 

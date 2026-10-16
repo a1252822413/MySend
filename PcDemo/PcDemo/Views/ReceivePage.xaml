@@ -26,7 +26,7 @@
         </Storyboard>
     </Page.Resources>
 
-    <Grid Padding="24" RowDefinitions="Auto,Auto,*">
+    <Grid Padding="24" RowDefinitions="Auto,Auto,*,Auto">
 
         <!-- ① Hero 身份卡：把原先散落的「标题 + 状态胶囊 + 端口/协议/别名/指纹信息条」收敛成一张卡 -->
         <Border Grid.Row="0" Padding="20" CornerRadius="16" Margin="0,0,0,16"
@@ -230,5 +230,22 @@
                 <TextBlock Text="确保手机与电脑连接同一 Wi-Fi 网络" FontSize="12" Opacity="0.6" HorizontalAlignment="Center"/>
             </StackPanel>
         </Grid>
+
+        <!-- ④ 底部提示条：明确"关窗 ≠ 退出"。
+             用 Grid 的 Auto,* 两列（图标固定列 + 文本星号列 + TextTrimming），
+             不要用横向 StackPanel 装可省略文本 —— 那样测量宽度无限、不会省略会溢出。 -->
+        <Border Grid.Row="3" Margin="0,12,0,0" Padding="12,8" CornerRadius="10"
+                Background="{ThemeResource ChipFillBrush}"
+                BorderBrush="{ThemeResource ChipStrokeBrush}" BorderThickness="1">
+            <Grid ColumnDefinitions="Auto,*">
+                <FontIcon Grid.Column="0" Glyph="&#xE946;" FontSize="13" Margin="0,0,8,0"
+                          VerticalAlignment="Center" Opacity="0.8"
+                          AutomationProperties.AccessibilityView="Raw"/>
+                <TextBlock Grid.Column="1" VerticalAlignment="Center" FontSize="12" Opacity="0.8"
+                           TextTrimming="CharacterEllipsis"
+                           ToolTipService.ToolTip="关闭窗口只是缩到托盘，接收服务仍在运行。右键托盘图标选「退出」才会真正关闭。"
+                           Text="关闭窗口只是缩到托盘，接收服务会继续运行；右键托盘图标选「退出」才真正结束。"/>
+            </Grid>
+        </Border>
     </Grid>
 </Page>
