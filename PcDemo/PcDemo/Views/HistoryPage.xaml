@@ -52,12 +52,7 @@
             </Border>
             <TextBox Grid.Column="2" x:Name="SearchBox" Width="240" PlaceholderText="搜索设备名 / 文件名"
                      Text="{x:Bind ViewModel.SearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                     CornerRadius="8" Padding="12,8">
-                <TextBox.Resources>
-                    <SolidColorBrush x:Key="TextControlBackground" Color="{ThemeResource ControlFillColorSecondaryColor}"/>
-                    <SolidColorBrush x:Key="TextControlBackgroundPointerOver" Color="{ThemeResource ControlFillColorSecondaryColor}"/>
-                </TextBox.Resources>
-            </TextBox>
+                     CornerRadius="8" Padding="12,8"/>
         </Grid>
 
         <ListView Grid.Row="2" Margin="0,14,0,0" ItemsSource="{x:Bind ViewModel.FilteredItems, Mode=OneWay}" SelectionMode="None">
@@ -77,11 +72,6 @@
                             PointerExited="OnItemPointerExited"
                             Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                             BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1">
-                        <Border.Transitions>
-                            <TransitionCollection>
-                                <EntranceThemeTransition FromVerticalOffset="14"/>
-                            </TransitionCollection>
-                        </Border.Transitions>
                         <Border.ContextFlyout>
                             <MenuFlyout>
                                 <MenuFlyoutItem Text="查看文件明细" Click="OnShowDetailsClick"

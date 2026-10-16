@@ -19,14 +19,22 @@ public sealed partial class HistoryPage : Page
 
     public HistoryPage()
     {
+        App.LogDiag("[HistoryPage] ctor: enter");
         ViewModel = App.Services.GetRequiredService<HistoryViewModel>();
         this.InitializeComponent();
+        App.LogDiag("[HistoryPage] ctor: InitializeComponent 完成");
         this.Loaded += (_, _) =>
         {
+            // 诊断面包屑：与 ReceivePage/ShellWindow 一样的 LogDiag 约定，
+            // 便于定位"进入页面后卡住"这类问题（是卡在数据刷新、样式还是动画）。
+            App.LogDiag("[HistoryPage] OnLoaded: enter");
             ViewModel.Refresh();
+            App.LogDiag("[HistoryPage] OnLoaded: Refresh 完成");
             UpdateFilterButtonStyles();
+            App.LogDiag("[HistoryPage] OnLoaded: 筛选按钮样式完成");
             // 空态图标呼吸动画（WinUI 无 WPF 式 EventTrigger，需 code-behind 触发）
             EmptyPulseStoryboard.Begin();
+            App.LogDiag("[HistoryPage] OnLoaded: 空态动画已启动，页面就绪");
         };
         // 筛选条件变化时刷新按钮高亮
         ViewModel.PropertyChanged += (_, e) =>
@@ -87,20 +95,24 @@ public sealed partial class HistoryPage : Page
     }
 
     // ---------- 列表项 hover：边框点亮 + 背景微提亮（Border 无 VisualState） ----------
+    // 取主题画刷一律走 ThemeBrush(key, fallback)：取不到时保留原值，避免把卡片颜色刷丢。
 
     private void OnItemPointerEntered(object sender, PointerRoutedEventArgs e)
     {
         if (sender is not Border b) return;
-        b.BorderBrush = (Brush)Application.Current.Resources["AccentFillColorDefaultBrush"];
-        b.Background = (Brush)Application.Current.Resources["CardBackgroundFillColorSecondaryBrush"];
+        b.BorderBrush = ThemeBrush("AccentFillColorDefaultBrush", b.BorderBrush);
+        b.Background = ThemeBrush("CardBackgroundFillColorSecondaryBrush", b.Background);
     }
 
     private void OnItemPointerExited(object sender, PointerRoutedEventArgs e)
     {
         if (sender is not Border b) return;
-        b.BorderBrush = (Brush)Application.Current.Resources["CardStrokeColorDefaultBrush"];
-        b.Background = (Brush)Application.Current.Resources["CardBackgroundFillColorDefaultBrush"];
+        b.BorderBrush = ThemeBrush("CardStrokeColorDefaultBrush", b.BorderBrush);
+        b.Background = ThemeBrush("CardBackgroundFillColorDefaultBrush", b.Background);
     }
+
+    private static Brush ThemeBrush(string key, Brush fallback)
+        => Application.Current.Resources[key] as Brush ?? fallback;
 
     private void OnOpenFolderClick(object sender, RoutedEventArgs e)
     {

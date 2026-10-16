@@ -1,11 +1,13 @@
 // ShellWindow codebehind：导航在接收页/设置页之间切换。
 using System.Runtime.InteropServices;
+using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using PcDemo.Controls;
+using PcDemo.Messages;
 using PcDemo.Models;
 using PcDemo.ViewModels;
 using Windows.Graphics;
@@ -156,24 +158,29 @@ public sealed partial class ShellWindow : Window
     {
         // MenuItems 里的项 + FooterMenuItems 里的项都会触发这里，用 Tag 区分。
         var tag = (args.SelectedItem as NavigationViewItem)?.Tag?.ToString();
-        switch (tag)
+        Type? page = tag switch
+        {
+            "Send" => typeof(SendPage),
+            "DeviceList" => typeof(DeviceListPage),
+            "History" => typeof(HistoryPage),
+            "Settings" => typeof(SettingsPage),
+            _ => typeof(ReceivePage),
+        };
+        try
+        {
+            ContentFrame.Navigate(page);
+        }
+        catch (Exception ex)
+        {
+            // 页面构造/加载抛异常时，全局处理器会吞掉异常（e.Handled = true），
+            // 导航停在半路 → 表现是"点了没反应/像卡死"。这里显式兜住并提示，便于定位。
+            App.LogDiag($"[Shell] 导航到 {page.Name} 失败：{ex}");
+            WeakReferenceMessenger.Default.Send(new ShowToastMessage
             {
-                case "Send":
-                    ContentFrame.Navigate(typeof(SendPage));
-                    break;
-                case "DeviceList":
-                    ContentFrame.Navigate(typeof(DeviceListPage));
-                    break;
-                case "History":
-                    ContentFrame.Navigate(typeof(HistoryPage));
-                    break;
-                case "Settings":
-                    ContentFrame.Navigate(typeof(SettingsPage));
-                    break;
-                case "Receive":
-                default:
-                    ContentFrame.Navigate(typeof(ReceivePage));
-                    break;
-            }
+                Kind = ToastKind.Error,
+                Message = $"页面加载失败：{page.Name}（详见 diag.log）",
+                DurationMs = 3000,
+            });
+        }
     }
 }
