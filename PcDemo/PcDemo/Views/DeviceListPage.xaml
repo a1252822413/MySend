@@ -13,8 +13,10 @@
         <c:DeviceTypeToGlyphConverter x:Key="DeviceTypeGlyph"/>
     </Page.Resources>
 
-    <ScrollViewer Padding="24">
-        <StackPanel Spacing="16" MaxWidth="880" HorizontalAlignment="Left">
+    <ScrollViewer Padding="24" HorizontalScrollBarVisibility="Disabled">
+        <!-- 同 SettingsPage：ScrollViewer 内不可用 MaxWidth + HorizontalAlignment=Left
+             （星号列测量/排布宽度不一致会触发布局循环） -->
+        <StackPanel Spacing="16">
 
             <!-- 页面标题 -->
             <StackPanel Spacing="2" Margin="0,0,0,8">

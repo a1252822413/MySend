@@ -84,9 +84,10 @@ public sealed partial class SendProgressDialog : ContentDialog
         StatTextBlock.Text = ComputeStatText(_single);
         ProgressRingControl.IsIndeterminate = IsWaiting;
         ProgressRingControl.Value = RingValue;
-        // 等待确认时环形是转圈态（无确定进度），中央百分比隐藏
+        // 百分比始终显示：等待确认阶段显示 0%，有确定进度后随进度跳动
+        // （早期版本在不确定态隐藏数字，导致整个"等待"阶段看不出与旧版差异）
         RingPercentTextBlock.Text = $"{RingValue:0}%";
-        RingPercentTextBlock.Visibility = IsWaiting ? Visibility.Collapsed : Visibility.Visible;
+        RingPercentTextBlock.Visibility = Visibility.Visible;
     }
 
     /// <summary>会话状态 → 状态文字色（语义主题资源，深浅主题自适应）。</summary>

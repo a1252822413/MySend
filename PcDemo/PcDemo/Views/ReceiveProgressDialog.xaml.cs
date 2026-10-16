@@ -41,9 +41,9 @@ public sealed partial class ReceiveProgressDialog : ContentDialog
         FilesTextBlock.Text = FilesText;
         StatTextBlock.Text = ComputeStatText();
         ProgressRingControl.Value = RingValue;
-        // 不确定态（准备/校验）无确定进度，中央百分比隐藏
+        // 百分比始终显示（旧版在不确定态隐藏 → 等待阶段看不出变化）
         RingPercentTextBlock.Text = $"{RingValue:0}%";
-        RingPercentTextBlock.Visibility = P.IsIndeterminate ? Visibility.Collapsed : Visibility.Visible;
+        RingPercentTextBlock.Visibility = Visibility.Visible;
     }
 
     private void OnProgressChanged()

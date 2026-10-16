@@ -17,11 +17,12 @@
                     Background="{ThemeResource ControlFillColorSecondaryBrush}">
                 <TextBlock x:Name="TargetTextBlock" FontSize="12" Opacity="0.85"/>
             </Border>
-            <Grid Width="104" Height="104" HorizontalAlignment="Center">
-                <ProgressRing x:Name="ProgressRingControl" Width="104" Height="104"
+            <Grid Width="112" Height="112" HorizontalAlignment="Center">
+                <ProgressRing x:Name="ProgressRingControl" Width="112" Height="112"
                               Foreground="{ThemeResource AccentFillColorDefaultBrush}"/>
-                <!-- 等待对方确认时 IsIndeterminate → 无确定进度，百分比数字隐藏（code-behind 控制） -->
-                <TextBlock x:Name="RingPercentTextBlock" FontSize="22" FontWeight="SemiBold"
+                <!-- 中央百分比：始终显示（等待确认时为 0%，有确定进度后随进度跳动） -->
+                <TextBlock x:Name="RingPercentTextBlock" FontSize="26" FontWeight="SemiBold"
+                           Foreground="{ThemeResource TextFillColorPrimaryBrush}"
                            HorizontalAlignment="Center" VerticalAlignment="Center"/>
             </Grid>
             <StackPanel Spacing="4" HorizontalAlignment="Center">

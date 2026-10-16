@@ -9,11 +9,12 @@
     <Page.Resources>
         <c:FirewallLevelToGlyphConverter x:Key="FirewallGlyph"/>
         <c:FirewallLevelToBrushConverter x:Key="FirewallBrush"/>
-        <c:InvertedBoolConverter x:Key="InvertedBool"/>
     </Page.Resources>
 
-    <ScrollViewer Padding="24">
-        <StackPanel Spacing="16" MaxWidth="880" HorizontalAlignment="Left">
+    <ScrollViewer Padding="24" HorizontalScrollBarVisibility="Disabled">
+        <!-- 不设 MaxWidth / HorizontalAlignment：ScrollViewer 内限宽 + 左对齐会让含星号列的
+             子元素测量宽度与排布宽度不一致，WinUI 会反复重排（布局循环），页面表现即"卡死" -->
+        <StackPanel Spacing="16">
 
             <!-- 页面标题 -->
             <StackPanel Spacing="2" Margin="0,0,0,8">
@@ -192,7 +193,9 @@
                     <TextBlock FontSize="12" Opacity="0.65" TextWrapping="Wrap"
                                Text="手机收不到公告或连不上本机时，最常见原因是 Windows 防火墙拦截了入站端口。可在此检测并添加放行规则。"/>
 
-                    <!-- 状态条：图标 + 文本按检测结果着色（成功/警告/错误语义色） -->
+                    <!-- 状态条：图标 + 文本按检测结果着色（成功/警告/错误语义色）。
+                         用 TextTrimming 而非 TextWrapping：星号列内放自动换行文本会随测量宽度反复改变高度，
+                         是 WinUI 布局不收敛的常见诱因；过长文本用 ToolTip 兜底。 -->
                     <Border Padding="12,8" CornerRadius="8"
                             Background="{ThemeResource ControlFillColorSecondaryBrush}">
                         <Grid ColumnDefinitions="Auto,*">
@@ -201,15 +204,16 @@
                                       Foreground="{x:Bind ViewModel.FirewallLevel, Mode=OneWay, Converter={StaticResource FirewallBrush}}"
                                       AutomationProperties.AccessibilityView="Raw"/>
                             <TextBlock Grid.Column="1" Text="{x:Bind ViewModel.FirewallStatus, Mode=OneWay}"
-                                       FontSize="13" VerticalAlignment="Center" TextWrapping="Wrap"
+                                       FontSize="13" VerticalAlignment="Center"
+                                       TextTrimming="CharacterEllipsis"
+                                       ToolTipService.ToolTip="{x:Bind ViewModel.FirewallStatus, Mode=OneWay}"
                                        Foreground="{x:Bind ViewModel.FirewallLevel, Mode=OneWay, Converter={StaticResource FirewallBrush}}"/>
                         </Grid>
                     </Border>
 
                     <StackPanel Orientation="Horizontal" Spacing="8">
                         <Button Command="{x:Bind ViewModel.CheckFirewallCommand}"
-                                Padding="14,6" CornerRadius="8"
-                                IsEnabled="{x:Bind ViewModel.IsCheckingFirewall, Converter={StaticResource InvertedBool}}">
+                                Padding="14,6" CornerRadius="8">
                             <StackPanel Orientation="Horizontal" Spacing="6">
                                 <FontIcon Glyph="&#xE72C;" FontSize="13" VerticalAlignment="Center"
                                           AutomationProperties.AccessibilityView="Raw"/>
@@ -218,8 +222,7 @@
                         </Button>
                         <Button Command="{x:Bind ViewModel.AllowFirewallCommand}"
                                 Padding="14,6" CornerRadius="8"
-                                ToolTipService.ToolTip="需要管理员权限，会弹出 UAC 授权窗口"
-                                IsEnabled="{x:Bind ViewModel.IsCheckingFirewall, Converter={StaticResource InvertedBool}}">
+                                ToolTipService.ToolTip="需要管理员权限，会弹出 UAC 授权窗口">
                             <StackPanel Orientation="Horizontal" Spacing="6">
                                 <FontIcon Glyph="&#xE785;" FontSize="13" VerticalAlignment="Center"
                                           AutomationProperties.AccessibilityView="Raw"/>
@@ -238,7 +241,9 @@
                     <TextBlock Grid.Column="0" Text="{x:Bind ViewModel.SaveStatus, Mode=OneWay}"
                                VerticalAlignment="Center" Opacity="0.7" TextTrimming="CharacterEllipsis"
                                Margin="0,0,12,0"/>
-                    <Button Grid.Column="1" Content="保存更改" Style="{StaticResource AccentButtonStyle}"
+                    <Button Grid.Column="1" Content="保存更改"
+                            Background="{ThemeResource AccentFillColorDefaultBrush}"
+                            Foreground="{ThemeResource TextOnAccentFillColorDefaultBrush}"
                             Padding="22,8" CornerRadius="8"
                             Command="{x:Bind ViewModel.SaveCommand}"/>
                 </Grid>
