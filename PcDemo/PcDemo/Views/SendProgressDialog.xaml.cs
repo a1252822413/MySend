@@ -22,6 +22,8 @@ public sealed partial class SendProgressDialog : ContentDialog
         // 派生类不匹配 TargetType="ContentDialog" 的隐式样式，必须显式应用新版模板
         // （否则 fallback 外观：无圆角/无内容区与按钮区的色带分层）
         this.Style = Application.Current.Resources["DefaultContentDialogStyle"] as Style;
+        // 弹出层不在窗口内容树内，不继承 window.Content.RequestedTheme，必须显式套用当前主题
+        this.RequestedTheme = App.CurrentElementTheme;
         this.InitializeComponent();
         // SendSessionManager 的所有状态更新都经 DispatcherQueue（UI 线程），
         // 这里只刷新会变化的节点（StatText/Ring/状态文字），不做整页 Bindings.Update()
@@ -38,6 +40,8 @@ public sealed partial class SendProgressDialog : ContentDialog
         _single = null;
         _onCancel = onCancel;
         this.Style = Application.Current.Resources["DefaultContentDialogStyle"] as Style;
+        // 弹出层不在窗口内容树内，不继承 window.Content.RequestedTheme，必须显式套用当前主题
+        this.RequestedTheme = App.CurrentElementTheme;
         this.InitializeComponent();
         SinglePanel.Visibility = Visibility.Collapsed;
         BatchPanel.Visibility = Visibility.Visible;

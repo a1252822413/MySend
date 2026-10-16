@@ -102,24 +102,27 @@ public sealed partial class ReceivePage : Page
     }
 
     // 设备卡 hover 高亮：Border 无 VisualState，用 code-behind 换主题画刷。
-    // 接收页卡片边框是静态资源（无绑定），进/出可安全还原。
+    // 原始 背景/边框 画刷存进 Tag，退出时原样还原 —— 不依赖任何全局查找，主题绝对正确。
+    // （曾用 Application.Current.Resources[key] 取色：它按"应用级主题"解析，与元素实际主题
+    //   不一致时会把暗色卡片还原成亮色主题的 70% 白，成一块灰白板。）
     private void OnDeviceCardPointerEntered(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
     {
         if (sender is not Border card) return;
-        card.BorderBrush = ThemeBrush("AccentFillColorDefaultBrush", card.BorderBrush);
-        card.Background = ThemeBrush("CardBackgroundFillColorSecondaryBrush", card.Background);
+        card.Tag = (card.Background, card.BorderBrush);
+        card.BorderBrush = App.ThemeBrushFor(card, "AccentFillColorDefaultBrush") ?? card.BorderBrush;
+        card.Background = App.ThemeBrushFor(card, "CardBackgroundFillColorSecondaryBrush") ?? card.Background;
     }
 
     private void OnDeviceCardPointerExited(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
     {
         if (sender is not Border card) return;
-        card.BorderBrush = ThemeBrush("CardStrokeColorDefaultBrush", card.BorderBrush);
-        card.Background = ThemeBrush("CardBackgroundFillColorDefaultBrush", card.Background);
+        if (card.Tag is ValueTuple<Microsoft.UI.Xaml.Media.Brush?, Microsoft.UI.Xaml.Media.Brush?> saved)
+        {
+            card.Background = saved.Item1;
+            card.BorderBrush = saved.Item2;
+        }
+        card.Tag = null;
     }
-
-    /// <summary>按 key 取当前主题画刷；取不到则退回原值（避免 hover 把卡片颜色刷丢）。</summary>
-    private static Microsoft.UI.Xaml.Media.Brush ThemeBrush(string key, Microsoft.UI.Xaml.Media.Brush fallback)
-        => Application.Current.Resources[key] as Microsoft.UI.Xaml.Media.Brush ?? fallback;
 
     private async Task ShowReceiveProgressAsync(ReceiveSession session)
     {

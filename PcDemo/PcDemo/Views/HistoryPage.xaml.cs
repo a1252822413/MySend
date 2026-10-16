@@ -77,6 +77,8 @@ public sealed partial class HistoryPage : Page
         var confirm = new ContentDialog
         {
             XamlRoot = root,
+            // 弹出层不继承 window.Content.RequestedTheme，需显式套用当前主题
+            RequestedTheme = App.CurrentElementTheme,
             Title = "清空传输历史？",
             Content = "将删除全部收发记录（不会删除已接收的文件本身）。此操作不可撤销。",
             PrimaryButtonText = "清空",
@@ -95,24 +97,28 @@ public sealed partial class HistoryPage : Page
     }
 
     // ---------- 列表项 hover：边框点亮 + 背景微提亮（Border 无 VisualState） ----------
-    // 取主题画刷一律走 ThemeBrush(key, fallback)：取不到时保留原值，避免把卡片颜色刷丢。
+    // 原始 背景/边框 画刷存进 Tag，退出时原样还原；取色走 App.ThemeBrushFor（按元素实际主题解析）。
+    // 不要用 Application.Current.Resources[key]：它按"应用级主题"解析，与元素实际主题不一致时
+    // 会取到另一套主题的值（实测暗色下会把卡片刷成亮色）。
 
     private void OnItemPointerEntered(object sender, PointerRoutedEventArgs e)
     {
         if (sender is not Border b) return;
-        b.BorderBrush = ThemeBrush("AccentFillColorDefaultBrush", b.BorderBrush);
-        b.Background = ThemeBrush("CardBackgroundFillColorSecondaryBrush", b.Background);
+        b.Tag = (b.Background, b.BorderBrush);
+        b.BorderBrush = App.ThemeBrushFor(b, "AccentFillColorDefaultBrush") ?? b.BorderBrush;
+        b.Background = App.ThemeBrushFor(b, "CardBackgroundFillColorSecondaryBrush") ?? b.Background;
     }
 
     private void OnItemPointerExited(object sender, PointerRoutedEventArgs e)
     {
         if (sender is not Border b) return;
-        b.BorderBrush = ThemeBrush("CardStrokeColorDefaultBrush", b.BorderBrush);
-        b.Background = ThemeBrush("CardBackgroundFillColorDefaultBrush", b.Background);
+        if (b.Tag is ValueTuple<Brush?, Brush?> saved)
+        {
+            b.Background = saved.Item1;
+            b.BorderBrush = saved.Item2;
+        }
+        b.Tag = null;
     }
-
-    private static Brush ThemeBrush(string key, Brush fallback)
-        => Application.Current.Resources[key] as Brush ?? fallback;
 
     private void OnOpenFolderClick(object sender, RoutedEventArgs e)
     {

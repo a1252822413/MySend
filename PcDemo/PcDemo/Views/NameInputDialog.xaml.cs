@@ -10,6 +10,8 @@ public sealed partial class NameInputDialog : ContentDialog
     {
         // 派生类不匹配 TargetType="ContentDialog" 的隐式样式，必须显式应用新版模板
         this.Style = Application.Current.Resources["DefaultContentDialogStyle"] as Style;
+        // 弹出层不在窗口内容树内，不继承 window.Content.RequestedTheme，必须显式套用当前主题
+        this.RequestedTheme = App.CurrentElementTheme;
         this.InitializeComponent();
         Title = title;
         InputBox.Text = initial ?? string.Empty;

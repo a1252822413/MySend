@@ -189,18 +189,22 @@ public sealed partial class SendPage : Page
     }
 
     // 目标设备卡 hover：只换背景（BorderBrush 绑定 IsPicked 的选中绿边，不能覆盖）。
+    // 取色走 App.ThemeBrushFor(元素, key)（按元素实际主题解析）；原始画刷存 Tag，退出时原样还原。
+    // 不能用 Application.Current.Resources[key]：它按"应用级主题"解析，而 ThemeApplier 只设了
+    // window.Content.RequestedTheme —— 两者不一致时会取到另一套主题的值（实测：暗色应用里
+    // hover 结束把卡片还原成了亮色主题的 70% 白，成一块灰白板）。
     private void OnDeviceTilePointerEntered(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
     {
         if (sender is not Border card) return;
-        card.Background = Application.Current.Resources["CardBackgroundFillColorSecondaryBrush"]
-                          as Microsoft.UI.Xaml.Media.Brush ?? card.Background;
+        card.Tag = card.Background;
+        card.Background = App.ThemeBrushFor(card, "CardBackgroundFillColorSecondaryBrush") ?? card.Background;
     }
 
     private void OnDeviceTilePointerExited(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
     {
         if (sender is not Border card) return;
-        card.Background = Application.Current.Resources["CardBackgroundFillColorDefaultBrush"]
-                          as Microsoft.UI.Xaml.Media.Brush ?? card.Background;
+        if (card.Tag is Microsoft.UI.Xaml.Media.Brush original) card.Background = original;
+        card.Tag = null;
     }
 
     private async void OnPickFilesClick(object sender, RoutedEventArgs e)

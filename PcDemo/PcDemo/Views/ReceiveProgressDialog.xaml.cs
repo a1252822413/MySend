@@ -28,6 +28,8 @@ public sealed partial class ReceiveProgressDialog : ContentDialog
         // 派生类不匹配 TargetType="ContentDialog" 的隐式样式，必须显式应用新版模板
         // （否则 fallback 外观：无圆角/无内容区与按钮区的色带分层）
         this.Style = Application.Current.Resources["DefaultContentDialogStyle"] as Style;
+        // 弹出层不在窗口内容树内，不继承 window.Content.RequestedTheme，必须显式套用当前主题
+        this.RequestedTheme = App.CurrentElementTheme;
         this.InitializeComponent();
         // RingValue 是 P 的计算属性（不触发通知），进度变化时手动刷新；IsCompleted 变化时切换完成态
         P.PropertyChanged += (_, _) => OnProgressChanged();

@@ -334,6 +334,29 @@ public partial class App : Application, IRecipient<DeviceDiscoveredMessage>
         return window is not null;
     }
 
+    /// <summary>当前生效的主题（Light/Dark）。
+    /// ThemeApplier 只设了 window.Content.RequestedTheme；而 ContentDialog / Flyout 这类**弹出层
+    /// 不在窗口内容树内**，不会继承它，会退回到"应用级主题"（= Application.RequestedTheme，默认跟随
+    /// 系统）。用户在设置里选了深色但系统是浅色时，弹窗就会渲染成亮色（实测：暗色应用里进度弹窗纯白）。
+    /// 弹出层创建时需要显式套用这个主题。</summary>
+    internal static ElementTheme CurrentElementTheme
+        => TryGetMainWindow(out var w) && w.Content is FrameworkElement fe ? fe.ActualTheme : ElementTheme.Default;
+
+    /// <summary>按元素当前主题取主题字典里的画刷（供 code-behind 换色用）。
+    /// 不要用 Application.Current.Resources[key] 直接取主题键：它按"应用级主题"解析，
+    /// 与元素实际主题不一致时会取到另一套主题的值（曾导致暗色主题下 hover 把卡片刷成亮色）。</summary>
+    internal static Microsoft.UI.Xaml.Media.Brush? ThemeBrushFor(FrameworkElement element, string key)
+    {
+        var themeKey = element.ActualTheme == ElementTheme.Dark ? "Dark" : "Light";
+        var dicts = Application.Current.Resources.ThemeDictionaries;
+        if (dicts.ContainsKey(themeKey) && dicts[themeKey] is ResourceDictionary d && d.TryGetValue(key, out var v)
+            && v is Microsoft.UI.Xaml.Media.Brush brush)
+        {
+            return brush;
+        }
+        return Application.Current.Resources[key] as Microsoft.UI.Xaml.Media.Brush;
+    }
+
     internal static void LogDiag(string message)
     {
         try
