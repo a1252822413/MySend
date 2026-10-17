@@ -32,7 +32,7 @@
                    AutomationProperties.Name="LocalSend PC"
                    Width="16" Height="16" Margin="4,0,0,0" VerticalAlignment="Center"/>
             <TextBlock Grid.Column="2" Text="LocalSend PC" FontSize="12" FontWeight="SemiBold"
-                       Margin="10,0,0,0" VerticalAlignment="Center"
+                       Margin="8,0,0,0" VerticalAlignment="Center"
                        Foreground="{ThemeResource TextFillColorPrimaryBrush}"/>
         </Grid>
 

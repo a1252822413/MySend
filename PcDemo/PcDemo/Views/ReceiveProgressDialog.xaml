@@ -11,10 +11,10 @@
 
     <Grid MinWidth="400">
         <!-- 进度面板：二次确认时保持显示（确认按钮在底部命令区切换） -->
-        <StackPanel Spacing="14" Padding="0,4,0,0">
+        <StackPanel Spacing="12" Padding="0,4,0,0">
             <!-- 计算属性(SenderText/Ring/FilesText/StatText)不做 x:Bind：由 P.PropertyChanged →
                  OnProgressChanged → RefreshUi() 只更新变化节点。P.* 实现 INPC 保持自动绑定。 -->
-            <Border HorizontalAlignment="Center" Padding="10,3" CornerRadius="10"
+            <Border HorizontalAlignment="Center" Padding="8,4" CornerRadius="10"
                     Background="{ThemeResource ChipFillBrush}">
                 <TextBlock x:Name="SenderTextBlock" FontSize="12" Opacity="0.85"/>
             </Border>

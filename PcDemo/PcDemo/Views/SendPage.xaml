@@ -62,7 +62,7 @@
                 Opacity="0" IsHitTestVisible="False"/>
 
         <Grid Grid.Row="0" ColumnDefinitions="*,Auto">
-            <StackPanel Grid.Column="0" Spacing="2">
+            <StackPanel Grid.Column="0" Spacing="4">
                 <TextBlock Text="发送文件" FontSize="22" FontWeight="SemiBold"/>
                 <TextBlock Text="选择目标设备和要发送的文件" FontSize="12" Opacity="0.6"/>
             </StackPanel>
@@ -72,7 +72,7 @@
                 <Grid Grid.Row="0" ColumnDefinitions="*,Auto">
                     <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
                         <TextBlock Text="选择目标设备" FontSize="16" FontWeight="SemiBold"/>
-                        <Border Padding="8,2" CornerRadius="10" Background="{ThemeResource CardStrokeColorDefaultBrush}">
+                        <Border Padding="8,4" CornerRadius="10" Background="{ThemeResource CardStrokeColorDefaultBrush}">
                             <TextBlock Text="{x:Bind ViewModel.Devices.Count, Mode=OneWay}" FontSize="11" Opacity="0.7"/>
                         </Border>
                     </StackPanel>
@@ -80,7 +80,7 @@
                             IsEnabled="{x:Bind ViewModel.IsRefreshing, Converter={StaticResource InvertedBoolConverter}}"
                             Padding="8" Background="Transparent" BorderThickness="0"
                             ToolTipService.ToolTip="重新搜索（每 20 秒自动刷新）">
-                        <StackPanel Orientation="Horizontal" Spacing="6">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
                             <ProgressRing Width="14" Height="14" IsActive="{x:Bind ViewModel.IsRefreshing}"/>
                             <TextBlock Text="{x:Bind ViewModel.IsRefreshing, Converter={StaticResource RefreshingTextConverter}}" FontSize="12"/>
                         </StackPanel>
@@ -88,13 +88,13 @@
                 </Grid>
 
                 <!-- 已选目标：chips 行（每台一枚 chip，可单独移除，替代原来的摘要长条） -->
-                <Border Grid.Row="1" Margin="0,12,0,0" Padding="12,10" CornerRadius="10"
+                <Border Grid.Row="1" Margin="0,12,0,0" Padding="12,8" CornerRadius="10"
                         Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                         BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1"
                         Visibility="{x:Bind ViewModel.HasSelectedTarget, Mode=OneWay, Converter={StaticResource BoolToVisibility}}">
                     <Grid ColumnDefinitions="Auto,*,Auto">
                         <TextBlock Grid.Column="0" Text="发送到" FontSize="12" Opacity="0.65"
-                                   VerticalAlignment="Center" Margin="0,0,10,0"/>
+                                   VerticalAlignment="Center" Margin="0,0,8,0"/>
                         <ScrollViewer Grid.Column="1" HorizontalScrollBarVisibility="Auto"
                                       HorizontalScrollMode="Auto"
                                       VerticalScrollBarVisibility="Disabled" VerticalScrollMode="Disabled">
@@ -104,9 +104,9 @@
                                 </ItemsRepeater.Layout>
                                 <ItemsRepeater.ItemTemplate>
                                     <DataTemplate>
-                                        <Border Padding="10,3,3,3" CornerRadius="14"
+                                        <Border Padding="8,4,4,4" CornerRadius="14"
                                                 Background="{ThemeResource AccentFillColorDefaultBrush}">
-                                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                            <StackPanel Orientation="Horizontal" Spacing="8">
                                                 <TextBlock Text="{Binding DeviceType, Converter={StaticResource DeviceTypeGlyph}}"
                                                            FontFamily="Segoe Fluent Icons" FontSize="12"
                                                            VerticalAlignment="Center"
@@ -131,7 +131,7 @@
                                 </ItemsRepeater.ItemTemplate>
                             </ItemsRepeater>
                         </ScrollViewer>
-                        <Button Grid.Column="2" Content="清空" Padding="10,4" Margin="8,0,0,0" FontSize="12"
+                        <Button Grid.Column="2" Content="清空" Padding="8,4" Margin="8,0,0,0" FontSize="12"
                                 VerticalAlignment="Center" Background="Transparent" BorderThickness="0"
                                 Click="OnDeselectTargetClick"/>
                     </Grid>
@@ -178,7 +178,7 @@
                                     </Border.ContextFlyout>
                                     <Grid ColumnDefinitions="3,Auto,*,Auto" VerticalAlignment="Center">
                                         <Border Grid.Column="0" Width="3" Height="44" CornerRadius="1.5"
-                                                VerticalAlignment="Center" Margin="0,0,10,0"
+                                                VerticalAlignment="Center" Margin="0,0,8,0"
                                                 Background="{Binding IsOnline, Converter={StaticResource BoolToOnlineDot}}"/>
                                         <Border Grid.Column="1" Width="48" Height="48" CornerRadius="14"
                                                 Background="{ThemeResource AccentFillColorDefaultBrush}"
@@ -189,12 +189,12 @@
                                                        FontSize="20" HorizontalAlignment="Center" VerticalAlignment="Center"
                                                        Foreground="{ThemeResource TextOnAccentFillColorDefaultBrush}"/>
                                         </Border>
-                                        <StackPanel Grid.Column="2" Margin="12,0,0,0" Spacing="3" VerticalAlignment="Center">
-                                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <StackPanel Grid.Column="2" Margin="12,0,0,0" Spacing="4" VerticalAlignment="Center">
+                                            <StackPanel Orientation="Horizontal" Spacing="8">
                                                 <TextBlock Text="{Binding Alias}" FontWeight="SemiBold" FontSize="14"
                                                            TextTrimming="CharacterEllipsis"/>
                                                 <!-- 白名单徽章：语义色主题资源（浅底深字） -->
-                                                <Border Padding="5,1" CornerRadius="8"
+                                                <Border Padding="8,4" CornerRadius="8"
                                                         Background="{ThemeResource SystemFillColorSuccessBackgroundBrush}"
                                                         Visibility="{Binding IsWhitelisted, Mode=OneWay, Converter={StaticResource BoolToVisibility}}">
                                                     <TextBlock Text="白名单" FontSize="9"
@@ -202,7 +202,7 @@
                                                                AutomationProperties.AccessibilityView="Raw"/>
                                                 </Border>
                                                 <!-- 黑名单徽章 -->
-                                                <Border Padding="5,1" CornerRadius="8"
+                                                <Border Padding="8,4" CornerRadius="8"
                                                         Background="{ThemeResource SystemFillColorCriticalBackgroundBrush}"
                                                         Visibility="{Binding IsBlacklisted, Mode=OneWay, Converter={StaticResource BoolToVisibility}}">
                                                     <TextBlock Text="黑名单" FontSize="9"
@@ -210,7 +210,7 @@
                                                                AutomationProperties.AccessibilityView="Raw"/>
                                                 </Border>
                                             </StackPanel>
-                                            <StackPanel Orientation="Horizontal" Spacing="5">
+                                            <StackPanel Orientation="Horizontal" Spacing="4">
                                                 <FontIcon Glyph="&#xE774;" FontSize="10" Opacity="0.7"
                                                           VerticalAlignment="Center"
                                                           AutomationProperties.AccessibilityView="Raw"/>
@@ -223,8 +223,8 @@
                                                        TextTrimming="CharacterEllipsis"/>
                                         </StackPanel>
                                         <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="4"
-                                                    VerticalAlignment="Top" Margin="0,2,0,0">
-                                            <Border Padding="5,1" CornerRadius="8"
+                                                    VerticalAlignment="Top" Margin="0,4,0,0">
+                                            <Border Padding="8,4" CornerRadius="8"
                                                     Background="{ThemeResource AccentFillColorDefaultBrush}"
                                                     Visibility="{Binding IsPicked, Mode=OneWay, Converter={StaticResource BoolToVisibility}}">
                                                 <FontIcon Glyph="&#xE73E;" FontSize="9"
@@ -243,7 +243,7 @@
                     </ItemsRepeater>
                 </ScrollViewer>
 
-                <StackPanel Grid.Row="2" Margin="0,12,0,12" Spacing="6" HorizontalAlignment="Center" VerticalAlignment="Center"
+                <StackPanel Grid.Row="2" Margin="0,16,0,16" Spacing="8" HorizontalAlignment="Center" VerticalAlignment="Center"
                             Visibility="{x:Bind ViewModel.HasNoDevices, Mode=OneWay}">
                     <FontIcon Glyph="&#xE721;" FontSize="40" HorizontalAlignment="Center"/>
                     <TextBlock Text="正在搜索附近设备..." FontSize="14" FontWeight="SemiBold" HorizontalAlignment="Center"/>
@@ -252,7 +252,7 @@
                 </StackPanel>
             </Grid>
 
-            <Grid Grid.Row="2" Margin="0,12,0,0" RowDefinitions="Auto,*,Auto">
+            <Grid Grid.Row="2" Margin="0,16,0,0" RowDefinitions="Auto,*,Auto">
                 <!-- 操作行：窄窗口自动换行（FlowPanel），避免按钮被截断/盖住 -->
                 <ctrls:FlowPanel Grid.Row="0" HorizontalSpacing="8" VerticalSpacing="8">
                     <StackPanel x:Name="ImportingIndicator" Orientation="Horizontal" Spacing="8"
@@ -262,14 +262,14 @@
                         <TextBlock Text="导入中…" FontSize="12" Opacity="0.7" VerticalAlignment="Center"/>
                     </StackPanel>
                     <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                        <Button Click="OnPickFilesClick" Padding="14,0" Height="36" CornerRadius="8"
+                        <Button Click="OnPickFilesClick" Padding="12,0" Height="36" CornerRadius="8"
                                 AutomationProperties.Name="添加文件">
                             <StackPanel Orientation="Horizontal" Spacing="8">
                                 <FontIcon Glyph="&#xE8B7;" FontSize="14"/>
                                 <TextBlock Text="添加文件"/>
                             </StackPanel>
                         </Button>
-                        <Button Click="OnPickFolderClick" Padding="14,0" Height="36" CornerRadius="8"
+                        <Button Click="OnPickFolderClick" Padding="12,0" Height="36" CornerRadius="8"
                                 AutomationProperties.Name="添加文件夹"
                                 ToolTipService.ToolTip="选择文件夹（保留目录结构发送）">
                             <StackPanel Orientation="Horizontal" Spacing="8">
@@ -310,7 +310,7 @@
                        2) Stretch 但上下 margin 不等（12 / 16）+ 内边距 12 → 视觉上间距偏大且不对称；
                        3) VerticalAlignment="Top" → 卡片只贴内容，空白全堆到底部，上小下大。
                      现在：Stretch + 上下 margin 都是 8 + 内边距 12 → 上下各 20，等高且紧凑。 -->
-                <Border Grid.Row="1" Margin="0,8,0,0" Padding="12" CornerRadius="12"
+                <Border Grid.Row="1" Margin="0,12,0,0" Padding="8" CornerRadius="12"
                         VerticalAlignment="Stretch"
                         Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                         BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1">
@@ -327,7 +327,7 @@
                             </ListView.ItemContainerStyle>
                             <ListView.ItemTemplate>
                                 <DataTemplate>
-                                    <Border Padding="12,8,12,8" CornerRadius="10"
+                                    <Border Padding="12,8" CornerRadius="10"
                                             Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                                             BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1">
                                         <Grid ColumnDefinitions="Auto,Auto,*" VerticalAlignment="Center">
@@ -370,8 +370,8 @@
                                                     </TextBlock>
                                                     <TextBlock Grid.Column="2" FontSize="11" Opacity="0.65"
                                                                Text="{Binding Status}" VerticalAlignment="Center"/>
-                                                    <Button Grid.Column="3" FontSize="12" Padding="10,4" CornerRadius="6"
-                                                            Content="移除" VerticalAlignment="Center" Margin="0,0,10,0"
+                                                    <Button Grid.Column="3" FontSize="12" Padding="8,4" CornerRadius="6"
+                                                            Content="移除" VerticalAlignment="Center" Margin="0,0,8,0"
                                                             ToolTipService.ToolTip="从列表移除"
                                                             Click="OnRemoveFileClick"
                                                             Visibility="{Binding Status, Converter={StaticResource PendingOnlyToVisible}}"/>
@@ -392,7 +392,7 @@
                         <Grid MinHeight="200" Visibility="{x:Bind ViewModel.HasNoFiles, Mode=OneWay}">
                             <Rectangle Stroke="{ThemeResource CardStrokeColorDefaultBrush}" StrokeThickness="1.5"
                                        StrokeDashArray="4 3" RadiusX="10" RadiusY="10"
-                                       Fill="Transparent" Margin="1" IsHitTestVisible="False"/>
+                                       Fill="Transparent" Margin="4" IsHitTestVisible="False"/>
                             <StackPanel Spacing="8" HorizontalAlignment="Center" VerticalAlignment="Center" Padding="24">
                                 <FontIcon x:Name="SendEmptyPulseIcon" Glyph="&#xE898;" FontSize="40"
                                           HorizontalAlignment="Center"
@@ -403,11 +403,11 @@
                                 <TextBlock Text="也可以点击上方「添加文件 / 添加文件夹」，或按 Ctrl+V 粘贴"
                                            FontSize="12" Opacity="0.6" HorizontalAlignment="Center"/>
                                 <!-- 剪贴板有文件 → 一键添加提示（读取失败/无文件时整行隐藏） -->
-                                <Button Click="OnAddClipboardClick" Margin="0,6,0,0" Padding="12,7" CornerRadius="14"
+                                <Button Click="OnAddClipboardClick" Margin="0,8,0,0" Padding="12,4" CornerRadius="14"
                                         Background="{ThemeResource ChipFillBrush}"
                                         BorderThickness="0" HorizontalAlignment="Center"
                                         Visibility="{x:Bind ViewModel.HasClipboardFiles, Mode=OneWay}">
-                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
                                         <FontIcon Glyph="&#xE8C8;" FontSize="13"/>
                                         <TextBlock Text="{x:Bind ViewModel.ClipboardHintText, Mode=OneWay}" FontSize="12"/>
                                         <TextBlock Text="· 点此添加" FontSize="12" Opacity="0.7"/>
@@ -422,7 +422,7 @@
                      发送中的实时进度由"发送进度对话框"承担（它是模态、覆盖整页），
                      底部再放一条进度条永远会被挡住，所以这里不重复放。 -->
                 <!-- 与列表卡片的间距（8）保持一致，上下等距 -->
-                <Grid Grid.Row="2" Margin="0,8,0,0">
+                <Grid Grid.Row="2" Margin="0,12,0,0">
                     <Border Padding="16,12" CornerRadius="12"
                             Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                             BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1">
@@ -453,7 +453,7 @@
 
                             <!-- 主/次操作：从文件区顶部动作行移下来，成为真正的底部动作条 -->
                             <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                                <Button Click="OnSendTextClick" Padding="14,0" Height="36" CornerRadius="8"
+                                <Button Click="OnSendTextClick" Padding="12,0" Height="36" CornerRadius="8"
                                         AutomationProperties.Name="发送文字"
                                         ToolTipService.ToolTip="发送文字/剪贴板内容（对方保存为 .txt）">
                                     <StackPanel Orientation="Horizontal" Spacing="8">
@@ -471,7 +471,7 @@
                                         Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}">
                                     <Button.ContentTemplate>
                                         <DataTemplate>
-                                            <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                                            <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
                                                 <FontIcon Glyph="&#xE724;" FontSize="14"
                                                           Foreground="{ThemeResource TextOnAccentFillColorDefaultBrush}"
                                                           AutomationProperties.AccessibilityView="Raw"/>

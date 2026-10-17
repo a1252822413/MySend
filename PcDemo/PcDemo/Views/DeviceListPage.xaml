@@ -19,13 +19,13 @@
         <StackPanel Spacing="16">
 
             <!-- 页面标题 -->
-            <StackPanel Spacing="2" Margin="0,0,0,8">
+            <StackPanel Spacing="4" Margin="0,0,0,8">
                 <TextBlock Text="设备管理" FontSize="22" FontWeight="SemiBold"/>
                 <TextBlock Text="管理白名单与黑名单；白名单设备可单独开启自动接收" FontSize="12" Opacity="0.6"/>
             </StackPanel>
 
             <!-- 添加设备（共用） -->
-            <Border Padding="18,16" CornerRadius="12"
+            <Border Padding="16" CornerRadius="12"
                     Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                     BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1">
                 <StackPanel Spacing="12">
@@ -44,8 +44,8 @@
                                   DisplayMemberPath="Alias"
                                   PlaceholderText="点击刷新或选择设备" HorizontalAlignment="Stretch"/>
                         <Button Grid.Column="2" Click="OnRefreshDiscoveredClick" Margin="8,0,0,0"
-                                Padding="12,6" CornerRadius="8" ToolTipService.ToolTip="重新读取附近设备列表">
-                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                Padding="12,8" CornerRadius="8" ToolTipService.ToolTip="重新读取附近设备列表">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
                                 <FontIcon Glyph="&#xE72C;" FontSize="13" VerticalAlignment="Center"
                                           AutomationProperties.AccessibilityView="Raw"/>
                                 <TextBlock Text="刷新" VerticalAlignment="Center"/>
@@ -55,16 +55,16 @@
                     <Grid ColumnDefinitions="160,Auto,Auto" VerticalAlignment="Center">
                         <TextBlock Grid.Column="0" Text="加入" VerticalAlignment="Center" Opacity="0.85"/>
                         <Button Grid.Column="1" Click="OnAddWhitelistFromDiscoveredClick"
-                                Padding="12,6" CornerRadius="8" Margin="0,0,8,0">
-                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                Padding="12,8" CornerRadius="8" Margin="0,0,8,0">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
                                 <FontIcon Glyph="&#xE73E;" FontSize="13" VerticalAlignment="Center"
                                           AutomationProperties.AccessibilityView="Raw"/>
                                 <TextBlock Text="白名单" VerticalAlignment="Center"/>
                             </StackPanel>
                         </Button>
                         <Button Grid.Column="2" Click="OnAddBlacklistFromDiscoveredClick"
-                                Padding="12,6" CornerRadius="8">
-                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                Padding="12,8" CornerRadius="8">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
                                 <FontIcon Glyph="&#xE8F8;" FontSize="13" VerticalAlignment="Center"
                                           AutomationProperties.AccessibilityView="Raw"/>
                                 <TextBlock Text="黑名单" VerticalAlignment="Center"/>
@@ -86,16 +86,16 @@
                     <Grid ColumnDefinitions="160,Auto,Auto" VerticalAlignment="Center">
                         <TextBlock Grid.Column="0" Text="加入" VerticalAlignment="Center" Opacity="0.85"/>
                         <Button Grid.Column="1" Click="OnAddWhitelistManualClick"
-                                Padding="12,6" CornerRadius="8" Margin="0,0,8,0">
-                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                Padding="12,8" CornerRadius="8" Margin="0,0,8,0">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
                                 <FontIcon Glyph="&#xE73E;" FontSize="13" VerticalAlignment="Center"
                                           AutomationProperties.AccessibilityView="Raw"/>
                                 <TextBlock Text="白名单" VerticalAlignment="Center"/>
                             </StackPanel>
                         </Button>
                         <Button Grid.Column="2" Click="OnAddBlacklistManualClick"
-                                Padding="12,6" CornerRadius="8">
-                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                Padding="12,8" CornerRadius="8">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
                                 <FontIcon Glyph="&#xE8F8;" FontSize="13" VerticalAlignment="Center"
                                           AutomationProperties.AccessibilityView="Raw"/>
                                 <TextBlock Text="黑名单" VerticalAlignment="Center"/>
@@ -113,10 +113,10 @@
             </Border>
 
             <!-- 白名单 -->
-            <Border Padding="18,16" CornerRadius="12"
+            <Border Padding="16" CornerRadius="12"
                     Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                     BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1">
-                <StackPanel Spacing="10">
+                <StackPanel Spacing="8">
                     <StackPanel Orientation="Horizontal" Spacing="8">
                         <FontIcon Glyph="&#xE73E;" FontSize="14" VerticalAlignment="Center"
                                   Foreground="{ThemeResource SystemFillColorSuccessBrush}"
@@ -126,11 +126,11 @@
                     <TextBlock Text="白名单设备不会被自动拒绝；勾选「自动接收」可跳过确认弹窗直接保存文件。" Opacity="0.6" FontSize="12"/>
 
                     <!-- 空态 -->
-                    <Border Padding="24,20" CornerRadius="8"
+                    <Border Padding="24,16" CornerRadius="8"
                             Background="{ThemeResource SubtleFillColorTransparentBrush}"
                             BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1"
                             Visibility="{x:Bind ViewModel.HasNoWhitelist, Mode=OneWay}">
-                        <StackPanel Spacing="6" HorizontalAlignment="Center">
+                        <StackPanel Spacing="8" HorizontalAlignment="Center">
                             <FontIcon Glyph="&#xE8FB;" FontSize="24" Opacity="0.4" HorizontalAlignment="Center"
                                       AutomationProperties.AccessibilityView="Raw"/>
                             <TextBlock Text="白名单为空" FontSize="13" Opacity="0.7" HorizontalAlignment="Center"/>
@@ -151,7 +151,7 @@
                         </ListView.ItemContainerStyle>
                         <ListView.ItemTemplate>
                             <DataTemplate x:DataType="models:DeviceListEntry">
-                                <Border Padding="14" CornerRadius="10"
+                                <Border Padding="12" CornerRadius="10"
                                         Background="{ThemeResource SubtleFillColorTransparentBrush}"
                                         BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1">
                                     <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="12" VerticalAlignment="Center">
@@ -165,7 +165,7 @@
                                                        HorizontalAlignment="Center" VerticalAlignment="Center"
                                                        AutomationProperties.AccessibilityView="Raw"/>
                                         </Border>
-                                        <StackPanel Grid.Column="1" Spacing="2" VerticalAlignment="Center">
+                                        <StackPanel Grid.Column="1" Spacing="4" VerticalAlignment="Center">
                                             <TextBlock Text="{x:Bind Alias, Mode=OneWay}" FontWeight="SemiBold" FontSize="13"
                                                        TextTrimming="CharacterEllipsis"/>
                                             <TextBlock Text="{x:Bind Fingerprint, Mode=OneWay}" Opacity="0.5" FontSize="11"
@@ -177,18 +177,18 @@
                                                       DataContext="{x:Bind}"/>
                                         <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="8">
                                             <Button Click="OnRenameWhitelistClick"
-                                                    DataContext="{x:Bind}" Padding="10,6" CornerRadius="8"
+                                                    DataContext="{x:Bind}" Padding="8" CornerRadius="8"
                                                     ToolTipService.ToolTip="修改本地显示名称">
-                                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                                <StackPanel Orientation="Horizontal" Spacing="8">
                                                     <FontIcon Glyph="&#xE70F;" FontSize="12" VerticalAlignment="Center"
                                                               AutomationProperties.AccessibilityView="Raw"/>
                                                     <TextBlock Text="重命名" VerticalAlignment="Center"/>
                                                 </StackPanel>
                                             </Button>
                                             <Button Click="OnRemoveWhitelistClick"
-                                                    DataContext="{x:Bind}" Padding="10,6" CornerRadius="8"
+                                                    DataContext="{x:Bind}" Padding="8" CornerRadius="8"
                                                     ToolTipService.ToolTip="从白名单移除">
-                                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                                <StackPanel Orientation="Horizontal" Spacing="8">
                                                     <FontIcon Glyph="&#xE738;" FontSize="12" VerticalAlignment="Center"
                                                               AutomationProperties.AccessibilityView="Raw"/>
                                                     <TextBlock Text="移除" VerticalAlignment="Center"/>
@@ -204,10 +204,10 @@
             </Border>
 
             <!-- 黑名单 -->
-            <Border Padding="18,16" CornerRadius="12"
+            <Border Padding="16" CornerRadius="12"
                     Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                     BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1">
-                <StackPanel Spacing="10">
+                <StackPanel Spacing="8">
                     <StackPanel Orientation="Horizontal" Spacing="8">
                         <FontIcon Glyph="&#xE8F8;" FontSize="14" VerticalAlignment="Center"
                                   Foreground="{ThemeResource SystemFillColorCriticalBrush}"
@@ -217,11 +217,11 @@
                     <TextBlock Text="黑名单设备的文件请求会在 HTTP 层直接拒绝（403 Blocked by blacklist）。" Opacity="0.6" FontSize="12"/>
 
                     <!-- 空态 -->
-                    <Border Padding="24,20" CornerRadius="8"
+                    <Border Padding="24,16" CornerRadius="8"
                             Background="{ThemeResource SubtleFillColorTransparentBrush}"
                             BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1"
                             Visibility="{x:Bind ViewModel.HasNoBlacklist, Mode=OneWay}">
-                        <StackPanel Spacing="6" HorizontalAlignment="Center">
+                        <StackPanel Spacing="8" HorizontalAlignment="Center">
                             <FontIcon Glyph="&#xE8F8;" FontSize="24" Opacity="0.4" HorizontalAlignment="Center"
                                       AutomationProperties.AccessibilityView="Raw"/>
                             <TextBlock Text="黑名单为空" FontSize="13" Opacity="0.7" HorizontalAlignment="Center"/>
@@ -242,7 +242,7 @@
                         </ListView.ItemContainerStyle>
                         <ListView.ItemTemplate>
                             <DataTemplate x:DataType="models:DeviceListEntry">
-                                <Border Padding="14" CornerRadius="10"
+                                <Border Padding="12" CornerRadius="10"
                                         Background="{ThemeResource SubtleFillColorTransparentBrush}"
                                         BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1">
                                     <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12" VerticalAlignment="Center">
@@ -255,7 +255,7 @@
                                                        HorizontalAlignment="Center" VerticalAlignment="Center"
                                                        AutomationProperties.AccessibilityView="Raw"/>
                                         </Border>
-                                        <StackPanel Grid.Column="1" Spacing="2" VerticalAlignment="Center">
+                                        <StackPanel Grid.Column="1" Spacing="4" VerticalAlignment="Center">
                                             <TextBlock Text="{x:Bind Alias, Mode=OneWay}" FontWeight="SemiBold" FontSize="13"
                                                        TextTrimming="CharacterEllipsis"/>
                                             <TextBlock Text="{x:Bind Fingerprint, Mode=OneWay}" Opacity="0.5" FontSize="11"
@@ -263,18 +263,18 @@
                                         </StackPanel>
                                         <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8">
                                             <Button Click="OnRenameBlacklistClick"
-                                                    DataContext="{x:Bind}" Padding="10,6" CornerRadius="8"
+                                                    DataContext="{x:Bind}" Padding="8" CornerRadius="8"
                                                     ToolTipService.ToolTip="修改本地显示名称">
-                                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                                <StackPanel Orientation="Horizontal" Spacing="8">
                                                     <FontIcon Glyph="&#xE70F;" FontSize="12" VerticalAlignment="Center"
                                                               AutomationProperties.AccessibilityView="Raw"/>
                                                     <TextBlock Text="重命名" VerticalAlignment="Center"/>
                                                 </StackPanel>
                                             </Button>
                                             <Button Click="OnRemoveBlacklistClick"
-                                                    DataContext="{x:Bind}" Padding="10,6" CornerRadius="8"
+                                                    DataContext="{x:Bind}" Padding="8" CornerRadius="8"
                                                     ToolTipService.ToolTip="从黑名单移除">
-                                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                                <StackPanel Orientation="Horizontal" Spacing="8">
                                                     <FontIcon Glyph="&#xE738;" FontSize="12" VerticalAlignment="Center"
                                                               AutomationProperties.AccessibilityView="Raw"/>
                                                     <TextBlock Text="移除" VerticalAlignment="Center"/>

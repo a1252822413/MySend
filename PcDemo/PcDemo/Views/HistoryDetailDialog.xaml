@@ -18,13 +18,13 @@
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
-        <StackPanel Grid.Row="0" Spacing="3">
+        <StackPanel Grid.Row="0" Spacing="4">
             <TextBlock x:Name="HeaderText" FontSize="15" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
             <TextBlock x:Name="SubText" FontSize="11.5" Opacity="0.6" TextWrapping="Wrap"/>
         </StackPanel>
 
         <TextBlock Grid.Row="1" x:Name="ListCaption" Text="文件清单" FontSize="12" Opacity="0.65"
-                   Margin="0,12,0,6"/>
+                   Margin="0,12,0,8"/>
 
         <TextBlock Grid.Row="2" x:Name="NoDetailsText" Text="该记录没有逐文件明细（旧版本生成）。"
                    FontSize="12" Opacity="0.5" Margin="0,4,0,8" Visibility="Collapsed"/>
@@ -40,18 +40,18 @@
             </ListView.ItemContainerStyle>
             <ListView.ItemTemplate>
                 <DataTemplate>
-                    <Border Padding="10,8" CornerRadius="8"
+                    <Border Padding="8" CornerRadius="8"
                             Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}"
                             ToolTipService.ToolTip="{Binding Error}">
                         <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="10">
-                            <StackPanel Grid.Column="0" VerticalAlignment="Center" Spacing="1">
+                            <StackPanel Grid.Column="0" VerticalAlignment="Center" Spacing="4">
                                 <TextBlock Text="{Binding FileName}" FontSize="13"
                                            TextTrimming="CharacterEllipsis"
                                            ToolTipService.ToolTip="{Binding FileName}"/>
                                 <TextBlock Text="{Binding SizeText}" FontSize="11" Opacity="0.55"/>
                             </StackPanel>
                             <!-- 状态 chip：浅底深字（系统语义色），与历史页列表保持一致 -->
-                            <Border Grid.Column="1" Padding="8,3" CornerRadius="8" VerticalAlignment="Center"
+                            <Border Grid.Column="1" Padding="8,4" CornerRadius="8" VerticalAlignment="Center"
                                     Background="{Binding StatusBackgroundBrush}">
                                 <TextBlock Text="{Binding StatusText}" FontSize="11"
                                            Foreground="{Binding StatusForegroundBrush}"/>

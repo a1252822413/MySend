@@ -12,8 +12,8 @@
 
     <Grid MinWidth="480">
         <!-- 单发面板：单个设备 → 环形进度（中央叠百分比数字） -->
-        <StackPanel x:Name="SinglePanel" Spacing="14" Padding="0,4,0,0">
-            <Border HorizontalAlignment="Center" Padding="10,3" CornerRadius="10"
+        <StackPanel x:Name="SinglePanel" Spacing="12" Padding="0,4,0,0">
+            <Border HorizontalAlignment="Center" Padding="8,4" CornerRadius="10"
                     Background="{ThemeResource ChipFillBrush}">
                 <TextBlock x:Name="TargetTextBlock" FontSize="12" Opacity="0.85"/>
             </Border>
@@ -39,14 +39,14 @@
         </StackPanel>
 
         <!-- 群发面板：每台一行（设备名+状态+迷你进度条），顶部汇总 -->
-        <StackPanel x:Name="BatchPanel" Visibility="Collapsed" Spacing="10" Padding="0,2,0,0">
+        <StackPanel x:Name="BatchPanel" Visibility="Collapsed" Spacing="8" Padding="0,4,0,0">
             <TextBlock x:Name="BatchSummaryTextBlock" FontSize="13" FontWeight="SemiBold"
                        HorizontalAlignment="Center" Opacity="0.9"/>
             <!-- MaxHeight 在 code-behind 按窗口高度动态适配（Opened 时），避免设备多时弹窗超出界面 -->
             <ScrollViewer x:Name="BatchListScroll" MaxHeight="330"
                           VerticalScrollBarVisibility="Auto"
                           HorizontalScrollBarVisibility="Disabled">
-                <StackPanel x:Name="BatchListPanel" Spacing="6"/>
+                <StackPanel x:Name="BatchListPanel" Spacing="8"/>
             </ScrollViewer>
         </StackPanel>
     </Grid>

@@ -14,7 +14,7 @@
     SecondaryButtonClick="OnSecondaryClick">
 
     <Grid Width="440">
-        <StackPanel Spacing="10">
+        <StackPanel Spacing="8">
             <TextBlock Text="输入要发送的文字（可多行）。接收端会把它保存为 .txt 文件。"
                        FontSize="12" Opacity="0.65" TextWrapping="Wrap"/>
             <TextBox x:Name="InputTextBox" AcceptsReturn="True" TextWrapping="Wrap"
