@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="512" height="512" role="img">
+  <title>LocalSend PC 应用标志</title>
+  <desc>绿色圆角方块上的两个错轴对向箭头，表示数据双向传输。</desc>
+  <rect width="128" height="128" rx="28" fill="#16A34A"/>
+  <rect x="24" y="30" width="70" height="16" rx="8" fill="#FFFFFF"/>
+  <path d="M80 20 L114 38 L80 56 Z" fill="#FFFFFF"/>
+  <rect x="34" y="82" width="70" height="16" rx="8" fill="#FFFFFF"/>
+  <path d="M48 72 L14 90 L48 108 Z" fill="#FFFFFF"/>
+</svg>
