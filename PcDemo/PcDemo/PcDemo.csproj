@@ -7,7 +7,12 @@
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <Platforms>x86;x64;ARM64</Platforms>
     <RuntimeIdentifiers>win-x86;win-x64;win-arm64</RuntimeIdentifiers>
-    <PublishProfile>win-$(Platform).pubxml</PublishProfile>
+    <!-- 发布配置文件模板：VS 的「Package and Publish」向导会按平台在
+         Properties\PublishProfiles\ 下生成 win-<Platform>.pubxml。
+         项目里没有预置这些文件，若无条件写死 PublishProfile，MSBuild 会在
+         Microsoft.NET.Publish.targets 的 PrepareForPublish 里报 NETSDK1198
+         （找不到发布配置文件）。因此只在对应文件真实存在时才设置该属性。 -->
+    <PublishProfile Condition="Exists('$(MSBuildProjectDirectory)\Properties\PublishProfiles\win-$(Platform).pubxml')">win-$(Platform).pubxml</PublishProfile>
     <UseWinUI>true</UseWinUI>
     <WinUISDKReferences>false</WinUISDKReferences>
     <EnableMsixTooling>true</EnableMsixTooling>
