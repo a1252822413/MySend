@@ -17,6 +17,12 @@
     <UseWinUI>true</UseWinUI>
     <WinUISDKReferences>false</WinUISDKReferences>
     <EnableMsixTooling>true</EnableMsixTooling>
+    <!-- 便携版（unpackaged）构建开关：发布时额外传
+           WindowsPackageType=None / EnableMsixTooling=false / WindowsAppSDKSelfContained=true
+         （见 docs/ 或 build 说明里的完整命令）即可产出普通 exe 目录、不生成 MSIX。
+         WindowsAppSDK 运行库一并带上，目标机无需预装 Windows App Runtime。
+         代码侧已按 PathHelper.IsPackaged 自动切换数据目录与开机自启实现。 -->
+    <WindowsAppSDKSelfContained Condition="'$(WindowsPackageType)' == 'None'">true</WindowsAppSDKSelfContained>
     <Nullable>enable</Nullable>
     <LangVersion>latest</LangVersion>
     <ImplicitUsings>enable</ImplicitUsings>

@@ -1,13 +1,38 @@
 // 路径辅助：本地应用数据目录 + 文件名冲突重命名。
-// MSIX 打包模式下用 ApplicationData.Current.LocalFolder（沙箱明确可写）。
+// 同一份代码要同时支持两种分发形态：
+//   · MSIX 打包（默认）——用 ApplicationData.Current.LocalFolder，沙箱内明确可写
+//   · 便携/绿色版（unpackaged）——ApplicationData.Current 会直接抛异常，
+//     退回到 %LOCALAPPDATA%\LocalSendPC
+// 检测方式：读 Package.Current.Id，未打包时抛 InvalidOperationException。
+using Windows.ApplicationModel;
 using Windows.Storage;
 
 namespace PcDemo.Helpers;
 
 public static class PathHelper
 {
-    /// <summary>本地应用数据目录（MSIX 沙箱下的 LocalFolder）。</summary>
-    public static string AppDataDir => ApplicationData.Current.LocalFolder.Path;
+    private static readonly Lazy<bool> PackagedLazy = new(() =>
+    {
+        try { _ = Package.Current.Id; return true; }
+        catch { return false; }
+    });
+
+    /// <summary>是否运行在 MSIX 包上下文中（决定数据目录与开机自启的实现方式）。</summary>
+    public static bool IsPackaged => PackagedLazy.Value;
+
+    /// <summary>本地应用数据目录（打包态=MSIX LocalFolder；便携版=%LOCALAPPDATA%\LocalSendPC）。</summary>
+    public static string AppDataDir
+    {
+        get
+        {
+            if (IsPackaged) return ApplicationData.Current.LocalFolder.Path;
+
+            var dir = System.IO.Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "LocalSendPC");
+            System.IO.Directory.CreateDirectory(dir);
+            return dir;
+        }
+    }
 
     public static string SettingsFilePath => System.IO.Path.Combine(AppDataDir, "settings.json");
 

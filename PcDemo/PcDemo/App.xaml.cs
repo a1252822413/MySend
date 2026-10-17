@@ -362,9 +362,9 @@ public partial class App : Application, IRecipient<DeviceDiscoveredMessage>
         try
         {
             System.Diagnostics.Debug.WriteLine(message);
-            // MSIX 沙箱下用 ApplicationData.Current.LocalFolder，确保可写
-            var folder = ApplicationData.Current.LocalFolder;
-            var logPath = System.IO.Path.Combine(folder.Path, "diag.log");
+            // 打包态用 MSIX 沙箱的 LocalFolder；便携版走 %LOCALAPPDATA%\LocalSendPC
+            // （PathHelper 会按运行上下文自动选，这里不能再直接用 ApplicationData.Current）
+            var logPath = System.IO.Path.Combine(Helpers.PathHelper.AppDataDir, "diag.log");
             // 防止无限增长：超过 1MB 直接清空重新开始（诊断日志可丢）
             var info = new System.IO.FileInfo(logPath);
             if (info.Exists && info.Length > 1024 * 1024)

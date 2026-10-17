@@ -104,11 +104,28 @@ public partial class SettingsViewModel : ViewModelBase
         SaveStatus = "已保存（端口/多播组等网络设置变更已即时生效）";
     }
 
-    // ---------- 开机自启：MSIX StartupTask API ----------
+    // ---------- 开机自启：打包态用 MSIX StartupTask；便携版用 HKCU\...\Run 注册表项 ----------
     private const string StartupTaskId = "PcDemoStartup";
+    private const string RunKeyPath = @"Software\Microsoft\Windows\CurrentVersion\Run";
+    private const string RunValueName = "LocalSendPC";
 
     private async System.Threading.Tasks.Task LoadAutoLaunchAsync()
     {
+        if (!Helpers.PathHelper.IsPackaged)
+        {
+            try
+            {
+                var enabled = IsRunEntryPresent();
+                AutoLaunchEnabled = enabled;
+                AutoLaunchInfo = enabled ? "已启用（注册表启动项）" : "未启用";
+            }
+            catch (Exception ex)
+            {
+                AutoLaunchInfo = $"获取失败：{ex.Message}";
+            }
+            return;
+        }
+
         try
         {
             var task = await StartupTask.GetAsync(StartupTaskId);
@@ -131,6 +148,31 @@ public partial class SettingsViewModel : ViewModelBase
 
     private async System.Threading.Tasks.Task SyncAutoLaunchAsync()
     {
+        if (!Helpers.PathHelper.IsPackaged)
+        {
+            try
+            {
+                using var key = Microsoft.Win32.Registry.CurrentUser.CreateSubKey(RunKeyPath);
+                if (AutoLaunchEnabled)
+                {
+                    var exe = Environment.ProcessPath;
+                    if (string.IsNullOrEmpty(exe)) throw new InvalidOperationException("取不到当前程序路径");
+                    key.SetValue(RunValueName, $"\"{exe}\"");
+                    AutoLaunchInfo = "已启用（注册表启动项）";
+                }
+                else
+                {
+                    key.DeleteValue(RunValueName, throwOnMissingValue: false);
+                    AutoLaunchInfo = "未启用";
+                }
+            }
+            catch (Exception ex)
+            {
+                AutoLaunchInfo = $"同步失败：{ex.Message}";
+            }
+            return;
+        }
+
         try
         {
             var task = await StartupTask.GetAsync(StartupTaskId);
@@ -157,6 +199,13 @@ public partial class SettingsViewModel : ViewModelBase
         {
             AutoLaunchInfo = $"同步失败：{ex.Message}";
         }
+    }
+
+    /// <summary>便携版：判断 HKCU\...\Run 下是否已有本程序的启动项。</summary>
+    private static bool IsRunEntryPresent()
+    {
+        using var key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(RunKeyPath);
+        return key?.GetValue(RunValueName) is string s && s.Length > 0;
     }
 
     // ---------- 防火墙诊断（设置页「网络与防火墙」卡片） ----------

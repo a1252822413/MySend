@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  LocalSend PC 的 MSI 安装包定义（WiX v7）。
+
+  打包内容：build\out\portable 下的 unpackaged 版本（自带 .NET 8 与 WindowsAppSDK 运行时），
+  所以目标机不需要预装任何运行时，也不需要证书 —— MSI 走的是系统安装器，不是 MSIX 的签名信任链。
+
+  构建：
+    build\tools\wix.exe build installer\LocalSendPC.wxs -arch x64 ^
+      -d SourceDir=..\build\out\portable -o build\out\LocalSendPC-1.1.0.0-x64.msi
+
+  说明：
+    · UpgradeCode 是产品族标识，一旦发布就不能再改（否则老版本无法被升级/替换）。
+    · 所有字符串保持 ASCII：MSI 的字符串列受 codepage 限制，避免中文乱码。
+    · 用户数据放在 %LOCALAPPDATA%\LocalSendPC，卸载不删除（符合常规预期）。
+-->
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+
+  <Package Name="LocalSend PC"
+           Manufacturer="xiaoxiao"
+           Version="1.1.0.0"
+           UpgradeCode="8F2A5C31-6D74-4B0E-9C2A-7E5D3B1A9F64"
+           Scope="perMachine"
+           Compressed="yes"
+           Language="1033">
+
+    <SummaryInformation Description="LocalSend PC - LAN file transfer (LocalSend protocol v2.2)" />
+
+    <!-- 已装更高版本时拒绝降级，避免文件被旧版覆盖 -->
+    <MajorUpgrade DowngradeErrorMessage="A newer version of LocalSend PC is already installed." />
+
+    <MediaTemplate EmbedCab="yes" />
+
+    <!-- 注意：SourceFile 是相对"运行 wix 时的当前目录"解析的，不是相对本文件，
+         所以这条命令必须在仓库根目录执行（见文件头的构建命令）。 -->
+    <Icon Id="AppIcon" SourceFile="PcDemo\PcDemo\Assets\app.ico" />
+    <Property Id="ARPPRODUCTICON" Value="AppIcon" />
+    <Property Id="ARPCOMMENTS" Value="LAN file transfer over the LocalSend protocol" />
+
+    <!-- 安装目录：C:\Program Files\LocalSend PC -->
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="INSTALLFOLDER" Name="LocalSend PC" />
+    </StandardDirectory>
+
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Directory Id="ProgramMenuDir" Name="LocalSend PC" />
+    </StandardDirectory>
+
+    <StandardDirectory Id="DesktopFolder" />
+
+    <Feature Id="Main" Title="LocalSend PC" Level="1">
+      <ComponentGroupRef Id="AppFiles" />
+      <ComponentGroupRef Id="Shortcuts" />
+    </Feature>
+  </Package>
+
+  <!-- 应用文件：整目录抓取（WiX 会为每个文件生成组件） -->
+  <Fragment>
+    <ComponentGroup Id="AppFiles" Directory="INSTALLFOLDER">
+      <Files Include="$(SourceDir)\**" />
+    </ComponentGroup>
+  </Fragment>
+
+  <!-- 快捷方式：开始菜单 + 桌面。以 HKCU 注册表值作为组件 KeyPath，卸载时一并清理 -->
+  <Fragment>
+    <ComponentGroup Id="Shortcuts">
+      <Component Id="StartMenuShortcut" Directory="ProgramMenuDir" Guid="*">
+        <Shortcut Id="StartMenuLink"
+                  Name="LocalSend PC"
+                  Description="LAN file transfer"
+                  Target="[INSTALLFOLDER]PcDemo.exe"
+                  WorkingDirectory="INSTALLFOLDER"
+                  Icon="AppIcon" />
+        <RemoveFolder Id="RemoveProgramMenuDir" On="uninstall" />
+        <RegistryValue Root="HKCU" Key="Software\xiaoxiao\LocalSendPC"
+                       Name="StartMenuShortcut" Type="integer" Value="1" KeyPath="yes" />
+      </Component>
+
+      <Component Id="DesktopShortcut" Directory="DesktopFolder" Guid="*">
+        <Shortcut Id="DesktopLink"
+                  Name="LocalSend PC"
+                  Description="LAN file transfer"
+                  Target="[INSTALLFOLDER]PcDemo.exe"
+                  WorkingDirectory="INSTALLFOLDER"
+                  Icon="AppIcon" />
+        <RegistryValue Root="HKCU" Key="Software\xiaoxiao\LocalSendPC"
+                       Name="DesktopShortcut" Type="integer" Value="1" KeyPath="yes" />
+      </Component>
+    </ComponentGroup>
+  </Fragment>
+
+</Wix>
