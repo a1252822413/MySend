@@ -47,9 +47,19 @@
             IsSettingsVisible="False"
             SelectionChanged="OnSelectionChanged">
             <NavigationView.Resources>
-                <!-- 侧边栏背景：LayerFillColorDefaultBrush 与标题栏一致，形成同色条 -->
-                <SolidColorBrush x:Key="NavigationViewPaneBackground"
-                                 Color="{ThemeResource LayerFillColorDefaultColor}"
+                <!-- 侧边栏背景：与标题栏同色，形成一条通到底的色条。
+
+                     两个坑（都已踩过）：
+                     1) 键名必须是 NavigationViewDefaultPaneBackground —— 这是 WinUI 3 模板里
+                        真正被 `Background="{ThemeResource NavigationViewDefaultPaneBackground}"`
+                        消费的那个键（默认值 AcrylicInAppFillColorDefaultBrush）。原来的
+                        NavigationViewPaneBackground 在 generic.xaml 里根本不存在，属于死资源：
+                        里面的 {ThemeResource} 永远不会被解析，所以既不生效也不会报错。
+                     2) 颜色键是 LayerFillColorDefault（没有 Color 后缀）。写成
+                        LayerFillColorDefaultColor 会 KeyNotFound；之前没崩只是因为踩了坑 1，
+                        一旦该画刷被模板消费就会在启动时抛 XamlParseException。 -->
+                <SolidColorBrush x:Key="NavigationViewDefaultPaneBackground"
+                                 Color="{ThemeResource LayerFillColorDefault}"
                                  Opacity="1.0"/>
             </NavigationView.Resources>
 
