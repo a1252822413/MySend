@@ -84,7 +84,18 @@ public sealed class MulticastDiscoveryService : IDisposable
 
             try
             {
-                _udp.Client.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.MulticastInterface, ipv4);
+                // 只调 JoinMulticastGroup(group, localAddress) 就够了 —— 它内部走
+                // MulticastOption(group, localAddress)，把"加入哪个组 + 走哪张网卡"一次说清。
+                //
+                // 这里绝不能先调
+                //   Client.SetSocketOption(IP, SocketOptionName.MulticastInterface, ipv4)
+                // .NET 的 object 重载只认 LingerOption / MulticastOption / IPv6MulticastOption，
+                // 其它值一律抛 ArgumentException("The specified value is not valid. (Parameter 'optionValue')")
+                // —— 传 IPAddress 必然抛。而它就排在下一条语句前面，一抛就直接跳出 catch，
+                // 后面的 JoinMulticastGroup 永远执行不到，结果是一张网卡都没加入成功，
+                // 全都退化成默认路由网卡（往往是 VMware/WSL 虚拟网卡），真机公告收不到。
+                // （int 重载也不行：IPv4 的 IP_MULTICAST_IF 要的是 in_addr 地址而非接口索引，
+                //   传索引会得到 SocketException: 在其上下文中，该请求的地址无效。）
                 _udp.JoinMulticastGroup(group, ipv4);
                 joinedIfaces++;
                 App.LogDiag($"[Multicast] 接收组加入 {ipv4} ({ni.Name})");
@@ -121,7 +132,7 @@ public sealed class MulticastDiscoveryService : IDisposable
     }
 
     /// <summary>
-    /// 多网卡支持：为每个可多播的 IPv4 接口建一个发送 socket（绑定接口地址 + MulticastInterface）。
+    /// 多网卡支持：为每个可多播的 IPv4 接口建一个发送 socket（绑定该接口的 IPv4 地址）。
     /// Windows 多网卡（WiFi + 以太网 + Hyper-V/WSL 虚拟网卡）下，单 socket 多播可能走错默认接口，
     /// 导致手机收不到本机公告。官方 LocalSend 同样按接口逐个发送。
     /// </summary>
@@ -139,17 +150,17 @@ public sealed class MulticastDiscoveryService : IDisposable
                 var props = ni.GetIPProperties();
                 var ipv4 = props.UnicastAddresses
                     .FirstOrDefault(a => a.Address.AddressFamily == AddressFamily.InterNetwork)?.Address;
-                var index = props.GetIPv4Properties()?.Index;
-                if (ipv4 is null || index is null) continue;
+                if (ipv4 is null) continue;
 
                 try
                 {
                     var send = new UdpClient();
                     send.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
+                    // 绑定来源地址即可钉住多播出口：Windows 会按绑定的本机地址选对应网卡发，
+                    // 不需要（也不应该）再调 MulticastInterface —— 见上方接收侧的说明。
+                    // 已用对照实验验证：绑 WLAN 地址时只加入 WLAN 的接收端能收到，
+                    // 绑 VMware 地址时该接收端收不到，说明接口确实被隔离了。
                     send.Client.Bind(new IPEndPoint(ipv4, 0));
-                    // MulticastInterface 需要 network byte order 的接口索引
-                    send.Client.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.MulticastInterface,
-                        IPAddress.HostToNetworkOrder(index.Value));
                     send.Client.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.MulticastTimeToLive, 1);
                     _sendSockets.Add(send);
                     App.LogDiag($"[Multicast] send socket bound to {ipv4} ({ni.Name})");
