@@ -302,10 +302,15 @@
                     <!-- 「开始发送」已移到页面底部动作条（与「发送文字」并列），见本页最后一段 -->
                 </ctrls:FlowPanel>
 
+                <!-- 文件列表卡片：高度跟随窗口（本行是 * 行）。
+                     原来写死 MaxHeight="320"，窗口一高就超出限制，而 Stretch 元素被 MaxHeight
+                     卡住时会在大格子里居中，于是列表上下各留一条死空白。
+                     去掉后卡片始终填满工具条与底部动作条之间的可用高度：窗口变大 → 列表可视区变大
+                     （多出来的文件不再靠滚动看），窗口变小 → 列表自动收缩并滚动。 -->
                 <Border Grid.Row="1" Margin="0,12,0,0" Padding="12" CornerRadius="12"
+                        VerticalAlignment="Stretch"
                         Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1"
-                        MaxHeight="320">
+                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1">
                     <Grid>
                         <ListView ItemsSource="{x:Bind ViewModel.PendingFiles}" SelectionMode="None"
                                   Visibility="{x:Bind ViewModel.HasFiles, Mode=OneWay}">
