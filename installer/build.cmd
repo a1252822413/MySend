@@ -16,7 +16,7 @@ set WIX=build\tools-wix5\wix.exe
 set APP=PcDemo\PcDemo\PcDemo.csproj
 set OUT=build\out
 set PORTABLE=%OUT%\portable
-set MSI=%OUT%\KuaiChuan-1.2.0.0-x64.msi
+set MSI=%OUT%\KuaiChuan-1.2.1.0-x64.msi
 
 if not exist "%WIX%" (
   echo [ERROR] WiX not found: %WIX%

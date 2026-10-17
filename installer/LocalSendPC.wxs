@@ -8,7 +8,7 @@
   构建：
     build\tools-wix5\wix.exe build installer\LocalSendPC.wxs -arch x64 ^
       -loc installer\zh-CN.wxl -culture zh-CN ^
-      -d SourceDir=build\out\portable -o build\out\KuaiChuan-1.2.0.0-x64.msi
+      -d SourceDir=build\out\portable -o build\out\KuaiChuan-1.2.1.0-x64.msi
 
   说明：
     · UpgradeCode 是产品族标识，一旦发布就不能再改（否则老版本无法被升级/替换）。
@@ -21,7 +21,7 @@
 
   <Package Name="快传"
            Manufacturer="xiaoxiao"
-           Version="1.2.0.0"
+           Version="1.2.1.0"
            UpgradeCode="8F2A5C31-6D74-4B0E-9C2A-7E5D3B1A9F64"
            Scope="perMachine"
            Compressed="yes"

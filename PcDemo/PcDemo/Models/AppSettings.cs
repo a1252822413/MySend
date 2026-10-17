@@ -35,7 +35,11 @@ public sealed class AppSettings
 
     /// <summary>是否使用 HTTPS（加密传输）。true 时 服务端口（默认 53317）以 TLS 提供并公告 https，
     /// 明文 HTTP 关闭（同一 TCP 端口不共存）；false 时为明文 HTTP。</summary>
-    public bool Https { get; set; } = false;
+    /// <remarks>默认 true（v1 起）。老配置由 SettingsService 做一次性迁移，用户之后手动关掉不会被改回。</remarks>
+    public bool Https { get; set; } = true;
+
+    /// <summary>配置结构版本，用于一次性迁移。0 = 老版本配置文件（早于引入该字段）。</summary>
+    public int SettingsVersion { get; set; }
 
     /// <summary>本机设备指纹（HTTP 模式下随机字符串；HTTPS 模式下应为证书 SHA-256）。</summary>
     /// <remarks>每次设置变更或新设备首次启动时生成一次并持久化。</remarks>

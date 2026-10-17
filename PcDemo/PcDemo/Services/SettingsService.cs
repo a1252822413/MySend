@@ -8,8 +8,28 @@ namespace PcDemo.Services;
 
 public sealed class SettingsService : ISettingsService
 {
+    /// <summary>当前配置结构版本。改这里 + 在 Migrate 里加一段即可做一次性迁移。</summary>
+    private const int CurrentSettingsVersion = 1;
+
     private static readonly object _fileLock = new();
     private AppSettings _current = new();
+
+    /// <summary>
+    /// 一次性配置迁移（在 EnsureDefaults 之前调用）。只对 "版本号 &lt; 当前版本" 的老文件生效，
+    /// 用户之后手动改的开关不会被反复覆盖。
+    /// </summary>
+    private static bool Migrate(AppSettings s)
+    {
+        if (s.SettingsVersion >= CurrentSettingsVersion) return false;
+
+        // v1：加密传输改为默认开启。
+        // 老配置里 Https 恒为 false，无法区分"用户主动关掉"和"从没设置过"，
+        // 所以迁移时统一打开一次；之后用户在设置页关掉就会持久成 false，不会再被动改回。
+        s.Https = true;
+        s.SettingsVersion = CurrentSettingsVersion;
+        App.LogDiag("[Settings] 配置迁移到 v1：默认启用 HTTPS");
+        return true;
+    }
 
     public AppSettings Current => _current;
 
@@ -23,6 +43,7 @@ public sealed class SettingsService : ISettingsService
             if (!File.Exists(path))
             {
                 EnsureDefaults(_current);
+                Migrate(_current);   // 新装也走一遍，确保 SettingsVersion 被打上
                 Save(_current);
                 return;
             }
@@ -30,6 +51,7 @@ public sealed class SettingsService : ISettingsService
             var loaded = JsonSerializer.Deserialize<AppSettings>(json, JsonOptions.Default) ?? new AppSettings();
             EnsureDefaults(loaded);
             _current = loaded;
+            if (Migrate(_current)) Save(_current);
         }
         catch (Exception ex)
         {
@@ -52,6 +74,7 @@ public sealed class SettingsService : ISettingsService
             }
             _current = new AppSettings();
             EnsureDefaults(_current);
+            Migrate(_current);
             Save(_current);
         }
     }
