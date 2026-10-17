@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  中文（zh-CN）本地化文件。
+
+  作用不只是翻译 UI，**还决定 MSI 数据库的 codepage**：
+  只用 <Package Language="2052"> 时，WiX 写出的 SummaryInformation 里 code page 仍是 1252，
+  我们写在 Name/目录名/快捷方式名里的中文会被替换成 0x7F 占位符
+  （安装后在「应用和功能」里看到的就是乱码或无名字）。
+
+  带上 -loc zh-CN.wxl -culture zh-CN 之后，SummaryInformation 的 code page 变成 936，
+  字符串按 GBK 写入，中文才正常显示。
+
+  构建命令见 build.cmd，务必保留 -loc / -culture 两个参数。
+-->
+<WixLocalization xmlns="http://wixtoolset.org/schemas/v4/wxl" Culture="zh-CN">
+  <String Id="DowngradeError" Value="已安装更高版本的快传，请先卸载再安装此版本。" />
+</WixLocalization>

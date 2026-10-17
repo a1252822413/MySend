@@ -19,7 +19,7 @@
             <!-- 页面标题 -->
             <StackPanel Spacing="4" Margin="0,0,0,8">
                 <TextBlock Text="设置" FontSize="22" FontWeight="SemiBold"/>
-                <TextBlock Text="调整 LocalSend PC 的传输参数和外观偏好" FontSize="12" Opacity="0.6"/>
+                <TextBlock Text="调整快传的传输参数和外观偏好" FontSize="12" Opacity="0.6"/>
             </StackPanel>
 
             <!-- 设备身份 -->

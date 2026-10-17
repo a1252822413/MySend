@@ -62,13 +62,13 @@ public sealed class TrayIconManager : IDisposable
         if (_hwnd == IntPtr.Zero)
             throw new InvalidOperationException("CreateWindowExW failed for tray window");
 
-        // 优先取 exe 内嵌图标（id=1），否则用系统默认应用图标
-        _hicon = NativeMethods.LoadIconW(hInstance, new IntPtr(1));
-        if (_hicon == IntPtr.Zero)
-        {
-            _hicon = NativeMethods.LoadIconW(IntPtr.Zero, new IntPtr(IDI_APPLICATION));
-            _iconShared = true;
-        }
+        // 取托盘图标。这里不能用固定资源 ID 去 LoadIcon：
+        //   <ApplicationIcon> 生成的图标组 ID 由链接器决定（.NET 常见是 32512），
+        //   LoadIcon(hInstance, 1) 会失败，而失败分支会静默退回 IDI_APPLICATION，
+        //   表现出来就是"托盘图标是系统默认图标/像没有图标"。
+        // 改为直接从 exe 文件抽取第 0 个图标组，与资源 ID 无关。
+        _hicon = LoadAppIcon(out var iconSource, out _iconShared);
+        App.LogDiag($"[Tray] icon source = {iconSource}");
 
         var nid = new NativeMethods.NOTIFYICONDATAW
         {
@@ -82,6 +82,40 @@ public sealed class TrayIconManager : IDisposable
         };
         if (!NativeMethods.Shell_NotifyIconW(NIM_ADD, ref nid))
             throw new InvalidOperationException("Shell_NotifyIconW(NIM_ADD) failed");
+    }
+
+    /// <summary>
+    /// 取托盘图标：优先从 exe 文件抽取第 0 个图标组（不依赖资源 ID），
+    /// 失败再退回进程内资源 ID 1，最后退回系统默认图标。
+    /// iconShared=true 表示图标句柄属于系统/模块、不可 DestroyIcon。
+    /// </summary>
+    private static IntPtr LoadAppIcon(out string source, out bool iconShared)
+    {
+        iconShared = true;
+        try
+        {
+            var exe = Environment.ProcessPath;
+            if (!string.IsNullOrEmpty(exe))
+            {
+                var large = new IntPtr[1];
+                var small = new IntPtr[1];
+                if (NativeMethods.ExtractIconExW(exe, 0, large, small, 1) > 0 && small[0] != IntPtr.Zero)
+                {
+                    if (large[0] != IntPtr.Zero) NativeMethods.DestroyIcon(large[0]);
+                    iconShared = false;            // 抽取出来的图标由我们负责释放
+                    source = "exe (ExtractIconEx)";
+                    return small[0];
+                }
+            }
+        }
+        catch { /* 抽取失败继续走退路 */ }
+
+        var hInstance = NativeMethods.GetModuleHandleW(null);
+        var icon = NativeMethods.LoadIconW(hInstance, new IntPtr(1));
+        if (icon != IntPtr.Zero) { source = "module resource #1"; return icon; }
+
+        source = "system default (IDI_APPLICATION)";
+        return NativeMethods.LoadIconW(IntPtr.Zero, new IntPtr(IDI_APPLICATION));
     }
 
     private static IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam)
@@ -106,7 +140,7 @@ public sealed class TrayIconManager : IDisposable
     {
         var menu = NativeMethods.CreatePopupMenu();
         if (menu == IntPtr.Zero) return;
-        NativeMethods.AppendMenuW(menu, 0, new IntPtr(IDM_OPEN), "打开 PcDemo");
+        NativeMethods.AppendMenuW(menu, 0, new IntPtr(IDM_OPEN), "打开快传");
         NativeMethods.AppendMenuW(menu, MF_SEPARATOR, IntPtr.Zero, null);
         NativeMethods.AppendMenuW(menu, 0, new IntPtr(IDM_EXIT), "退出");
         NativeMethods.SetForegroundWindow(hwnd); // 让菜单点击外部时正确消失
@@ -197,6 +231,11 @@ public sealed class TrayIconManager : IDisposable
 
         [DllImport("user32.dll", CharSet = CharSet.Unicode)]
         public static extern IntPtr LoadIconW(IntPtr hInstance, IntPtr iconName);
+
+        /// <summary>从可执行文件抽取图标组（不依赖资源 ID）。返回抽到的图标数量。</summary>
+        [DllImport("shell32.dll", CharSet = CharSet.Unicode)]
+        public static extern uint ExtractIconExW(string lpszFile, int nIconIndex,
+            IntPtr[] phiconLarge, IntPtr[] phiconSmall, uint nIcons);
 
         [DllImport("user32.dll")]
         public static extern bool DestroyIcon(IntPtr hIcon);

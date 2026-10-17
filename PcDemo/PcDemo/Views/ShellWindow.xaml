@@ -4,7 +4,7 @@
     x:Class="PcDemo.Views.ShellWindow"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    Title="LocalSend PC">
+    Title="快传">
 
     <Grid x:Name="RootGrid" RowDefinitions="32,*">
         <!-- 自定义标题栏：汉堡按钮（收起/展开侧边栏）+ 应用图标 + 名称 -->
@@ -29,9 +29,9 @@
                 </Viewbox>
             </Button>
             <Image Grid.Column="1" Source="Assets/Square44x44Logo.targetsize-24_altform-unplated.png"
-                   AutomationProperties.Name="LocalSend PC"
+                   AutomationProperties.Name="快传"
                    Width="16" Height="16" Margin="4,0,0,0" VerticalAlignment="Center"/>
-            <TextBlock Grid.Column="2" Text="LocalSend PC" FontSize="12" FontWeight="SemiBold"
+            <TextBlock Grid.Column="2" Text="快传" FontSize="12" FontWeight="SemiBold"
                        Margin="8,0,0,0" VerticalAlignment="Center"
                        Foreground="{ThemeResource TextFillColorPrimaryBrush}"/>
         </Grid>

@@ -187,7 +187,7 @@ public partial class App : Application, IRecipient<DeviceDiscoveredMessage>
             // 6. 托盘常驻：创建成功才启用"关窗隐藏"；失败降级为关窗即退出，绝不阻断启动
             try
             {
-                _tray = new TrayIconManager("LocalSend PC（后台接收中）");
+                _tray = new TrayIconManager("快传（后台接收中）");
                 _tray.OpenRequested += ShowMainWindow;
                 _tray.ExitRequested += ExitApplication;
                 _tray.Create();
