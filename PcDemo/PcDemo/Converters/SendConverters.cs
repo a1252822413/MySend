@@ -3,6 +3,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Data;
 using Microsoft.UI.Xaml.Media;
 using PcDemo.Models;
+using Windows.UI;
 
 namespace PcDemo.Converters;
 
@@ -95,6 +96,52 @@ public sealed class FileKindToGlyphConverter : IValueConverter
             FileKind.Apk => "\uE7B8",          // Package
             _ => "\uE723",                     // Attach
         };
+    public object ConvertBack(object value, Type targetType, object parameter, string language) => throw new NotSupportedException();
+}
+
+/// <summary>
+/// FileKind → 图标配色（彩色文件图标）。
+/// ConverterParameter = "glyph" 返回类型主色（字形前景）；不传或其它值返回同色的低透明底色
+/// （图标方块的背景）。两级配色让图标在亮/暗主题下都能看出"一块彩色"，而不是灰线框。
+/// 这里刻意用固定调色板而非 ThemeResource：文件类型色要跨主题保持稳定辨识度，
+/// 取值都压在中明度，浅底不刺眼、深底也看得清。
+/// </summary>
+public sealed class FileKindToBrushConverter : IValueConverter
+{
+    private static readonly Dictionary<FileKind, Color> Palette = new()
+    {
+        [FileKind.Image] = Color.FromArgb(0xFF, 0x7C, 0x3A, 0xED),      // 紫
+        [FileKind.Video] = Color.FromArgb(0xFF, 0xDB, 0x27, 0x77),      // 玫红
+        [FileKind.Audio] = Color.FromArgb(0xFF, 0x08, 0x91, 0xB2),      // 青
+        [FileKind.Pdf] = Color.FromArgb(0xFF, 0xDC, 0x26, 0x26),        // 红
+        [FileKind.Zip] = Color.FromArgb(0xFF, 0xD9, 0x77, 0x06),        // 琥珀
+        [FileKind.Word] = Color.FromArgb(0xFF, 0x25, 0x63, 0xEB),       // 蓝
+        [FileKind.Excel] = Color.FromArgb(0xFF, 0x15, 0x80, 0x3D),      // 绿
+        [FileKind.PowerPoint] = Color.FromArgb(0xFF, 0xEA, 0x58, 0x0C), // 橙
+        [FileKind.Text] = Color.FromArgb(0xFF, 0x47, 0x55, 0x69),       // 石板灰
+        [FileKind.Apk] = Color.FromArgb(0xFF, 0x05, 0x96, 0x69),        // 翠绿
+        [FileKind.Other] = Color.FromArgb(0xFF, 0x64, 0x74, 0x8B),      // 中性灰
+    };
+
+    // 底色透明度：约 14%，够看出色块又不至于把字形压糊
+    private const byte TintAlpha = 0x24;
+
+    // 列表滚动时 Convert 会被反复调用，刷子按 (类型, 是否字形) 缓存，避免每次 new
+    private static readonly Dictionary<(FileKind, bool), SolidColorBrush> Cache = new();
+
+    public object Convert(object value, Type targetType, object parameter, string language)
+    {
+        var kind = value is FileKind k ? k : FileKind.Other;
+        var isGlyph = string.Equals(parameter as string, "glyph", StringComparison.OrdinalIgnoreCase);
+
+        if (Cache.TryGetValue((kind, isGlyph), out var cached)) return cached;
+
+        var c = Palette.TryGetValue(kind, out var p) ? p : Palette[FileKind.Other];
+        var brush = new SolidColorBrush(isGlyph ? c : Color.FromArgb(TintAlpha, c.R, c.G, c.B));
+        Cache[(kind, isGlyph)] = brush;
+        return brush;
+    }
+
     public object ConvertBack(object value, Type targetType, object parameter, string language) => throw new NotSupportedException();
 }
 
