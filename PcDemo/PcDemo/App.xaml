@@ -22,6 +22,12 @@
                          WinUI 原生 ControlFillColorSecondaryBrush 在亮色主题下是 50% 白叠加，
                          压在 70% 白的卡片上等于看不见 —— 截图里那些"胶囊/状态条"全成了裸文字、
                          只剩内边距。这里改用深色微叠加，保证在两个主题下都真的看得见。 -->
+                    <!-- 注意：这两个键必须与 Dark 字典**成对存在**。ThemeResource 只查当前生效
+                         的那一本主题字典，任何一边缺键都会在页面 InitializeComponent 时抛
+                         XamlParseException（Cannot find a Resource with the Name/Key ...），
+                         表现为启动即崩、异常码 0xc000027b。 -->
+                    <SolidColorBrush x:Key="ChipFillBrush" Color="#0F000000" />
+                    <SolidColorBrush x:Key="ChipStrokeBrush" Color="#17000000" />
                     <!-- 卡片对比度：原生值是 #B3FFFFFF（70% 白），叠在 Mica 页面上卡片边界几乎化开；
                          这里提到 95% 让卡片边界清楚（hover 用更亮的 100%）。 -->
                     <!-- 注意：必须覆盖 **Brush** 而不是同名的 Color！
