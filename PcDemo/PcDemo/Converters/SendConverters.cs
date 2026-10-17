@@ -119,8 +119,10 @@ public sealed class FileKindToBrushConverter : IValueConverter
         [FileKind.Excel] = Color.FromArgb(0xFF, 0x15, 0x80, 0x3D),      // 绿
         [FileKind.PowerPoint] = Color.FromArgb(0xFF, 0xEA, 0x58, 0x0C), // 橙
         [FileKind.Text] = Color.FromArgb(0xFF, 0x47, 0x55, 0x69),       // 石板灰
-        [FileKind.Apk] = Color.FromArgb(0xFF, 0x05, 0x96, 0x69),        // 翠绿
-        [FileKind.Other] = Color.FromArgb(0xFF, 0x64, 0x74, 0x8B),      // 中性灰
+        // 安装包刻意不用绿：Excel 已经是绿，而 exe 和 xlsx 经常同框出现，
+        // 两个绿并排几乎分不出来（实测截图）。改成深青绿，和 Excel 绿、音频青都拉开。
+        [FileKind.Apk] = Color.FromArgb(0xFF, 0x0F, 0x76, 0x6E),        // 深青绿
+        [FileKind.Other] = Color.FromArgb(0xFF, 0x94, 0xA3, 0xB8),      // 浅灰（比"文本"石板灰更淡，区分同类灰度）
     };
 
     // 底色透明度：约 14%，够看出色块又不至于把字形压糊

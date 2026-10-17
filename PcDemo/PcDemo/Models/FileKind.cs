@@ -21,6 +21,9 @@ public static class FileKindMapper
         if (audios.Contains(e)) return FileKind.Audio;
         if (e == "pdf") return FileKind.Pdf;
         if (new HashSet<string> { "zip", "7z", "rar", "tar", "gz", "bz2", "xz" }.Contains(e)) return FileKind.Zip;
+        // 光盘/磁盘镜像按"归档包"对待：它们本质上是装着完整文件系统的容器，
+        // 归到 Zip 才有正确的图标（Package）和语义，否则会落到 Other 显示成回形针。
+        if (new HashSet<string> { "iso", "img", "vhd", "vhdx", "vdi", "vmdk" }.Contains(e)) return FileKind.Zip;
         if (new HashSet<string> { "doc", "docx", "docm" }.Contains(e)) return FileKind.Word;
         if (new HashSet<string> { "xls", "xlsx", "xlsm", "csv" }.Contains(e)) return FileKind.Excel;
         if (new HashSet<string> { "ppt", "pptx", "pptm" }.Contains(e)) return FileKind.PowerPoint;
@@ -45,6 +48,7 @@ public static class FileKindMapper
                 "rar" => "application/vnd.rar",
                 "tar" => "application/x-tar",
                 "gz"  => "application/gzip",
+                "iso" => "application/x-iso9660-image",
                 _     => "application/octet-stream",
             },
             FileKind.Word => e.StartsWith("doc") ? "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
