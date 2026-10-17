@@ -11,6 +11,11 @@
 bin/
 obj/
 
+# 打包输出与签名私钥（.cer 是公开证书，可以提交；.pfx 含私钥，绝不入库）
+/build/out/
+/build/certs/*.pfx
+
 # 用户本地配置
 *.user
 *.suo
+/AppPackages/

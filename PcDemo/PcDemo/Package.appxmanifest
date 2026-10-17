@@ -44,9 +44,17 @@
         <uap:DefaultTile Wide310x150Logo="Assets\Wide310x150Logo.png" />
         <uap:SplashScreen Image="Assets\SplashScreen.png" />
       </uap:VisualElements>
-      <!-- 开机自启：MSIX StartupTask（desktop 扩展，对应 Windows.ApplicationModel.StartupTask.Id=PcDemoStartup） -->
+      <!-- 开机自启：MSIX StartupTask（desktop 扩展，对应 Windows.ApplicationModel.StartupTask.Id=PcDemoStartup）
+
+           注意：这里必须写死 PcDemo.exe / Windows.FullTrustApplication，不能用
+           $targetnametoken$ / $targetentrypoint$。MSBuild 的清单生成只会替换
+           <Application> 元素上的这两个 token，**Extension 元素上的不会替换**——
+           结果就是 VS 部署（注册松散布局）一切正常，但一旦用 MakeAppx 打包就报：
+             "The file name \"$targetnametoken$.exe\" declared for element
+              ... Extension ... doesn't exist in the package."
+           改程序集名时记得同步这一行。 -->
       <Extensions>
-        <desktop:Extension Category="windows.startupTask" Executable="$targetnametoken$.exe" EntryPoint="$targetentrypoint$">
+        <desktop:Extension Category="windows.startupTask" Executable="PcDemo.exe" EntryPoint="Windows.FullTrustApplication">
           <desktop:StartupTask TaskId="PcDemoStartup" DisplayName="LocalSend PC 开机启动" Enabled="false"/>
         </desktop:Extension>
       </Extensions>

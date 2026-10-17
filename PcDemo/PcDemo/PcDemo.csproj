@@ -77,7 +77,9 @@
   <PropertyGroup>
     <PublishReadyToRun Condition="'$(Configuration)' == 'Debug'">False</PublishReadyToRun>
     <PublishReadyToRun Condition="'$(Configuration)' != 'Debug'">True</PublishReadyToRun>
-    <PublishTrimmed Condition="'$(Configuration)' == 'Debug'">False</PublishTrimmed>
-    <PublishTrimmed Condition="'$(Configuration)' != 'Debug'">True</PublishTrimmed>
+    <!-- 不要开裁剪：WinUI 3 的 XAML 绑定 / WinRT 互操作大量走反射，trimmer 会把绑定目标
+         当"未使用"裁掉，症状是 Release 包启动即崩（0xc000027b）或按钮点了没反应，
+         而且不报任何编译错误。参见 microsoft-ui-xaml#9675 / #9740。 -->
+    <PublishTrimmed>False</PublishTrimmed>
   </PropertyGroup>
 </Project>
