@@ -397,6 +397,7 @@ struct Index {
     for (let i = 0; i < this.sendFiles.length; i++) {
       total += this.sendFiles[i].size;
     }
+    Log.i(`开始发送：目标 ${targets.length} 台，文件 ${this.sendFiles.length} 个，共 ${total} 字节`);
     this.totalBytes = total * targets.length;
     this.sentBytes = 0;
 

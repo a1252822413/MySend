@@ -354,6 +354,11 @@ Rust 协议核心 + NAPI，TLS 在 Rust 侧实现。方向上互为印证。
 
 ### 11.3 其它已踩实的坑
 
+- **客户端 socket 必须先 `bind` 再 `connect`**：否则 `send()` 报 `2303600 No bind socket`。
+- **客户端的事件订阅必须在 `connect()` 之后**：`on('message')` 写在 connect 之前（官方示例的写法）
+  会导致连接成功、请求发出、服务端也回了包，但客户端**一个字节都收不到**。
+  这个坑极难排查，必须靠"回环自测"（自己连自己）才能定位。
+- `TLSConnectOptions.skipRemoteValidation = true` 可以让客户端接受对端自签名证书。
 - `TLSSocketConnection.send(data)` 直接收 payload；`TCPSocketConnection.send({data})` 要包一层。
 - `TextEncoder.encodeInto('')` 在 ArkTS 会抛异常，空响应体必须单独判空（否则 upload 的 200 永远发不出去）。
 - 不要在 `on('message')` 回调里同步 `send`，用 `setTimeout(0)` 跳出回调上下文。

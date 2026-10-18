@@ -31,6 +31,32 @@ export enum SendResult {
 }
 
 class HttpConn {
+  /** 给任意 Promise 加超时，避免 socket 既不 resolve 也不 reject 时永远卡住 */
+  static withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
+    return new Promise<T>((resolve: (v: T) => void, reject: (e: Error) => void) => {
+      let settled = false;
+      const timer = setTimeout(() => {
+        if (!settled) {
+          settled = true;
+          reject(new Error(`${label} 超时 ${ms}ms`));
+        }
+      }, ms);
+      p.then((v: T) => {
+        if (!settled) {
+          settled = true;
+          clearTimeout(timer);
+          resolve(v);
+        }
+      }).catch((e: Error) => {
+        if (!settled) {
+          settled = true;
+          clearTimeout(timer);
+          reject(e);
+        }
+      });
+    });
+  }
+
   private tcp: socket.TCPSocket | null = null;
   private tls: socket.TLSSocket | null = null;
   private buffer: Uint8Array = new Uint8Array(0);
@@ -39,55 +65,65 @@ class HttpConn {
   async connect(secure: boolean, host: string, port: number): Promise<void> {
     if (secure) {
       const t = socket.constructTLSSocketInstance();
-      t.on('message', (info: socket.SocketMessageInfo) => {
-        this.append(new Uint8Array(info.message));
-      });
-      t.on('error', () => {
-        // 连接错误由超时/读取失败兜底
-      });
-      await t.connect({
+      // 鸿蒙要求先 bind 再 connect，否则 send 时报 2303600 No bind socket
+      await HttpConn.withTimeout(t.bind({ address: '0.0.0.0', port: 0, family: 1 }), 5000, 'tls.bind');
+      Log.i(`TLS bind 完成，开始 connect ${host}:${port}`);
+      await HttpConn.withTimeout(t.connect({
         address: { address: host, port: port, family: 1 },
         // 对端是自签名证书（PC/手机各自生成），跳过校验以避免信任链问题
         secureOptions: { ca: [TlsCerts.CERT_PEM] },
         skipRemoteValidation: true,
         timeout: 10000
-      });
-      this.tls = t;
-    } else {
-      const t = socket.constructTCPSocketInstance();
+      }), 12000, 'tls.connect');
+      Log.i(`TLS connect 完成 ${host}:${port}`);
+      // 关键：事件订阅必须在 connect 之后注册。
+      // 在 bind/connect 之前注册的 'message' 不会生效（实测收不到任何数据）。
       t.on('message', (info: socket.SocketMessageInfo) => {
         this.append(new Uint8Array(info.message));
       });
       t.on('error', () => {
+        Log.w('TLS 连接报错');
       });
-      await t.connect({ address: { address: host, port: port, family: 1 }, timeout: 10000 });
+      this.tls = t;
+    } else {
+      const t = socket.constructTCPSocketInstance();
+      // 同上：客户端 socket 必须先 bind
+      await HttpConn.withTimeout(t.bind({ address: '0.0.0.0', port: 0, family: 1 }), 5000, 'tcp.bind');
+      await HttpConn.withTimeout(t.connect({ address: { address: host, port: port, family: 1 }, timeout: 10000 }), 12000, 'tcp.connect');
+      Log.i(`TCP connect 完成 ${host}:${port}`);
+      // 同上：订阅必须在 connect 之后
+      t.on('message', (info: socket.SocketMessageInfo) => {
+        this.append(new Uint8Array(info.message));
+      });
       this.tcp = t;
     }
   }
 
   async send(data: string | ArrayBuffer): Promise<void> {
     if (this.tls !== null) {
-      await this.tls.send(data);
+      await HttpConn.withTimeout(this.tls.send(data), 20000, 'tls.send');
     } else if (this.tcp !== null) {
-      await this.tcp.send({ data: data });
+      await HttpConn.withTimeout(this.tcp.send({ data: data }), 20000, 'tcp.send');
     }
   }
 
   async close(): Promise<void> {
     try {
       if (this.tls !== null) {
-        await this.tls.close();
+        await HttpConn.withTimeout(this.tls.close(), 3000, 'tls.close');
       } else if (this.tcp !== null) {
-        await this.tcp.close();
+        await HttpConn.withTimeout(this.tcp.close(), 3000, 'tcp.close');
       }
+      Log.i('连接已关闭');
     } catch (e) {
-      // 忽略关闭异常
+      Log.w(`关闭连接异常: ${String(e)}`);
     }
     this.tls = null;
     this.tcp = null;
   }
 
   private append(bytes: Uint8Array): void {
+    Log.i(`客户端收到 ${bytes.length}B`);
     const merged = new Uint8Array(this.buffer.length + bytes.length);
     merged.set(this.buffer, 0);
     merged.set(bytes, this.buffer.length);
@@ -226,7 +262,7 @@ class SendClientImpl {
         `Connection: close\r\n\r\n`;
       await conn.send(head);
       await conn.send(bodyText);
-      const resp = await conn.readResponse(15000);
+      const resp = await conn.readResponse(60000);
       Log.i(`prepare-upload 返回 ${resp.status}`);
 
       if (resp.status === 401) {
@@ -242,7 +278,8 @@ class SendClientImpl {
       sessionId = parsed.sessionId;
       tokens = parsed.files;
     } catch (e) {
-      Log.e(`prepare-upload 失败: ${JSON.stringify(e)}`);
+      const err = e as BusinessError;
+      Log.e(`prepare-upload 失败: code=${err.code} msg=${err.message} raw=${String(e)}`);
       return SendResult.Failed;
     } finally {
       await conn.close();
@@ -336,10 +373,14 @@ class SendClientImpl {
     const conn = new HttpConn();
     try {
       await conn.connect(device.protocol === 'https', device.ip, device.port);
+      Log.i('probe: 已连接，准备发送 GET');
       await conn.send(`GET ${Const.PATH_INFO} HTTP/1.1\r\nHost: ${device.ip}:${device.port}\r\nConnection: close\r\n\r\n`);
+      Log.i('probe: GET 已发出，等待响应');
       const resp = await conn.readResponse(8000);
+      Log.i(`probe: 收到响应 status=${resp.status}`);
       return resp.status === 200;
     } catch (e) {
+      Log.w(`probe 失败: ${String(e)}`);
       return false;
     } finally {
       await conn.close();
