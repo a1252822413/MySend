@@ -317,6 +317,41 @@ await backgroundTaskManager.startBackgroundRunning(context,
 **当前处置**：`Https` 默认 `false`（明文 HTTP），设置页保留开关并注明"实验性"。
 若要真正支持 HTTPS 大文件，需要绕开 `TLSSocketServer`，用 C++/OpenSSL 通过 NAPI 自建 TLS 层。
 
+### 11.4 解决方案：NAPI + OpenSSL 自建 TLS 层（已落地并实测通过）
+
+既然 `TLSSocketServer` 不可用、SDK 又没有 HTTP 服务端 API，唯一可行的路是把 TLS 挪到
+native 层自己做。已实现并跑通：
+
+```
+entry/src/main/cpp/tls_server.cpp   // C++/OpenSSL：listen → SSL_accept → SSL_read/SSL_write
+entry/src/main/cpp/CMakeLists.txt   // 依赖 ohpm 包 @ohos-rs/openssl（预编译 OpenSSL 3.4）
+entry/src/main/ets/service/HttpServer.ets  // ArkTS 侧用 ConnAdapter 把字节喂给原有 HttpSession
+```
+
+关键点：
+- **OpenSSL 不用自己交叉编译**：`ohpm install @ohos-rs/openssl`（MIT）已提供
+  arm64-v8a / armeabi-v7a / x86_64 的 `libssl.so` + `libcrypto.so` + 头文件。
+- **协议层零改动**：原生层只做"握手 + 加解密 + 收发原始字节"，HTTP 解析、PIN、token、
+  分块落盘、路径校验全部复用原有 ArkTS 实现。
+- 线程模型：accept 线程 → 每连接一线程做 `SSL_accept` + `SSL_read` 循环，
+  解密后的字节经 `napi_threadsafe_function` 投递到 ArkTS 主线程；
+  ArkTS 发送则直接调 `SSL_write`（OpenSSL 1.1+ 自带内部锁，读写可并发）。
+- `closeConn` 用 `shutdown(fd, SHUT_RDWR)` 让阻塞中的 `SSL_read` 立刻返回。
+
+实测结果（Mate 70 Pro，同一局域网）：
+
+| 场景 | 结果 |
+|---|---|
+| `GET /info` over HTTPS | ✅ 正常返回 JSON |
+| 5 MB 上传 over HTTPS | ✅ HTTP 200 / 2.6s / 文件完整 5242880 字节 |
+| 20 MB 上传 over HTTPS | ✅ HTTP 200 / 4.9s（≈4.3 MB/s） / 完整 20971520 字节 |
+
+对比：鸿蒙自带 `TLSSocketServer` 在 5MB 时永远停在 5234688 字节（差 8192），
+换成 native TLS 后干净通过。因此 **`Https` 恢复为默认 `true`**。
+
+参考：`HandySend`（Apache-2.0，已上架华为应用市场）采用同一思路——
+Rust 协议核心 + NAPI，TLS 在 Rust 侧实现。方向上互为印证。
+
 ### 11.3 其它已踩实的坑
 
 - `TLSSocketConnection.send(data)` 直接收 payload；`TCPSocketConnection.send({data})` 要包一层。

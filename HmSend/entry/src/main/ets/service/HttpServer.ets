@@ -11,6 +11,7 @@ import { util } from '@kit.ArkTS';
 import { Log } from '../common/Logger';
 import { Const } from '../common/Constants';
 import { TlsCerts } from '../common/TlsCerts';
+import * as tlsNative from 'libkuaitls.so';
 import { settingsService } from './SettingsService';
 import { deviceRegistry } from './DeviceRegistry';
 import { fileReceiver, OpenFileResult, ReceiveFile } from './FileReceiver';
@@ -448,6 +449,9 @@ class HttpServerImpl {
   private tcp: socket.TCPSocketServer | null = null;
   private tls: socket.TLSSocketServer | null = null;
   private running: boolean = false;
+  /** 原生 TLS 层的连接会话表 */
+  private tlsSessions: Map<number, HttpSession> = new Map<number, HttpSession>();
+  private tlsNativeStarted: boolean = false;
 
   isRunning(): boolean {
     return this.running;
@@ -494,52 +498,65 @@ class HttpServerImpl {
     this.tcp = server;
   }
 
+  /**
+   * HTTPS 服务：走 NAPI 原生 TLS 层（OpenSSL）。
+   *
+   * 为什么不用鸿蒙的 TLSSocketServer：实测它在多记录大 body 上会丢最后一个 8KB
+   * （详见 docs/harmonyos-app-design.md §11.2），且卡住后会拖死整个服务。
+   * 原生层只负责"握手 + 加解密 + 收发原始字节"，HTTP 解析仍由上层 HttpSession 完成，
+   * 因此协议逻辑（PIN/token/分块落盘/路径校验）一行都不用改。
+   */
   private async startTls(port: number): Promise<void> {
-    const server = socket.constructTLSSocketServerInstance();
-    await server.listen({
-      address: { address: '0.0.0.0', port: port, family: 1 },
-      secureOptions: {
-        cert: TlsCerts.CERT_PEM,
-        key: TlsCerts.KEY_PEM,
-        // 不要传 ca！鸿蒙会把 ca 当成"要求客户端证书"，服务端在握手后会报
-        //   Failed to get remote certificate (2303505)
-        // 并中断连接 —— 表现为请求头能收到、请求体一条都收不到（大文件必挂）。
-        // 我们做的是单向 TLS，只需 cert + key。
-        // 用 TLS1.3：实测 TLS1.2 + 固定 CBC 套件时，鸿蒙服务端会把最后一个
-        // 8KB 记录压在原生缓冲里不投递（客户端发完就静默，没有新包触发下发），
-        // 表现为"大文件永远差 8192 字节"。TLS1.3 的 AEAD 记录层没有这个问题。
-        protocols: socket.Protocol.TLSv13,
-        isBidirectionalAuthentication: false,
-        useRemoteCipherPrefer: true
+    const ok: boolean = tlsNative.start(
+      port,
+      TlsCerts.CERT_PEM,
+      TlsCerts.KEY_PEM,
+      (connId: number) => {
+        Log.i(`TLS 连接建立 #${connId}`);
+        const adapter = new ConnAdapter(
+          (data: string | ArrayBuffer): Promise<void> => {
+            const buf = HttpServerImpl.toArrayBuffer(data);
+            const sent: boolean = tlsNative.send(connId, buf);
+            if (!sent && buf.byteLength > 0) {
+              Log.w(`TLS 发送失败 #${connId}`);
+            }
+            return Promise.resolve();
+          },
+          (): Promise<void> => {
+            tlsNative.closeConn(connId);
+            return Promise.resolve();
+          }
+        );
+        this.tlsSessions.set(connId, new HttpSession(adapter));
       },
-      ALPNProtocols: ['http/1.1']
-    });
-    // 尝试放大接收缓冲（ExtraOptionsBase.receiveBufferSize）。
-    // TLSSocketConnection 本身没有 setExtraOptions，只能在 server 上设。
-    try {
-      await server.setExtraOptions({ receiveBufferSize: 8388608, sendBufferSize: 8388608 });
-      Log.i('TLS 服务端: 接收缓冲设为 8MB');
-    } catch (e) {
-      const err = e as BusinessError;
-      Log.w(`TLS 服务端 setExtraOptions 失败 ${err.code} ${err.message}`);
-    }
+      (connId: number, data: ArrayBuffer) => {
+        const session = this.tlsSessions.get(connId);
+        if (session !== undefined) {
+          session.onData(new Uint8Array(data));
+        }
+      },
+      (connId: number) => {
+        this.tlsSessions.delete(connId);
+        Log.i(`TLS 连接关闭 #${connId}`);
+      }
+    );
 
-    server.on('connect', (conn: socket.TLSSocketConnection) => {
-      // TCP 连接的 send 需要 TCPSendOptions 包一层
-      // TLS 连接的 send 直接接收 payload，不包 TCPSendOptions
-      const adapter = new ConnAdapter(
-        (data: string | ArrayBuffer): Promise<void> => conn.send(data),
-        (): Promise<void> => conn.close()
-      );
-      const session = new HttpSession(adapter);
-      conn.on('message', (info: socket.SocketMessageInfo) => {
-        session.onData(new Uint8Array(info.message));
-      });
-      conn.on('error', () => {
-        conn.close();
-      });
-    });
-    this.tls = server;
+    if (!ok) {
+      throw new Error('libkuaitls.start 失败（证书/端口/已启动）');
+    }
+    this.tlsNativeStarted = true;
+    Log.i(`HTTPS 服务已启动 :${port}（native TLS, ${String(tlsNative.version())}）`);
+  }
+
+  /** 把字符串或 ArrayBuffer 统一成原生层要的 ArrayBuffer */
+  private static toArrayBuffer(data: string | ArrayBuffer): ArrayBuffer {
+    if (typeof data === 'string') {
+      const bytes = new util.TextEncoder().encodeInto(data);
+      const out = new ArrayBuffer(bytes.length);
+      new Uint8Array(out).set(bytes, 0);
+      return out;
+    }
+    return data;
   }
 
   async stop(): Promise<void> {
@@ -548,6 +565,12 @@ class HttpServerImpl {
     this.tcp = null;
     this.tls = null;
     this.running = false;
+    if (this.tlsNativeStarted) {
+      this.tlsNativeStarted = false;
+      this.tlsSessions.clear();
+      tlsNative.stop();
+      Log.i('native TLS 已停止');
+    }
     try {
       if (tcp !== null) {
         await tcp.close();

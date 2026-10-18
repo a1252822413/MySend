@@ -16,12 +16,11 @@ export class Settings {
   port: number = Const.DEFAULT_PORT;
   multicastGroup: string = Const.DEFAULT_MULTICAST_GROUP;
   /**
-   * 使用 HTTPS。
-   * 注意：鸿蒙 TLSSocketServer 接收多记录大 body 时会把最后一块压在原生缓冲里不投递
-   * （实测 5MB 永远差 8192 字节），因此**默认关闭**，用明文 HTTP 保证大文件可收。
-   * 详见 docs/harmonyos-app-design.md「已知平台限制」。
+   * 使用 HTTPS（默认开启）。
+   * 服务端不用鸿蒙的 TLSSocketServer（大文件会丢最后 8KB），而是走 NAPI 原生 TLS 层
+   * （OpenSSL），详见 docs/harmonyos-app-design.md §11.2 / §11.4。
    */
-  https: boolean = false;
+  https: boolean = true;
   pin: string = '';
   /** 自动接收（收到 prepare-upload 直接同意，对应协议里的 download 字段） */
   autoAccept: boolean = false;
@@ -54,7 +53,7 @@ class SettingsServiceImpl {
     s.alias = this.readString('alias', SettingsServiceImpl.defaultAlias());
     s.port = this.readNumber('port', Const.DEFAULT_PORT);
     s.multicastGroup = this.readString('multicastGroup', Const.DEFAULT_MULTICAST_GROUP);
-    s.https = this.readBoolean('https', false);
+    s.https = this.readBoolean('https', true);
     s.pin = this.readString('pin', '');
     s.autoAccept = this.readBoolean('autoAccept', false);
     s.whitelistOnly = this.readBoolean('whitelistOnly', false);
