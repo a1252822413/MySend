@@ -1,0 +1,297 @@
+# 快传 · 鸿蒙手机端 App 设计方案
+
+> 目标：和 PC 端「快传」**同一个软件的感觉**，双向互联互通。
+> 本文只回答"能不能做、怎么做、代价多大"，不含代码。
+
+---
+
+## 一、结论速览
+
+| 能力 | 判定 | 依据 |
+|---|---|---|
+| 与 PC 端互通（发现 + 收发文件） | ✅ **完全可行** | 鸿蒙有 TCP/组播/TLS 服务端全套 API，LocalSend v2.2 全部端点可实现 |
+| 与官方 LocalSend / AloeSend / iOS 客户端互通 | ✅ 可行 | 只要严格实现协议，不依赖任何一方适配 |
+| 后台常驻接收（关掉界面也能收） | ✅ 可行 | `backgroundModes: ["dataTransfer"]` + `KEEP_BACKGROUND_RUNNING`，**数据传输类长时任务无需 AGC 审批** |
+| 默认 HTTPS（和 PC 端一致） | ✅ 可行 | `socket.constructTLSSocketServerInstance()` 支持服务端 TLS；证书需自行准备（见 §5.3） |
+| 互传联盟 MTA（小米/OPPO/vivo/荣耀"互传"） | ❌ **不可行** | 见 §3.1，三重硬门槛 |
+| Google Quick Share | ⚠️ 不建议 | 见 §3.2，逆向 + 平台变更风险 |
+
+**一句话**：协议层只做 LocalSend，就是把"和 PC 端是一个软件"这件事做扎实；
+MTA / Quick Share 这两块**不是我们没做好，是平台不给**。
+
+---
+
+## 二、范围定义
+
+**做**（v1.0）
+- 发送：选文件 / 选设备 / 传文件 / 进度 / 取消
+- 接收：发现即收、确认弹窗、PIN 校验、自动接收、白名单
+- 后台常驻 + 通知栏常驻任务（传输中显示进度）
+- 历史记录、设置、关于
+- 与 PC 端完全一致的品牌与视觉
+
+**不做**（v1.0 明确排除）
+- MTA / Quick Share 协议
+- 手机与手机之间的"碰一碰"（NFC 触发）
+- 云中转、账号体系
+
+---
+
+## 三、协议策略（为什么只做 LocalSend）
+
+### 3.1 互传联盟 MTA：不可行，三重门槛
+
+这不是"协议没公开"这么简单。参考开源实现 CatShare（MIT，`CatShare-main/`）的 README 明确写着：
+
+> Android 目前已不再支持非系统应用获取手机的 MAC 地址……但由于各品牌的互传功能通常为系统应用，
+> **互传联盟协议将设备的 MAC 地址作为其认证信息的一部分，目前暂时无法绕过。**
+
+三重门槛叠加：
+
+| 门槛 | 具体限制 | 鸿蒙上的情况 |
+|---|---|---|
+| 设备真实 MAC | 协议用它做认证因子 | 三方应用**禁止**获取（仅系统应用 + `GET_WIFI_LOCAL_MAC` 才给真实值，三方只能拿到随机 MAC） |
+| Wi-Fi P2P 直连 | 传数据靠 Wi-Fi Direct 建组 | 相关 API 属**系统应用**能力，三方不可用 |
+| BLE 广播 / GATT 服务端 | 设备发现靠 BLE 广播 | 后台广播受限，无法长期维持 |
+
+结论：**即使拿到 CatShare 全部源码也搬不过来**，因为它的关键能力（MAC、P2P、Shizuku 特权）在鸿蒙上一律没有。
+这条路要等华为开放，不是工程量问题。
+
+### 3.2 Quick Share：技术上可部分实现，但不建议
+
+- 协议是逆向出来的（NearDrop / rquickshare / packet 都基于此），非官方授权
+- 依赖 BLE 广播 + mDNS + 自有 protobuf + TLS，Google 侧一改就得跟
+- 鸿蒙的 BLE 广播能力对三方应用同样受限，后台更难
+
+投入产出比极差，且一旦被 Google 封堵就是沉没成本。**不做。**
+
+### 3.3 LocalSend v2.2：我们真正该做的
+
+PC 端已实现并跑通的 5 个端点，手机端 1:1 对齐：
+
+| 端点 | 方法 | 作用 |
+|---|---|---|
+| `/api/localsend/v2/info` | GET | 被探测时返回本机信息（alias / deviceModel / deviceType / fingerprint / port / protocol / https / download） |
+| `/api/localsend/v2/register` | POST | 主动登记对方设备 |
+| `/api/localsend/v2/prepare-upload` | POST | 发送前协商：提交文件清单，拿 `sessionId` + 每个文件的 token |
+| `/api/localsend/v2/upload` | POST | 按 `sessionId` + `fileId` + `token` 上传裸 body |
+| `/api/localsend/v2/cancel` | POST | 取消会话 |
+
+发现：UDP 组播 `224.0.0.167:53317`，报文就是 info 的 JSON。
+
+---
+
+## 四、架构设计
+
+### 4.1 分层（与 PC 端一一对应）
+
+```
+┌──────────────────────────────────────────────┐
+│ UI 层（ArkUI 页面）                          │  ≈ PC 的 Views/*.xaml
+│  SendPage / ReceivePage / HistoryPage        │
+│  DeviceListPage / SettingsPage / Dialogs     │
+├──────────────────────────────────────────────┤
+│ 状态层（@ObservedV2 + 单例 Store）           │  ≈ PC 的 ViewModels
+│  SendStore / ReceiveStore / DeviceStore      │
+├──────────────────────────────────────────────┤
+│ 服务层                                       │  ≈ PC 的 Services / Networking
+│  DiscoveryService（组播收发）                │
+│  LocalSendServer（TCP/TLS + 手写 HTTP）      │
+│  SendClient（发送端）                        │
+│  ReceiverService（落盘 + 目录安全）          │
+│  SettingsService / HistoryService            │
+│  BackgroundKeeper（长时任务）                │
+├──────────────────────────────────────────────┤
+│ 协议层（纯函数，可单测）                     │  ≈ PC 的 Models/Dto + Endpoints
+│  DTO / 序列化 / 端点常量 / 指纹计算           │
+└──────────────────────────────────────────────┘
+```
+
+### 4.2 目录结构（ArkTS 工程）
+
+```
+harmony/
+├── AppScope/app.json5                  # bundleName: com.kuai.chuan
+├── entry/src/main/
+│   ├── module.json5                    # 权限 / 后台模式 / ability
+│   ├── ets/
+│   │   ├── entryability/EntryAbility.ets
+│   │   ├── pages/                      # ArkUI 页面
+│   │   │   ├── Index.ets               # 底部 Tab：发送 / 接收 / 历史 / 设置
+│   │   │   ├── SendPage.ets
+│   │   │   ├── ReceivePage.ets
+│   │   │   ├── HistoryPage.ets
+│   │   │   ├── SettingsPage.ets
+│   │   │   ├── DeviceListPage.ets
+│   │   │   └── OpenSourcePage.ets      # 开源许可（对齐竞品，也是 MIT 合规要求）
+│   │   ├── viewmodel/                  # 状态
+│   │   ├── service/                    # 服务（见 4.1）
+│   │   ├── protocol/                   # DTO + 常量 + 编解码
+│   │   ├── common/                     # 设计令牌、工具、日志
+│   │   └── components/                 # 可复用组件（文件行、设备卡、空态）
+│   └── resources/                      # 字符串 / 颜色 / 图标 / 自签证书
+```
+
+### 4.3 与 PC 端的能力对位
+
+| PC 端 | 鸿蒙端 | 说明 |
+|---|---|---|
+| Kestrel（HTTP/HTTPS 服务） | `TCPSocketServer` / `TLSSocketServer` + **手写 HTTP/1.1** | 鸿蒙没有 HTTP 服务器，必须自己解析（见 §5.2） |
+| UDP 组播（`MulticastClient`） | `MulticastSocket` + `addMembership` | 能力对齐，含 TTL / 回环 / 地址复用 |
+| `HttpClient`（发送） | `http` / `rpc` 或 `TCPSocket` | 走 `@kit.NetworkKit` 的 http 请求即可 |
+| 托盘常驻 | 长时任务 + 通知栏 | 语义等价，实现完全不同 |
+| `%LOCALAPPDATA%` 数据目录 | 应用沙箱 `context.filesDir` | 结构性等价 |
+| 公共目录保存 | `PhotoAccessHelper` / `file.picker` | 手机端有分区存储限制，见 §5.4 |
+
+---
+
+## 五、关键技术方案
+
+### 5.1 设备发现（组播）
+
+```ts
+const sock = socket.constructMulticastSocketInstance();
+const group: socket.NetAddress = { address: '224.0.0.167', port: 53317, family: 1 };
+sock.setLoopbackMode(true);        // 官方实现依赖回环判断自身公告
+sock.addMembership(group);          // 收
+sock.send({ data: JSON.stringify(info), address: group });  // 发
+```
+
+要点：
+- **必须绑到 WLAN 网卡**，多网卡（含 VPN/虚拟网卡）要过滤，否则公告发到错误网段
+- Wi-Fi 切换 / 息屏唤醒后要重建 socket（PC 端踩过同样的坑）
+- 收到公告要丢掉 `fingerprint == 自己` 的包
+
+### 5.2 HTTP 服务器（最大的自研工作量）
+
+`TCPSocketServer` 只给到"字节流"，HTTP 要自己实现。好在 LocalSend 的用法极简：
+
+- 请求行 + 头部逐行读到 `\r\n\r\n`
+- 上传是 **裸 body**（`POST /api/localsend/v2/upload?...`），靠 `Content-Length` 读满 N 字节，**不用解析 multipart**
+- 响应固定 JSON + `Content-Length`
+
+需要处理的边界：
+- 大文件流式落盘（边读边写，禁止整包进内存——手机内存经不起 4 GB 视频）
+- 单个连接上多次请求 / `Connection: keep-alive`
+- 并发（手机一般 1~2 个发送方，用简单连接表即可）
+- 客户端中途断开 → 清理半成品文件
+
+> 工作量评估：这部分约 **1 周**，是整个项目最"脏"的活。可以先用明文 TCP 跑通，再切 TLS。
+
+### 5.3 证书与 HTTPS
+
+`TLSSocketServer.listen()` 需要 `key` / `cert`（PEM）。两种方案：
+
+| 方案 | 做法 | 取舍 |
+|---|---|---|
+| A. 内置证书（v1 推荐） | 构建期生成一对自签 PEM，打进 `resources/rawfile` | 5 分钟落地；缺点：所有安装共用同一私钥 |
+| B. 首次启动生成 | `@kit.CryptoArchitectureKit` 生成 RSA 密钥对 + 自签 X.509 | 每个安装独立，和 PC 端一致；但要自己拼 X.509（工作量 2~3 天） |
+
+无论哪种，都要把 **SHA-256 指纹**写进 info 的 `fingerprint` 字段（PC 端就是这么做的：
+`[TLS] fingerprint 已同步为 mTLS 证书指纹`）。
+
+先做 A，B 作为 M3 的增强。
+
+### 5.4 文件落盘与权限
+
+手机端和 PC 端最大的体验差异点：
+
+- 应用沙箱目录可随意写，但用户"看不见"
+- 存到相册 / Downloads 需要 `PhotoAccessHelper`（媒体库）或 `file.picker`（用户选目录）
+- 接收多文件时保留目录结构 → 只能落在沙箱，再由用户"导出"
+
+**方案**：默认落沙箱 `filesDir/received/`，接收完成通知里提供「保存到相册 / 另存到…」两个动作。
+比竞品"存进兼容层目录拿不出来"要好，这也是差异化点之一。
+
+### 5.5 后台常驻
+
+```json5
+// module.json5
+"requestPermissions": [{ "name": "ohos.permission.KEEP_BACKGROUND_RUNNING" }],
+"abilities": [{ "backgroundModes": ["dataTransfer"] }]
+```
+
+```ts
+await backgroundTaskManager.startBackgroundRunning(context,
+  backgroundTaskManager.BackgroundMode.DATA_TRANSFER, wantAgent);
+```
+
+合规红线（华为《Background Tasks Kit 接入规范》）：
+- 通知栏必须可见，文案不得修改
+- 传输结束必须 `stopBackgroundRunning()`
+- **禁止**为了保活而伪造传输任务 → 会被下架
+
+---
+
+## 六、"同一个软件"的一致性设计
+
+这是本方案的核心要求，落到可检查的清单：
+
+| 维度 | 统一做法 |
+|---|---|
+| 名称 | 全部显示「快传」，包名 `com.kuai.chuan`，桌面图标用同一套绿色双向箭头 |
+| 主色 | `#16A34A`，与 PC 端品牌色一致 |
+| 间距 | 复用已定的刻度 **4 / 8 / 12 / 16 / 24**（见 `docs/UI-SPACING.md`），鸿蒙侧封装成同一套常量 |
+| 圆角 | 卡片 12 / 按钮 8 / 行 10，与 PC 端一致 |
+| 字号层级 | 22 标题 / 15 小节 / 13 正文 / 12 辅助 / 11 说明 |
+| 页面结构 | 发送 / 接收 / 历史 / 设置，四 Tab；设置页分区顺序与 PC 端一致（身份、网络、接收、外观、关于） |
+| 文案 | 用词统一（"待发送""接收中""会话"），不出现"设备列表/附近设备"两种叫法 |
+| 状态语义 | 待发送灰、传输中蓝、成功绿、失败红、取消灰，与 PC 端状态色一致 |
+| 空态 | 同样的"拖放/点选"引导文案，图标语义一致 |
+
+> 判断标准：把手机截图和 PC 截图并排放，**不会觉得是两个产品**。
+
+---
+
+## 七、风险清单
+
+| # | 风险 | 影响 | 对策 |
+|---|---|---|---|
+| 1 | TLS 服务端 `secureOptions` 对自签证书的兼容性 | 阻塞默认 HTTPS | M0 阶段第一件事就验证，跑不通则一期降级为明文（协议允许） |
+| 2 | 手写 HTTP 在大文件下的稳定性 | 传输中断、内存溢出 | 流式落盘 + 分块校验；先用 4 GB 文件压测 |
+| 3 | 组播在部分路由器/AP 隔离下收不到 | 发现不到设备 | 保留手动输入 IP + 二次探测（TCP 直连 info） |
+| 4 | 后台被系统冻结 | 收不到文件 | 传输期间长时任务；空闲期接受"打开 App 才活跃" |
+| 5 | 华为应用市场审核（后台任务、隐私） | 上架被拒 | 严格遵守 §5.5 红线；隐私政策逐项对应权限 |
+| 6 | 与 PC 端 fingerprint 语义差异 | 白名单/指纹校验失败 | 严格按协议：https 模式下 fingerprint = 证书 SHA-256 |
+
+---
+
+## 八、里程碑
+
+| 阶段 | 内容 | 验收标准 | 估时 |
+|---|---|---|---|
+| **M0 技术验证** | TLS 服务端 + 手写 HTTP + 组播发现 | 手机能被 PC 端的 `info` 探到；PC 能把 1 个文件传到手机 | 3~5 天 |
+| **M1 协议互通** | 5 个端点 + 发送 + 接收 + 目录结构 | PC ⇄ 手机双向传 1 GB 文件成功；取消可用 | 2 周 |
+| **M2 可用 UI** | 四 Tab + 设备列表 + 进度 + 空态 | 不用 adb，纯点击完成一次收发 | 2 周 |
+| **M3 体验完善** | 后台常驻、通知进度、历史、白名单、PIN、文本传输 | 锁屏状态下 PC 能成功发文件到手机 | 2 周 |
+| **M4 上架准备** | 隐私声明、许可页、图标、崩溃上报 | 过华为审核 | 1 周 |
+
+合计约 **7~8 周**（单人全职）。M0 结束即可判断能否按期推进。
+
+---
+
+## 九、需要你拍板的三个问题
+
+1. **最低支持的鸿蒙版本**
+   决定 API 下限（`MulticastSocket` 需 API 11+，`TLSSocketServer` 需 API 12+）。
+   建议：**API 12（HarmonyOS NEXT 5.0）起**，覆盖绝大多数在用设备。
+
+2. **一期是否必须 HTTPS**
+   若必须，M0 要先解决证书（内置方案 5 分钟，自生成 2~3 天）。
+   建议：**一期用内置自签证书，先保证加密能力在**，二期再换"每机独立证书"。
+
+3. **接收文件的默认落点**
+   沙箱（可控、体验统一）vs 相册/Download（用户直观）。
+   建议：**默认沙箱 + 完成后提供导出动作**，避免竞品"文件拿不出来"的坑。
+
+---
+
+## 附：为什么这份方案不承诺"支持竞品的三个协议"
+
+竞品（`cn.biandangroup.bcshare`）同时挂了 CatShare(MTA) / Quick Share / LocalSend 三个协议。
+其中前两个在我们的平台上拿不到必需的系统能力（真实 MAC、Wi-Fi P2P、BLE 广播），
+**不是工程投入能解决的**。我们的差异化应建立在：
+
+- 与 PC 端真正同源（同一协议、同一视觉、同一套设置），跨端体验连贯
+- 后台常驻接收做扎实（竞品在这里普遍不稳）
+- 接收文件的可用性（目录结构、导出、历史）
