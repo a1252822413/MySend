@@ -245,7 +245,7 @@ struct Index {
 
         Column({ space: 16 }) {
           Row() {
-            this.SettingRow('使用 HTTPS', '关闭后以明文传输，与不支持 https 的设备互通时使用')
+            this.SettingRow('使用 HTTPS', '实验性：鸿蒙 TLS 服务端接收大文件会卡住（已知平台限制），大文件场景请保持关闭')
             Toggle({ type: ToggleType.Switch, isOn: this.httpsOn })
               .onChange((on: boolean) => {
                 this.httpsOn = on;

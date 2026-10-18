@@ -17,8 +17,13 @@ export class ReceiveFile {
   fileName: string = '';
   size: number = 0;
   token: string = '';
-  /** 已写入字节数 */
+  /** 已入队字节数（进度用） */
   received: number = 0;
+  /** 已真正落盘字节数 */
+  written: number = 0;
+  /** 待写队列：message 回调里只入队，不在回调内做同步 IO */
+  queue: Uint8Array[] = [];
+  writing: boolean = false;
   fd: number = -1;
   absPath: string = '';
 }
@@ -123,20 +128,64 @@ class FileReceiverImpl {
     return result;
   }
 
-  /** 追加写入，返回本次写入字节数 */
+  /**
+   * 追加写入（异步队列）。
+   * 为什么不在回调里直接 fs.writeSync：鸿蒙的 TLS 数据是按 8KB 一条 message 下发的，
+   * 如果回调里做同步磁盘 IO，原生接收环会先填满（实测卡在整 4MB），之后事件不再投递，
+   * 传输永久停摆。改成"回调只入队 + 后台异步落盘"，回调立即返回，消费速度跟得上。
+   * 返回入队字节数（进度用）。
+   */
   write(file: ReceiveFile, data: Uint8Array): number {
     if (file.fd < 0) {
       return 0;
     }
+    // 必须复制：底层 ArrayBuffer 会被复用
+    const copy = new Uint8Array(data.length);
+    copy.set(data, 0);
+    file.queue.push(copy);
+    file.received += copy.length;
+    this.drain(file);
+    return copy.length;
+  }
+
+  /** 后台排空队列（不阻塞调用方） */
+  private async drain(file: ReceiveFile): Promise<void> {
+    if (file.writing) {
+      return;
+    }
+    file.writing = true;
     try {
-      const view = data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength);
-      const written = fs.writeSync(file.fd, view);
-      file.received += written;
-      return written;
+      while (file.queue.length > 0) {
+        const chunk = file.queue.shift();
+        if (chunk === undefined) {
+          break;
+        }
+        const view = chunk.buffer.slice(0, chunk.length);
+        const n = await fs.write(file.fd, view, { offset: file.written });
+        file.written += n;
+      }
     } catch (e) {
       Log.e(`写入失败 ${file.fileName}: ${JSON.stringify(e)}`);
-      return 0;
+    } finally {
+      file.writing = false;
     }
+  }
+
+  /** 等待队列全部落盘（响应 200 之前调用） */
+  async flush(file: ReceiveFile): Promise<void> {
+    let guard = 0;
+    while ((file.queue.length > 0 || file.writing) && guard < 3000) {
+      await FileReceiverImpl.sleep(10);
+      guard++;
+    }
+  }
+
+  private static sleep(ms: number): Promise<void> {
+    return new Promise<void>((resolve: () => void) => {
+      setTimeout(() => {
+        resolve();
+      }, ms);
+    });
   }
 
   close(file: ReceiveFile): void {

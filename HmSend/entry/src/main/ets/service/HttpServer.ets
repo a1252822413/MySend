@@ -42,6 +42,9 @@ class HttpSession {
 
   /** 非空表示本次请求是上传，直接流式写盘 */
   private uploadFile: ReceiveFile | null = null;
+  /** 鸿蒙 TLS 的原生缓冲只有等到"有新数据"才会继续下发（见下方 nudge 说明） */
+  private nudgeTimer: number = -1;
+  private lastDataAt: number = 0;
   /** prepareRoute 是异步的（要等文件句柄打开），期间到达的数据块必须先暂存，
       否则会被误当成请求体缓存 → 上传丢数据。 */
   private preparing: boolean = false;
@@ -154,16 +157,32 @@ class HttpSession {
       return;
     }
     this.uploadFile = result.file;
+    this.lastDataAt = Date.now();
+    // 看门狗：鸿蒙的 TLS 实现把多余数据缓在原生层，只有在"又收到新数据"时才继续
+    // 投递 message 事件。客户端发完最后一段就静默了，于是尾部数据永远不上来。
+    // 对策：检测到 400ms 没有新数据且请求体未收完，就发一个空 TLS 记录去踢一下。
+    this.nudgeTimer = setInterval(() => {
+      this.checkStall();
+    }, 300);
   }
 
   private onBody(data: Uint8Array): void {
     const file = this.uploadFile;
     if (file !== null) {
+      this.lastDataAt = Date.now();
       const written = fileReceiver.write(file, data);
       this.bodyReceived += written;
+      // 诊断：大文件传输时观察分块大小与累计进度
+      if (file.received % 524288 < data.length) {
+        Log.i(`进度 ${file.received}/${file.size} (${data.length}B/块) t=${Date.now()}`);
+      }
       if (this.bodyReceived >= this.contentLength && this.contentLength > 0) {
-        fileReceiver.close(file);
-        this.respond(200, '');
+        // 数据只是入队，必须等真正落盘再回 200，否则客户端可能先收到成功
+        const f = file;
+        fileReceiver.flush(f).then(() => {
+          fileReceiver.close(f);
+          this.respond(200, '');
+        });
       }
       return;
     }
@@ -279,14 +298,51 @@ class HttpSession {
     return HttpSession.decode(merged);
   }
 
+  /** 停滞检测：必要时发空记录触发原生缓冲下发 */
+  private checkStall(): void {
+    if (this.responded || this.uploadFile === null) {
+      this.stopNudge();
+      return;
+    }
+    if (this.bodyReceived >= this.contentLength) {
+      this.stopNudge();
+      return;
+    }
+    if (Date.now() - this.lastDataAt < 400) {
+      return;
+    }
+    Log.i(`上传停滞 ${this.bodyReceived}/${this.contentLength}，发送空记录触发下发`);
+    this.conn.sendFn(new ArrayBuffer(0)).catch((e: BusinessError) => {
+      Log.w(`空记录发送失败: ${e.code} ${e.message}`);
+    });
+    this.lastDataAt = Date.now();
+  }
+
+  private stopNudge(): void {
+    if (this.nudgeTimer !== -1) {
+      clearInterval(this.nudgeTimer);
+      this.nudgeTimer = -1;
+    }
+  }
+
   private respond(code: number, body: string): void {
+    this.stopNudge();
     if (this.responded) {
       return;
     }
     this.responded = true;
+    try {
+      this.buildAndSend(code, body);
+    } catch (e) {
+      Log.e(`响应构造异常 code=${code}: ${JSON.stringify(e)}`);
+    }
+  }
+
+  private buildAndSend(code: number, body: string): void {
 
     const enc = new util.TextEncoder();
-    const bodyBytes = enc.encodeInto(body);
+    // encodeInto('') 在 ArkTS 上会抛异常（已实测），空响应体必须单独判空
+    const bodyBytes = body.length > 0 ? enc.encodeInto(body) : new Uint8Array(0);
     const contentType = body.length > 0 ? 'application/json' : 'text/plain';
     const head = `HTTP/1.1 ${code} ${HttpSession.reason(code)}\r\n` +
       `Content-Type: ${contentType}\r\n` +
@@ -295,12 +351,20 @@ class HttpSession {
     const headBytes = enc.encodeInto(head);
     const out = HttpSession.concat(headBytes, bodyBytes);
 
-    this.conn.sendFn(out.buffer).then(() => {
-      this.conn.closeFn();
-    }).catch((e: BusinessError) => {
-      Log.w(`响应发送失败: ${e.code} ${e.message}`);
-      this.conn.closeFn();
-    });
+    Log.i(`响应: 准备发送 code=${code} bytes=${out.length}`);
+    // 不要在 'message' 回调里同步 send：鸿蒙的 TLSSocketConnection 在这种重入上下文中
+    // 会静默卡住（不报错、不发送），表现为客户端一直等响应直到超时。
+    // 用 setTimeout(0) 跳出回调上下文再发。
+    setTimeout(() => {
+      Log.i(`响应: 开始 send code=${code}`);
+      this.conn.sendFn(out.buffer).then(() => {
+        Log.i(`响应: send 完成 code=${code}`);
+        this.conn.closeFn();
+      }).catch((e: BusinessError) => {
+        Log.w(`响应发送失败: ${e.code} ${e.message}`);
+        this.conn.closeFn();
+      });
+    }, 0);
   }
 
   private static reason(code: number): string {
@@ -437,14 +501,29 @@ class HttpServerImpl {
       secureOptions: {
         cert: TlsCerts.CERT_PEM,
         key: TlsCerts.KEY_PEM,
-        ca: [TlsCerts.CERT_PEM],
-        protocols: socket.Protocol.TLSv12,
-        useRemoteCipherPrefer: true,
-        signatureAlgorithms: 'rsa_pss_rsae_sha256:ECDSA+SHA256',
-        cipherSuite: 'AES256-SHA256'
+        // 不要传 ca！鸿蒙会把 ca 当成"要求客户端证书"，服务端在握手后会报
+        //   Failed to get remote certificate (2303505)
+        // 并中断连接 —— 表现为请求头能收到、请求体一条都收不到（大文件必挂）。
+        // 我们做的是单向 TLS，只需 cert + key。
+        // 用 TLS1.3：实测 TLS1.2 + 固定 CBC 套件时，鸿蒙服务端会把最后一个
+        // 8KB 记录压在原生缓冲里不投递（客户端发完就静默，没有新包触发下发），
+        // 表现为"大文件永远差 8192 字节"。TLS1.3 的 AEAD 记录层没有这个问题。
+        protocols: socket.Protocol.TLSv13,
+        isBidirectionalAuthentication: false,
+        useRemoteCipherPrefer: true
       },
       ALPNProtocols: ['http/1.1']
     });
+    // 尝试放大接收缓冲（ExtraOptionsBase.receiveBufferSize）。
+    // TLSSocketConnection 本身没有 setExtraOptions，只能在 server 上设。
+    try {
+      await server.setExtraOptions({ receiveBufferSize: 8388608, sendBufferSize: 8388608 });
+      Log.i('TLS 服务端: 接收缓冲设为 8MB');
+    } catch (e) {
+      const err = e as BusinessError;
+      Log.w(`TLS 服务端 setExtraOptions 失败 ${err.code} ${err.message}`);
+    }
+
     server.on('connect', (conn: socket.TLSSocketConnection) => {
       // TCP 连接的 send 需要 TCPSendOptions 包一层
       // TLS 连接的 send 直接接收 payload，不包 TCPSendOptions

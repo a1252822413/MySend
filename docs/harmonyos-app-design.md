@@ -284,6 +284,46 @@ await backgroundTaskManager.startBackgroundRunning(context,
 1. **剪贴板文件**：能否从系统文件管理器复制的文件中取到 URI。跑不通就只做"发送文本"。
 2. **自选目录持久授权**：`file.picker` 授权目录重启后是否仍可写。影响"默认保存目录"能否设为公共目录。
 
+## 十一、真机实测结论与已知平台限制（2026-10-18，Mate 70 Pro）
+
+### 11.1 组播发现的正确写法（重要）
+
+鸿蒙 `MulticastSocket` 与 POSIX 习惯**相反**，实测矩阵：
+
+| 写法 | 结果 |
+|---|---|
+| `bind` → `addMembership`（常规顺序） | ❌ 2301022 Invalid argument |
+| `addMembership({group, port: 实际端口})` → `bind` | ⚠️ 不报错但 **membership 静默失效**，收不到任何包 |
+| **`addMembership({group, port: 0})` → `bind`** | ✅ 正确 |
+
+两条都要满足：**先 join 后 bind**，且 **join 的 port 必须传 0**。
+传实际端口不报错，但会导致"能发公告、收不到公告"，极难排查。
+
+### 11.2 TLS 服务端：无法接收大文件（平台缺陷）
+
+| 传输方式 | 5MB 上传 | 20MB 上传 |
+|---|---|---|
+| 明文 HTTP（`TCPSocketServer`） | ✅ 200 / 2.2s | ✅ 200 / 3.6s（≈5.8MB/s） |
+| HTTPS（TLS1.2 + `AES256-SHA256`） | ❌ 停在 5,234,688/5,242,880 | — |
+| HTTPS（TLS1.3 + 默认套件） | ❌ 同样停住 | — |
+
+表现：小请求（info / prepare-upload / 11 字节上传）全部正常；**多记录的大 body 永远差最后一个 8KB**，
+且卡住后该连接会把服务端拖住（后续请求无响应）。已排除：消费速度（改异步队列无效）、
+接收缓冲（从默认调到 8MB 只是把卡点从 4MB 推后）、双向认证（显式关闭无效）、TLS 版本与套件。
+
+结论：这是 `TLSSocketServer` 在"客户端发完数据、不再有新包"时不投递最后一个记录的问题
+（社区也有"一次最多 8192 字节、需再发消息才继续下发"的反馈）。
+
+**当前处置**：`Https` 默认 `false`（明文 HTTP），设置页保留开关并注明"实验性"。
+若要真正支持 HTTPS 大文件，需要绕开 `TLSSocketServer`，用 C++/OpenSSL 通过 NAPI 自建 TLS 层。
+
+### 11.3 其它已踩实的坑
+
+- `TLSSocketConnection.send(data)` 直接收 payload；`TCPSocketConnection.send({data})` 要包一层。
+- `TextEncoder.encodeInto('')` 在 ArkTS 会抛异常，空响应体必须单独判空（否则 upload 的 200 永远发不出去）。
+- 不要在 `on('message')` 回调里同步 `send`，用 `setTimeout(0)` 跳出回调上下文。
+- 调试期记录：设备锁屏时 `aa start` 报 10106102；`hilog -x` 只保留约 1 分钟。
+
 ## 附：为什么这份方案不承诺"支持竞品的三个协议"
 
 竞品（`cn.biandangroup.bcshare`）同时挂了 CatShare(MTA) / Quick Share / LocalSend 三个协议。
