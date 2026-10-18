@@ -282,7 +282,7 @@ class HttpSession {
       return;
     }
 
-    const resp: PrepareUploadResponseDto = fileReceiver.createSession(req.files, '', accepted);
+    const resp: PrepareUploadResponseDto = fileReceiver.createSession(req.files, '', accepted, senderAlias);
     this.respond(200, JSON.stringify(resp));
   }
 

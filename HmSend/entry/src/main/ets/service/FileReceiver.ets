@@ -10,6 +10,7 @@ import { common } from '@kit.AbilityKit';
 import { Log } from '../common/Logger';
 import { Const } from '../common/Constants';
 import { FileDto, PrepareUploadResponseDto } from '../model/Types';
+import { historyService, HistoryRecord, HistoryFile } from './HistoryService';
 
 /** 单个接收文件的状态 */
 export class ReceiveFile {
@@ -26,14 +27,17 @@ export class ReceiveFile {
   writing: boolean = false;
   fd: number = -1;
   absPath: string = '';
+  sessionId: string = '';
 }
 
 /** 一次接收会话（一个发送方 + 一批文件） */
 export class ReceiveSession {
   sessionId: string = '';
   senderIp: string = '';
+  senderAlias: string = '';
   files: Map<string, ReceiveFile> = new Map<string, ReceiveFile>();
   createdAt: number = 0;
+  doneCount: number = 0;
 }
 
 export class OpenFileResult {
@@ -59,10 +63,12 @@ class FileReceiverImpl {
   }
 
   /** 创建会话并下发每个文件的 token（对应 /prepare-upload 的响应） */
-  createSession(files: Record<string, FileDto>, senderIp: string, acceptedIds: string[]): PrepareUploadResponseDto {
+  createSession(files: Record<string, FileDto>, senderIp: string, acceptedIds: string[],
+    senderAlias: string): PrepareUploadResponseDto {
     const session = new ReceiveSession();
     session.sessionId = FileReceiverImpl.randomHex(16);
     session.senderIp = senderIp;
+    session.senderAlias = senderAlias;
     session.createdAt = Date.now();
 
     const tokens: Record<string, string> = {};
@@ -76,6 +82,7 @@ class FileReceiverImpl {
       rf.fileName = dto.fileName;
       rf.size = dto.size;
       rf.token = FileReceiverImpl.randomHex(8);
+      rf.sessionId = session.sessionId;
       session.files.set(id, rf);
       tokens[id] = rf.token;
     }
@@ -199,6 +206,38 @@ class FileReceiverImpl {
       file.fd = -1;
     }
     Log.i(`接收完成 ${file.fileName} (${file.received}/${file.size})`);
+    this.onFileClosed(file);
+  }
+
+  /** 一个文件写完：若会话内全部完成，落一条历史记录 */
+  private onFileClosed(file: ReceiveFile): void {
+    const session = this.sessions.get(file.sessionId);
+    if (session === undefined) {
+      return;
+    }
+    session.doneCount++;
+    if (session.doneCount < session.files.size) {
+      return;
+    }
+
+    const record = new HistoryRecord();
+    record.id = session.sessionId;
+    record.direction = 'receive';
+    record.peerAlias = session.senderAlias;
+    record.peerIp = session.senderIp;
+    record.timestamp = Date.now();
+    record.success = true;
+    let total = 0;
+    session.files.forEach((f: ReceiveFile) => {
+      const hf = new HistoryFile();
+      hf.name = f.fileName;
+      hf.size = f.size;
+      record.files.push(hf);
+      total += f.size;
+    });
+    record.totalSize = total;
+    historyService.add(record);
+    this.sessions.delete(session.sessionId);
   }
 
   /** 取消会话：关闭所有句柄并删除残留文件 */

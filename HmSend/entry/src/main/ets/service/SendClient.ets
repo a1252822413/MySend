@@ -13,6 +13,7 @@ import { Const } from '../common/Constants';
 import { TlsCerts } from '../common/TlsCerts';
 import { settingsService } from './SettingsService';
 import { DeviceItem, DeviceInfoDto, FileDto, PrepareUploadResponseDto } from '../model/Types';
+import { historyService, HistoryRecord, HistoryFile } from './HistoryService';
 
 /** 待发送的一个文件（来自文件选择器） */
 export class SendFileItem {
@@ -412,7 +413,27 @@ class SendClientImpl {
     }
 
     Log.i(`全部发送完成，共 ${files.length} 个文件 / ${totalBytes} 字节`);
+    this.recordSend(device, files, totalBytes, true);
     return SendResult.Success;
+  }
+
+  /** 发送历史（成功/失败都记，便于排查） */
+  private recordSend(device: DeviceItem, files: SendFileItem[], totalBytes: number, success: boolean): void {
+    const record = new HistoryRecord();
+    record.id = `${Date.now()}`;
+    record.direction = 'send';
+    record.peerAlias = device.alias;
+    record.peerIp = device.ip;
+    record.totalSize = totalBytes;
+    record.timestamp = Date.now();
+    record.success = success;
+    for (let i = 0; i < files.length; i++) {
+      const hf = new HistoryFile();
+      hf.name = files[i].name;
+      hf.size = files[i].size;
+      record.files.push(hf);
+    }
+    historyService.add(record);
   }
 
   private async uploadOne(

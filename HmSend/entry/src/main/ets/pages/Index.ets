@@ -9,6 +9,7 @@ import { Const } from '../common/Constants';
 import { DeviceItem } from '../model/Types';
 import { sendClient, SendFileItem, SendResult } from '../service/SendClient';
 import { receiveRequests, ReceiveRequest } from '../service/ReceiveRequestService';
+import { historyService, HistoryRecord } from '../service/HistoryService';
 import { picker } from '@kit.CoreFileKit';
 import { fileIo as fs } from '@kit.CoreFileKit';
 import { common } from '@kit.AbilityKit';
@@ -52,6 +53,9 @@ struct Index {
   @State reqTotal: number = 0;
   @State reqChecked: string[] = [];
 
+  // ---- 历史页 ----
+  @State history: HistoryRecord[] = [];
+
   private timerId: number = -1;
 
   aboutToAppear(): void {
@@ -63,11 +67,16 @@ struct Index {
     });
     this.refreshLocal();
     this.devices = deviceRegistry.list();
+    this.history = historyService.list();
     // 每 5 秒刷新一次，保证超时设备自动消失
     this.timerId = setInterval(() => {
       deviceRegistry.purgeOffline();
       this.devices = deviceRegistry.list();
-    }, 5000);
+      // 已在历史页时也定期刷新：收到文件后用户可能不切页，靠 onChange 不够
+      if (this.currentTab === 2) {
+        this.history = historyService.list();
+      }
+    }, 3000);
   }
 
   aboutToDisappear(): void {
@@ -597,14 +606,93 @@ struct Index {
 
   @Builder
   HistoryTab() {
-    Column({ space: 8 }) {
-      Text('暂无传输记录').fontSize(14).fontWeight(FontWeight.Medium).fontColor(TEXT)
-      Text('收发文件完成后会自动记录在这里').fontSize(12).fontColor(SUB)
+    Column({ space: 12 }) {
+      Row() {
+        Column({ space: 4 }) {
+          Text('传输历史').fontSize(15).fontWeight(FontWeight.Medium).fontColor(TEXT)
+          Text(`${this.history.length} 条记录`).fontSize(12).fontColor(SUB)
+        }
+        .alignItems(HorizontalAlign.Start)
+        .layoutWeight(1)
+
+        if (this.history.length > 0) {
+          Text('清空')
+            .fontSize(12).fontColor(SUB)
+            .onClick(() => {
+              historyService.clear();
+              this.history = historyService.list();
+            })
+        }
+      }
+      .width('100%')
+
+      if (this.history.length === 0) {
+        Column({ space: 8 }) {
+          Text('暂无传输记录').fontSize(14).fontWeight(FontWeight.Medium).fontColor(TEXT)
+          Text('收发文件完成后会自动记录在这里').fontSize(12).fontColor(SUB)
+        }
+        .width('100%')
+        .layoutWeight(1)
+        .justifyContent(FlexAlign.Center)
+      } else {
+        List({ space: 8 }) {
+          ForEach(this.history, (rec: HistoryRecord) => {
+            ListItem() {
+              Column({ space: 6 }) {
+                Row() {
+                  Text(rec.direction === 'send' ? '发送' : '接收')
+                    .fontSize(11)
+                    .fontColor(Color.White)
+                    .backgroundColor(rec.direction === 'send' ? GREEN : '#3B82F6')
+                    .borderRadius(6)
+                    .padding({ left: 6, right: 6, top: 2, bottom: 2 })
+                  Text(rec.peerAlias.length > 0 ? rec.peerAlias : '未知设备')
+                    .fontSize(13).fontColor(TEXT).margin({ left: 8 })
+                  Blank()
+                  Text(this.humanSize(rec.totalSize)).fontSize(12).fontColor(SUB)
+                }
+                .width('100%')
+
+                Text(this.summaryOf(rec))
+                  .fontSize(11).fontColor(SUB).maxLines(1)
+                  .textOverflow({ overflow: TextOverflow.Ellipsis })
+                  .width('100%')
+
+                Text(this.timeOf(rec.timestamp)).fontSize(11).fontColor(SUB).width('100%')
+              }
+              .padding(12)
+              .backgroundColor(CARD)
+              .borderRadius(12)
+              .border({ width: 1, color: LINE })
+              .width('100%')
+            }
+          }, (rec: HistoryRecord) => rec.id)
+        }
+        .layoutWeight(1)
+        .width('100%')
+      }
     }
+    .padding(16)
+    .alignItems(HorizontalAlign.Start)
+    .backgroundColor(BG)
     .width('100%')
     .height('100%')
-    .justifyContent(FlexAlign.Center)
-    .backgroundColor(BG)
+  }
+
+  private summaryOf(rec: HistoryRecord): string {
+    if (rec.files.length === 0) {
+      return '';
+    }
+    if (rec.files.length === 1) {
+      return rec.files[0].name;
+    }
+    return `${rec.files[0].name} 等 ${rec.files.length} 个文件`;
+  }
+
+  private timeOf(ts: number): string {
+    const d = new Date(ts);
+    const two = (n: number): string => n < 10 ? `0${n}` : `${n}`;
+    return `${d.getMonth() + 1}-${two(d.getDate())} ${two(d.getHours())}:${two(d.getMinutes())}`;
   }
 
   @Builder
@@ -752,6 +840,9 @@ struct Index {
         this.currentTab = index;
         if (index === 0 || index === 1) {
           this.refreshLocal();
+        }
+        if (index === 2) {
+          this.history = historyService.list();
         }
       })
         .barMode(BarMode.Fixed)

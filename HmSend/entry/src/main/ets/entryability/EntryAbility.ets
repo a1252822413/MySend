@@ -2,6 +2,7 @@ import { AbilityConstant, ConfigurationConstant, UIAbility, Want } from '@kit.Ab
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { window } from '@kit.ArkUI';
 import { settingsService } from '../service/SettingsService';
+import { historyService } from '../service/HistoryService';
 import { fileReceiver } from '../service/FileReceiver';
 import { httpServer } from '../service/HttpServer';
 import { discoveryService } from '../service/DiscoveryService';
@@ -22,6 +23,7 @@ export default class EntryAbility extends UIAbility {
     // 注意：这一步必须在 UI 之前，否则首页读不到本机信息。
     settingsService.init(this.context);
     fileReceiver.init(this.context);
+    historyService.init(this.context);
 
     httpServer.start().then(() => {
       Log.i('接收服务启动完成');
