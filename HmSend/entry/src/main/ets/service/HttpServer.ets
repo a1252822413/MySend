@@ -15,6 +15,7 @@ import * as tlsNative from 'libkuaitls.so';
 import { settingsService } from './SettingsService';
 import { deviceRegistry } from './DeviceRegistry';
 import { fileReceiver, OpenFileResult, ReceiveFile } from './FileReceiver';
+import { receiveRequests } from './ReceiveRequestService';
 import { DeviceInfoDto, PrepareUploadRequestDto, PrepareUploadResponseDto, CancelRequestDto } from '../model/Types';
 
 /** 把两种连接（TCP/TLS）收敛成一个可发送/关闭的最小接口 */
@@ -239,7 +240,7 @@ class HttpSession {
     }
   }
 
-  private handlePrepare(body: string): void {
+  private async handlePrepare(body: string): Promise<void> {
     // PIN 校验：本机设了 PIN 就必须带 ?pin= 且完全匹配（PC 端同样返回 401）
     const pin = settingsService.value.pin;
     if (pin.length > 0 && this.param('pin') !== pin) {
@@ -247,22 +248,42 @@ class HttpSession {
       this.respond(401, JSON.stringify({ message: 'Invalid pin' }));
       return;
     }
+
+    let req: PrepareUploadRequestDto;
     try {
-      const req = JSON.parse(body) as PrepareUploadRequestDto;
-      if (req.files === undefined) {
-        this.respond(400, JSON.stringify({ message: 'Missing files' }));
-        return;
-      }
-      // 发送方信息顺带入表，便于界面立刻显示
-      if (req.info !== undefined) {
-        deviceRegistry.upsert(req.info, '');
-      }
-      const resp: PrepareUploadResponseDto = fileReceiver.createSession(req.files, '');
-      this.respond(200, JSON.stringify(resp));
+      req = JSON.parse(body) as PrepareUploadRequestDto;
     } catch (e) {
       Log.w(`prepare-upload 解析失败: ${JSON.stringify(e)}`);
       this.respond(400, JSON.stringify({ message: 'Invalid body' }));
+      return;
     }
+    if (req.files === undefined) {
+      this.respond(400, JSON.stringify({ message: 'Missing files' }));
+      return;
+    }
+
+    const senderAlias = req.info !== undefined && req.info.alias !== undefined ? req.info.alias : '未知设备';
+    // 发送方信息顺带入表，便于界面立刻显示
+    if (req.info !== undefined) {
+      deviceRegistry.upsert(req.info, '');
+    }
+
+    const allIds = Object.keys(req.files);
+    let accepted: string[] = allIds;
+    if (!settingsService.value.autoAccept) {
+      // 挂住连接，等用户在界面上点接收/拒绝（最多 120 秒）
+      Log.i(`等待用户确认接收：${senderAlias} 发来 ${allIds.length} 个文件`);
+      accepted = await receiveRequests.ask(senderAlias, '', req.files, 120000);
+    }
+
+    if (accepted.length === 0) {
+      Log.i('用户拒绝接收，返回 403');
+      this.respond(403, JSON.stringify({ message: 'Declined' }));
+      return;
+    }
+
+    const resp: PrepareUploadResponseDto = fileReceiver.createSession(req.files, '', accepted);
+    this.respond(200, JSON.stringify(resp));
   }
 
   private handleCancel(body: string): void {

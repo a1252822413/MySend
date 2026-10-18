@@ -59,14 +59,15 @@ class FileReceiverImpl {
   }
 
   /** 创建会话并下发每个文件的 token（对应 /prepare-upload 的响应） */
-  createSession(files: Record<string, FileDto>, senderIp: string): PrepareUploadResponseDto {
+  createSession(files: Record<string, FileDto>, senderIp: string, acceptedIds: string[]): PrepareUploadResponseDto {
     const session = new ReceiveSession();
     session.sessionId = FileReceiverImpl.randomHex(16);
     session.senderIp = senderIp;
     session.createdAt = Date.now();
 
     const tokens: Record<string, string> = {};
-    const ids = Object.keys(files);
+    // 只给被接受的文件下发 token：发送方只会传有 token 的文件
+    const ids = acceptedIds;
     for (let i = 0; i < ids.length; i++) {
       const id = ids[i];
       const dto = files[id];

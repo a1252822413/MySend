@@ -8,6 +8,7 @@ import { Log } from '../common/Logger';
 import { Const } from '../common/Constants';
 import { DeviceItem } from '../model/Types';
 import { sendClient, SendFileItem, SendResult } from '../service/SendClient';
+import { receiveRequests, ReceiveRequest } from '../service/ReceiveRequestService';
 import { picker } from '@kit.CoreFileKit';
 import { fileIo as fs } from '@kit.CoreFileKit';
 import { common } from '@kit.AbilityKit';
@@ -44,11 +45,21 @@ struct Index {
   @State currentFile: string = '';
   @State sendTip: string = '';
 
+  // ---- 接收确认弹层状态 ----
+  @State hasRequest: boolean = false;
+  @State reqAlias: string = '';
+  @State reqFiles: ReqFileRow[] = [];
+  @State reqTotal: number = 0;
+  @State reqChecked: string[] = [];
+
   private timerId: number = -1;
 
   aboutToAppear(): void {
     deviceRegistry.setListener(() => {
       this.devices = deviceRegistry.list();
+    });
+    receiveRequests.setListener((req: ReceiveRequest | null) => {
+      this.onReceiveRequest(req);
     });
     this.refreshLocal();
     this.devices = deviceRegistry.list();
@@ -64,6 +75,139 @@ struct Index {
       clearInterval(this.timerId);
       this.timerId = -1;
     }
+  }
+
+  private onReceiveRequest(req: ReceiveRequest | null): void {
+    if (req === null) {
+      this.hasRequest = false;
+      this.reqFiles = [];
+      this.reqChecked = [];
+      return;
+    }
+    const rows: ReqFileRow[] = [];
+    const checked: string[] = [];
+    for (let i = 0; i < req.files.length; i++) {
+      const f = req.files[i];
+      const row = new ReqFileRow();
+      row.id = f.id;
+      row.name = f.fileName;
+      row.size = f.size;
+      rows.push(row);
+      checked.push(f.id);
+    }
+    this.reqAlias = req.alias;
+    this.reqFiles = rows;
+    this.reqTotal = req.totalSize;
+    this.reqChecked = checked;
+    this.hasRequest = true;
+  }
+
+  private isChecked(id: string): boolean {
+    return this.reqChecked.indexOf(id) >= 0;
+  }
+
+  private toggleCheck(id: string): void {
+    const next: string[] = [];
+    let removed = false;
+    for (let i = 0; i < this.reqChecked.length; i++) {
+      if (this.reqChecked[i] === id) {
+        removed = true;
+      } else {
+        next.push(this.reqChecked[i]);
+      }
+    }
+    if (!removed) {
+      next.push(id);
+    }
+    this.reqChecked = next;
+  }
+
+  private selectAll(on: boolean): void {
+    if (!on) {
+      this.reqChecked = [];
+      return;
+    }
+    const all: string[] = [];
+    for (let i = 0; i < this.reqFiles.length; i++) {
+      all.push(this.reqFiles[i].id);
+    }
+    this.reqChecked = all;
+  }
+
+  @Builder
+  ReceiveRequestLayer() {
+    Column() {
+      Column({ space: 12 }) {
+        Text(`${this.reqAlias} 想发送给你`).fontSize(16).fontWeight(FontWeight.Medium).fontColor(TEXT)
+        Text(`${this.reqFiles.length} 个文件 · ${this.humanSize(this.reqTotal)}`)
+          .fontSize(12).fontColor(SUB)
+
+        Row({ space: 16 }) {
+          Text('全选').fontSize(12).fontColor(GREEN).onClick(() => {
+            this.selectAll(true);
+          })
+          Text('全不选').fontSize(12).fontColor(SUB).onClick(() => {
+            this.selectAll(false);
+          })
+        }
+        .width('100%')
+
+        List({ space: 4 }) {
+          ForEach(this.reqFiles, (row: ReqFileRow) => {
+            ListItem() {
+              Row({ space: 10 }) {
+                Text(this.isChecked(row.id) ? '●' : '○')
+                  .fontSize(14).fontColor(this.isChecked(row.id) ? GREEN : SUB)
+                Column({ space: 2 }) {
+                  Text(row.name).fontSize(13).fontColor(TEXT).maxLines(1)
+                    .textOverflow({ overflow: TextOverflow.Ellipsis })
+                  Text(this.humanSize(row.size)).fontSize(11).fontColor(SUB)
+                }
+                .alignItems(HorizontalAlign.Start)
+                .layoutWeight(1)
+              }
+              .width('100%')
+              .padding({ top: 8, bottom: 8 })
+              .onClick(() => {
+                this.toggleCheck(row.id);
+              })
+            }
+          }, (row: ReqFileRow) => row.id)
+        }
+        .height(200)
+        .width('100%')
+
+        Row({ space: 12 }) {
+          Button('拒绝')
+            .layoutWeight(1)
+            .height(38)
+            .backgroundColor('#E9ECEF')
+            .fontColor(TEXT)
+            .borderRadius(8)
+            .onClick(() => {
+              receiveRequests.decide([]);
+            })
+          Button(`接收 (${this.reqChecked.length})`)
+            .layoutWeight(1)
+            .height(38)
+            .backgroundColor(GREEN)
+            .borderRadius(8)
+            .enabled(this.reqChecked.length > 0)
+            .onClick(() => {
+              receiveRequests.decide(this.reqChecked);
+            })
+        }
+        .width('100%')
+      }
+      .padding(20)
+      .width('86%')
+      .backgroundColor(CARD)
+      .borderRadius(16)
+    }
+    .width('100%')
+    .height('100%')
+    .justifyContent(FlexAlign.Center)
+    .backgroundColor('rgba(0,0,0,0.45)')
   }
 
   private refreshLocal(): void {
@@ -106,7 +250,7 @@ struct Index {
       Text(`端口 ${this.port} · ${this.serverState}`)
         .fontSize(12).fontColor(SUB).width('100%')
 
-      Text(`指纹 ${this.fingerprint}`)
+      Text(`指纹 ${this.fingerprint.length > 16 ? this.fingerprint.substring(0, 16) + '…' : this.fingerprint}`)
         .fontSize(11).fontColor(SUB).width('100%').maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
     }
     .alignItems(HorizontalAlign.Start)
@@ -161,7 +305,12 @@ struct Index {
         this.SectionTitle('本机设备', '其他设备通过这个名字找到你')
         this.LocalCard()
 
-        this.SectionTitle('附近设备', `已发现 ${this.devices.length} 台`)
+        Column({ space: 4 }) {
+          Text('附近设备').fontSize(15).fontWeight(FontWeight.Medium).fontColor(TEXT)
+          Text(`已发现 ${this.devices.length} 台`).fontSize(12).fontColor(SUB)
+        }
+        .alignItems(HorizontalAlign.Start)
+        .width('100%')
         Column({ space: 8 }) {
           if (this.devices.length === 0) {
             this.EmptyDevices()
@@ -571,7 +720,8 @@ struct Index {
   }
 
   build() {
-    Column() {
+    Stack() {
+      Column() {
       Row() {
         Text('快传').fontSize(22).fontWeight(FontWeight.Medium).fontColor(TEXT)
         Blank()
@@ -604,11 +754,25 @@ struct Index {
           this.refreshLocal();
         }
       })
-      .barMode(BarMode.Fixed)
-      .layoutWeight(1)
+        .barMode(BarMode.Fixed)
+        .layoutWeight(1)
+      }
+      .width('100%')
+      .height('100%')
+      .backgroundColor(BG)
+
+      if (this.hasRequest) {
+        this.ReceiveRequestLayer()
+      }
     }
     .width('100%')
     .height('100%')
-    .backgroundColor(BG)
   }
+}
+
+/** 接收请求里的文件行 */
+class ReqFileRow {
+  id: string = '';
+  name: string = '';
+  size: number = 0;
 }
