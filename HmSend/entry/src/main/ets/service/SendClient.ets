@@ -134,21 +134,50 @@ class HttpConn {
     }
   }
 
-  /** 等到响应头完整（\r\n\r\n），返回解析出的状态码与 body */
+  /**
+   * 读完整响应：先等响应头，再按 Content-Length 等够 body。
+   * 注意不能只等 \r\n\r\n —— body 可能分多个 TCP 段到达（实测 256B + 5B），
+   * 提前解析会拿到截断的 JSON（报 Unexpected Number in JSON）。
+   */
   async readResponse(timeoutMs: number): Promise<HttpResponse> {
     const deadline = Date.now() + timeoutMs;
     while (Date.now() < deadline) {
       const idx = HttpConn.findHeaderEnd(this.buffer);
       if (idx >= 0) {
         const headText = HttpConn.decode(HttpConn.slice(this.buffer, 0, idx));
-        const bodyBytes = HttpConn.slice(this.buffer, idx + 4, this.buffer.length);
-        const resp = new HttpResponse();
-        resp.parse(headText, HttpConn.decode(bodyBytes));
-        return resp;
+        const contentLength = HttpConn.parseContentLength(headText);
+        const bodyStart = idx + 4;
+        const available = this.buffer.length - bodyStart;
+        // contentLength 未知（-1）时，按"连接关闭"语义，先返回已到达的部分
+        if (contentLength < 0 || available >= contentLength) {
+          const take = contentLength >= 0 ? contentLength : available;
+          const bodyBytes = HttpConn.slice(this.buffer, bodyStart, bodyStart + take);
+          const resp = new HttpResponse();
+          resp.parse(headText, HttpConn.decode(bodyBytes));
+          return resp;
+        }
       }
       await HttpConn.sleep(20);
     }
     throw new Error('等待响应超时');
+  }
+
+  /** 从响应头里取 Content-Length，找不到返回 -1 */
+  static parseContentLength(head: string): number {
+    const lines = head.split('\r\n');
+    for (let i = 1; i < lines.length; i++) {
+      const line = lines[i];
+      const c = line.indexOf(':');
+      if (c <= 0) {
+        continue;
+      }
+      const key = line.substring(0, c).trim().toLowerCase();
+      if (key === 'content-length') {
+        const v = parseInt(line.substring(c + 1).trim(), 10);
+        return isNaN(v) ? -1 : v;
+      }
+    }
+    return -1;
   }
 
   static sleep(ms: number): Promise<void> {
