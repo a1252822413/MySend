@@ -1,6 +1,11 @@
 import { AbilityConstant, ConfigurationConstant, UIAbility, Want } from '@kit.AbilityKit';
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { window } from '@kit.ArkUI';
+import { settingsService } from '../service/SettingsService';
+import { fileReceiver } from '../service/FileReceiver';
+import { httpServer } from '../service/HttpServer';
+import { discoveryService } from '../service/DiscoveryService';
+import { Log } from '../common/Logger';
 
 const DOMAIN = 0x0000;
 
@@ -12,10 +17,24 @@ export default class EntryAbility extends UIAbility {
       hilog.error(DOMAIN, 'testTag', 'Failed to set colorMode. Cause: %{public}s', JSON.stringify(err));
     }
     hilog.info(DOMAIN, 'testTag', '%{public}s', 'Ability onCreate');
+
+    // 服务初始化顺序：设置 -> 文件接收器 -> HTTP(S) 服务 -> 组播发现
+    // 注意：这一步必须在 UI 之前，否则首页读不到本机信息。
+    settingsService.init(this.context);
+    fileReceiver.init(this.context);
+
+    httpServer.start().then(() => {
+      Log.i('接收服务启动完成');
+    });
+    discoveryService.start().then(() => {
+      Log.i('设备发现启动完成');
+    });
   }
 
   onDestroy(): void {
     hilog.info(DOMAIN, 'testTag', '%{public}s', 'Ability onDestroy');
+    discoveryService.stop();
+    httpServer.stop();
   }
 
   onWindowStageCreate(windowStage: window.WindowStage): void {
