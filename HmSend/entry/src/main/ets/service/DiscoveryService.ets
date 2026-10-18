@@ -1,6 +1,11 @@
 // 组播发现：UDP 224.0.0.167:53317 收发公告。
 // 对应 PC 端 Networking/MulticastDiscoveryService.cs。
-import { socket } from '@kit.NetworkKit';
+//
+// 说明：鸿蒙的 MulticastSocket 对 bind 参数很挑剔，不同版本对 family / address 的组合
+// 接受度不一样（实测 bind({0.0.0.0, family:1}) 返回 2301022 Invalid argument）。
+// 这里按「0.0.0.0+family → 0.0.0.0 → 本机 WLAN IP」三级回退，并逐步骤打日志，
+// 方便在真机上直接看出是哪一步不被接受。
+import { socket, connection } from '@kit.NetworkKit';
 import { BusinessError } from '@kit.BasicServicesKit';
 import { util } from '@kit.ArkTS';
 import { Log } from '../common/Logger';
@@ -14,40 +19,111 @@ class DiscoveryServiceImpl {
   private announceTimer: number = -1;
   private running: boolean = false;
 
+  isRunning(): boolean {
+    return this.running;
+  }
+
   async start(): Promise<void> {
     if (this.running) {
       return;
     }
     const port = settingsService.value.port;
     const group = settingsService.value.multicastGroup;
+    Log.i(`组播启动: group=${group} port=${port}`);
 
-    try {
-      const s = socket.constructMulticastSocketInstance();
-      // 绑 0.0.0.0:port 收全部网卡的组播；再单独加入组播组
-      await s.bind({ address: '0.0.0.0', port: port, family: 1 });
-      // 回环打开：LocalSend 的发现依赖"能收到自己发的公告"来确认链路可用
-      await s.setLoopbackMode(true);
-      await s.addMembership({ address: group, port: port, family: 1 });
+    const s = socket.constructMulticastSocketInstance();
 
-      s.on('message', (info: socket.SocketMessageInfo) => {
-        this.onPacket(info);
-      });
-
-      this.sock = s;
-      this.running = true;
-      Log.i(`组播已启动: ${group}:${port}`);
-    } catch (e) {
-      const err = e as BusinessError;
-      Log.e(`组播启动失败: ${err.code} ${err.message}`);
+    const bound = await this.tryBind(s, port);
+    if (!bound) {
+      Log.e('组播: 所有 bind 方式均失败，设备发现不可用');
       return;
     }
 
-    // 立即公告一次，让对方尽快看到自己
+    // 回环：LocalSend 依赖"能收到自己公告"确认链路健康，失败不致命
+    try {
+      await s.setLoopbackMode(true);
+      Log.i('组播: setLoopbackMode(true) 成功');
+    } catch (e) {
+      const err = e as BusinessError;
+      Log.w(`组播: setLoopbackMode 失败 ${err.code} ${err.message}（继续）`);
+    }
+
+    try {
+      await s.addMembership({ address: group, port: port, family: 1 });
+      Log.i(`组播: addMembership ${group} 成功`);
+    } catch (e) {
+      const err = e as BusinessError;
+      Log.e(`组播: addMembership 失败 ${err.code} ${err.message}`);
+      return;
+    }
+
+    s.on('message', (info: socket.SocketMessageInfo) => {
+      this.onPacket(info);
+    });
+
+    this.sock = s;
+    this.running = true;
+    Log.i('组播: 就绪，开始收发公告');
+
     await this.announce();
     this.announceTimer = setInterval(() => {
       this.announce();
       deviceRegistry.purgeOffline();
     }, Const.ANNOUNCE_INTERVAL_MS);
+  }
+
+  /** 三级回退绑定，返回是否成功 */
+  private async tryBind(s: socket.MulticastSocket, port: number): Promise<boolean> {
+    try {
+      await s.bind({ address: '0.0.0.0', port: port, family: 1 });
+      Log.i('组播: bind(0.0.0.0, family=1) 成功');
+      return true;
+    } catch (e) {
+      const err = e as BusinessError;
+      Log.w(`组播: bind(0.0.0.0, family=1) 失败 ${err.code} ${err.message}`);
+    }
+
+    try {
+      await s.bind({ address: '0.0.0.0', port: port });
+      Log.i('组播: bind(0.0.0.0) 成功');
+      return true;
+    } catch (e) {
+      const err = e as BusinessError;
+      Log.w(`组播: bind(0.0.0.0) 失败 ${err.code} ${err.message}`);
+    }
+
+    const ip = await this.localIpv4();
+    if (ip.length > 0) {
+      try {
+        await s.bind({ address: ip, port: port, family: 1 });
+        Log.i(`组播: bind(${ip}) 成功`);
+        return true;
+      } catch (e) {
+        const err = e as BusinessError;
+        Log.w(`组播: bind(${ip}) 失败 ${err.code} ${err.message}`);
+      }
+    } else {
+      Log.w('组播: 未取到本机 WLAN IPv4 地址');
+    }
+    return false;
+  }
+
+  /** 取默认网络（通常 WLAN）的 IPv4 地址 */
+  private async localIpv4(): Promise<string> {
+    try {
+      const net = await connection.getDefaultNet();
+      const props = await connection.getConnectionProperties(net);
+      const addrs = props.linkAddresses;
+      for (let i = 0; i < addrs.length; i++) {
+        const item = addrs[i].address;
+        if (item.family === 1 && item.address.length > 0) {
+          return item.address;
+        }
+      }
+    } catch (e) {
+      Log.w(`获取本机 IP 失败: ${JSON.stringify(e)}`);
+    }
+    return '';
   }
 
   async stop(): Promise<void> {
@@ -84,6 +160,7 @@ class DiscoveryServiceImpl {
           family: 1
         }
       });
+      Log.i(`组播: 已发送公告 (${payload.length}B)`);
     } catch (e) {
       const err = e as BusinessError;
       Log.w(`公告发送失败: ${err.code} ${err.message}`);
@@ -99,11 +176,11 @@ class DiscoveryServiceImpl {
       if (dto.fingerprint === undefined || dto.fingerprint.length === 0) {
         return;
       }
-      // 丢掉自己的公告（回环模式下会收到）
       if (dto.fingerprint === settingsService.effectiveFingerprint()) {
         return;
       }
       const ip = info.remoteInfo.address;
+      Log.i(`组播: 收到公告 ${dto.alias} @ ${ip} (${dto.protocol})`);
       deviceRegistry.upsert(dto, ip);
     } catch (e) {
       Log.w(`公告解析失败: ${JSON.stringify(e)}`);
