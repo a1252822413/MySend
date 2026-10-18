@@ -61,6 +61,7 @@ class HttpConn {
   private tls: socket.TLSSocket | null = null;
   private buffer: Uint8Array = new Uint8Array(0);
   private onData: (() => void) | null = null;
+  private closed: boolean = false;
 
   async connect(secure: boolean, host: string, port: number): Promise<void> {
     if (secure) {
@@ -84,6 +85,9 @@ class HttpConn {
       t.on('error', () => {
         Log.w('TLS 连接报错');
       });
+      t.on('close', () => {
+        this.closed = true;
+      });
       this.tls = t;
     } else {
       const t = socket.constructTCPSocketInstance();
@@ -94,6 +98,9 @@ class HttpConn {
       // 同上：订阅必须在 connect 之后
       t.on('message', (info: socket.SocketMessageInfo) => {
         this.append(new Uint8Array(info.message));
+      });
+      t.on('close', () => {
+        this.closed = true;
       });
       this.tcp = t;
     }
@@ -135,9 +142,11 @@ class HttpConn {
   }
 
   /**
-   * 读完整响应：先等响应头，再按 Content-Length 等够 body。
-   * 注意不能只等 \r\n\r\n —— body 可能分多个 TCP 段到达（实测 256B + 5B），
-   * 提前解析会拿到截断的 JSON（报 Unexpected Number in JSON）。
+   * 读完整响应。
+   * 三种 body 边界都要处理：
+   *   1) Content-Length（最理想）
+   *   2) Transfer-Encoding: chunked（Kestrel 对 JSON 响应常用，实测踩到）
+   *   3) 连接关闭（兜底）
    */
   async readResponse(timeoutMs: number): Promise<HttpResponse> {
     const deadline = Date.now() + timeoutMs;
@@ -145,21 +154,81 @@ class HttpConn {
       const idx = HttpConn.findHeaderEnd(this.buffer);
       if (idx >= 0) {
         const headText = HttpConn.decode(HttpConn.slice(this.buffer, 0, idx));
-        const contentLength = HttpConn.parseContentLength(headText);
         const bodyStart = idx + 4;
-        const available = this.buffer.length - bodyStart;
-        // contentLength 未知（-1）时，按"连接关闭"语义，先返回已到达的部分
-        if (contentLength < 0 || available >= contentLength) {
-          const take = contentLength >= 0 ? contentLength : available;
-          const bodyBytes = HttpConn.slice(this.buffer, bodyStart, bodyStart + take);
-          const resp = new HttpResponse();
-          resp.parse(headText, HttpConn.decode(bodyBytes));
-          return resp;
+        const bodyBytes = HttpConn.slice(this.buffer, bodyStart, this.buffer.length);
+
+        if (HttpConn.isChunked(headText)) {
+          const chunk = HttpConn.decodeChunked(bodyBytes);
+          if (chunk.complete || this.closed) {
+            const resp = new HttpResponse();
+            resp.parse(headText, chunk.text);
+            return resp;
+          }
+        } else {
+          const contentLength = HttpConn.parseContentLength(headText);
+          if (contentLength >= 0 && bodyBytes.length >= contentLength) {
+            const resp = new HttpResponse();
+            resp.parse(headText, HttpConn.decode(HttpConn.slice(bodyBytes, 0, contentLength)));
+            return resp;
+          }
+          if (contentLength < 0 && this.closed) {
+            const resp = new HttpResponse();
+            resp.parse(headText, HttpConn.decode(bodyBytes));
+            return resp;
+          }
         }
+      } else if (this.closed) {
+        throw new Error('连接已关闭但未收到完整响应头');
       }
       await HttpConn.sleep(20);
     }
+    // 超时兜底：把已收到的内容交给上层，便于日志排查
+    Log.w(`响应超时，已收 ${this.buffer.length}B，首部=${HttpConn.decode(HttpConn.slice(this.buffer, 0, Math.min(120, this.buffer.length)))}`);
     throw new Error('等待响应超时');
+  }
+
+  static isChunked(head: string): boolean {
+    return head.toLowerCase().indexOf('transfer-encoding: chunked') >= 0;
+  }
+
+  /** 解析 chunked 编码；数据不完整时返回 complete=false */
+  static decodeChunked(bytes: Uint8Array): ChunkResult {
+    const result = new ChunkResult();
+    let pos = 0;
+    let out = '';
+    while (pos < bytes.length) {
+      let lineEnd = -1;
+      for (let i = pos; i + 1 < bytes.length; i++) {
+        if (bytes[i] === 13 && bytes[i + 1] === 10) {
+          lineEnd = i;
+          break;
+        }
+      }
+      if (lineEnd < 0) {
+        return result;
+      }
+      const sizeText = HttpConn.decode(HttpConn.slice(bytes, pos, lineEnd)).trim();
+      const size = parseInt(sizeText, 16);
+      if (isNaN(size)) {
+        result.text = out;
+        result.complete = true; // 解析不了就别卡住
+        return result;
+      }
+      pos = lineEnd + 2;
+      if (size === 0) {
+        result.text = out;
+        result.complete = true;
+        return result;
+      }
+      if (pos + size + 2 > bytes.length) {
+        result.text = out;
+        return result;
+      }
+      out += HttpConn.decode(HttpConn.slice(bytes, pos, pos + size));
+      pos += size + 2;
+    }
+    result.text = out;
+    return result;
   }
 
   /** 从响应头里取 Content-Length，找不到返回 -1 */
@@ -214,6 +283,11 @@ class HttpConn {
       return '';
     }
   }
+}
+
+export class ChunkResult {
+  complete: boolean = false;
+  text: string = '';
 }
 
 export class HttpResponse {
@@ -393,6 +467,20 @@ class SendClientImpl {
           // 忽略
         }
       }
+      await conn.close();
+    }
+  }
+
+  /** 取对端 info 的原始 body（自检用，验证 chunked 解码） */
+  async fetchInfo(device: DeviceItem): Promise<string> {
+    const conn = new HttpConn();
+    try {
+      await conn.connect(device.protocol === 'https', device.ip, device.port);
+      await conn.send(`GET ${Const.PATH_INFO} HTTP/1.1\r\nHost: ${device.ip}:${device.port}\r\nConnection: close\r\n\r\n`);
+      const resp = await conn.readResponse(10000);
+      Log.i(`fetchInfo status=${resp.status} bodyLen=${resp.body.length}`);
+      return resp.body;
+    } finally {
       await conn.close();
     }
   }
