@@ -23,4 +23,6 @@ export class Const {
 
   /** 接收文件默认落在应用沙箱的这个子目录。 */
   static readonly RECEIVED_DIR_NAME: string = 'received';
+  /** 系统「下载」下的子目录名（能写公共目录时优先用它） */
+  static readonly PUBLIC_DIR_NAME: string = '快传';
 }

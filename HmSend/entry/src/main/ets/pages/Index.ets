@@ -15,6 +15,7 @@ import { shareInbox, ShareFile } from '../service/ShareInbox';
 import { picker, fileUri } from '@kit.CoreFileKit';
 import { fileIo as fs } from '@kit.CoreFileKit';
 import { common, wantConstant } from '@kit.AbilityKit';
+import { pasteboard, BusinessError } from '@kit.BasicServicesKit';
 import { fileReceiver, ReceiveProgress } from '../service/FileReceiver';
 import { notifyService } from '../service/NotifyService';
 import { AppState } from '../common/AppState';
@@ -25,6 +26,12 @@ const CARD: string = '#FFFFFF';
 const TEXT: string = '#1A1D21';
 const SUB: string = '#6B7280';
 const LINE: string = '#E5E7EB';
+
+/** 另存结果（把失败原因带回界面，避免只显示一句「失败」） */
+class SaveResult {
+  ok: boolean = false;
+  message: string = '';
+}
 
 @Entry
 @Component
@@ -324,7 +331,8 @@ struct Index {
         this.getUIContext().getPromptAction().showToast({ message: text, duration: 2500 });
       }
       // 系统通知：后台/锁屏时靠它提醒
-      notifyService.notify(1001, '接收完成', text);
+      notifyService.notify(1001, '接收完成',
+        `${text}，可在「历史」里另存到下载`);
       this.sendTip = text;
       if (this.currentTab === 2) {
         this.history = historyService.list();
@@ -405,45 +413,84 @@ struct Index {
   /** 用系统应用打开已接收的文件 */
   private openReceivedFile(path: string): void {
     if (path.length === 0) {
-      this.getUIContext().getPromptAction().showToast({ message: '该记录没有文件路径' });
+      this.getUIContext().getPromptAction().showToast({ message: '这条记录来自旧版本，没有保存路径' });
       return;
     }
     try {
       if (!fs.accessSync(path)) {
-        this.getUIContext().getPromptAction().showToast({ message: '文件已不存在' });
+        this.getUIContext().getPromptAction().showToast({ message: '文件已不存在（可能被清理了）' });
         return;
       }
     } catch (e) {
-      this.getUIContext().getPromptAction().showToast({ message: '文件已不存在' });
+      this.getUIContext().getPromptAction().showToast({ message: '文件已不存在（可能被清理了）' });
       return;
     }
     const slash = path.lastIndexOf('/');
     const name = slash >= 0 ? path.substring(slash + 1) : path;
     const mime = this.mimeOf(name);
-    if (mime.length === 0) {
-      this.getUIContext().getPromptAction().showToast({ message: '该类型暂无关联应用，可用「另存」导出后打开' });
-      return;
-    }
     const ctx = this.getUIContext().getHostContext() as common.UIAbilityContext;
     const uri = fileUri.getUriFromPath(path);
+    Log.i(`打开文件: ${path} type=${mime.length > 0 ? mime : '(未识别)'} uri=${uri}`);
+
+    // 未知类型也试一次：交给系统按扩展名匹配，比直接拒绝更容易成功
     ctx.startAbility({
       action: 'ohos.want.action.viewData',
       uri: uri,
-      type: mime,
+      type: mime.length > 0 ? mime : 'application/octet-stream',
       flags: wantConstant.Flags.FLAG_AUTH_READ_URI_PERMISSION
     }).catch((e: Error) => {
       Log.w(`打开文件失败: ${String(e)}`);
-      this.getUIContext().getPromptAction().showToast({ message: '没有可打开该文件的应用' });
+      this.getUIContext().getPromptAction().showToast({ message: '没有可打开该文件的应用，可用「另存」导出' });
     });
   }
 
-  /** 把沙箱里的文件另存到用户选的位置（文件管理/相册等） */
+  /** 打开接收目录（优先让文件管理直达目录，失败则至少把文件管理拉起来） */
+  private openReceiveFolder(): void {
+    const dir = fileReceiver.receivedDir();
+    const ctx = this.getUIContext().getHostContext() as common.UIAbilityContext;
+    Log.i(`打开接收目录: ${dir}`);
+    let uri = '';
+    try {
+      uri = fileUri.getUriFromPath(dir);
+    } catch (e) {
+      Log.w(`目录转 uri 失败: ${String(e)}`);
+    }
+    if (uri.length > 0) {
+      ctx.startAbility({
+        action: 'ohos.want.action.viewData',
+        uri: uri,
+        type: 'general.directory',
+        flags: wantConstant.Flags.FLAG_AUTH_READ_URI_PERMISSION
+      }).then(() => {
+        Log.i('文件管理已按目录拉起');
+      }).catch((e: Error) => {
+        Log.w(`按目录拉起失败: ${String(e)}，改为直接启动文件管理`);
+        this.launchFileManager(ctx);
+      });
+      return;
+    }
+    this.launchFileManager(ctx);
+  }
+
+  private launchFileManager(ctx: common.UIAbilityContext): void {
+    ctx.startAbility({
+      bundleName: 'com.huawei.hmos.files',
+      abilityName: 'EntryAbility'
+    }).catch((e: Error) => {
+      Log.w(`启动文件管理失败: ${String(e)}`);
+      this.getUIContext().getPromptAction().showToast({ message: '打不开文件管理，可先「复制路径」' });
+    });
+  }
+
+  /** 把文件另存到用户选的位置（文件管理/相册等） */
   private async saveAs(path: string): Promise<void> {
     if (path.length === 0) {
+      this.getUIContext().getPromptAction().showToast({ message: '这条记录来自旧版本，没有保存路径' });
       return;
     }
     const slash = path.lastIndexOf('/');
     const name = slash >= 0 ? path.substring(slash + 1) : 'file';
+    let dstUri = '';
     try {
       const ctx = this.getUIContext().getHostContext() as common.UIAbilityContext;
       const p = new picker.DocumentViewPicker(ctx);
@@ -451,11 +498,103 @@ struct Index {
       if (uris.length === 0) {
         return;
       }
-      await fs.copyFile(path, uris[0]);
-      this.getUIContext().getPromptAction().showToast({ message: '已保存到所选位置' });
+      dstUri = uris[0];
+      Log.i(`另存目标 uri: ${dstUri}`);
     } catch (e) {
-      Log.e(`另存失败: ${String(e)}`);
-      this.getUIContext().getPromptAction().showToast({ message: '另存失败' });
+      const err = e as BusinessError;
+      Log.e(`选择保存位置失败 ${err.code} ${err.message}`);
+      this.getUIContext().getPromptAction().showToast({ message: `选择保存位置失败(${err.code})` });
+      return;
+    }
+
+    const res = await this.copyToUri(path, dstUri);
+    Log.i(`另存结果 ok=${res.ok} ${res.message}`);
+    this.getUIContext().getPromptAction().showToast({
+      message: res.ok ? '已保存，可在文件管理中查看' : `保存失败(${res.message})`
+    });
+  }
+
+  /**
+   * 把文件写进 picker 返回的目标 URI。
+   * picker.save() 已经建好空文件并把临时读写权限授予本应用，所以这里：
+   *   1) 先用 uri 打开文件句柄，再用 copyFile(源路径, 目标 fd) 交给原生层拷贝（GB 级也不占内存）；
+   *   2) 失败再退回流式 read/write；
+   *   3) 两步都失败时把错误码带出来，方便定位是权限还是参数问题。
+   */
+  private async copyToUri(srcPath: string, dstUri: string): Promise<SaveResult> {
+    // 1) open + copyFile(fd)
+    let handle: fs.File | null = null;
+    try {
+      handle = fs.openSync(dstUri, fs.OpenMode.READ_WRITE);
+      fs.copyFileSync(srcPath, handle.fd);
+      Log.i('另存：copyFile(uri fd) 成功');
+      return { ok: true, message: 'ok' };
+    } catch (e) {
+      const err = e as BusinessError;
+      Log.w(`另存：copyFile 失败 ${err.code} ${err.message}，改流式写入`);
+    } finally {
+      if (handle !== null) {
+        try {
+          fs.closeSync(handle);
+        } catch (e) {
+        }
+        handle = null;
+      }
+    }
+
+    // 2) 流式读写
+    let srcFd = -1;
+    let dstFd = -1;
+    try {
+      srcFd = fs.openSync(srcPath, fs.OpenMode.READ_ONLY).fd;
+      dstFd = fs.openSync(dstUri, fs.OpenMode.READ_WRITE | fs.OpenMode.TRUNC).fd;
+      const buf = new ArrayBuffer(64 * 1024);
+      let total = 0;
+      while (true) {
+        const n = fs.readSync(srcFd, buf);
+        if (n <= 0) {
+          break;
+        }
+        // 最后一次可能读不满，必须按实际长度写，否则会多写脏数据
+        if (n === buf.byteLength) {
+          fs.writeSync(dstFd, buf);
+        } else {
+          fs.writeSync(dstFd, buf.slice(0, n));
+        }
+        total += n;
+      }
+      Log.i(`另存：流式写入完成 ${total} 字节`);
+      return { ok: true, message: 'ok' };
+    } catch (e) {
+      const err = e as BusinessError;
+      Log.e(`另存：流式写入失败 ${err.code} ${err.message}`);
+      return { ok: false, message: `${err.code}` };
+    } finally {
+      if (srcFd >= 0) {
+        try {
+          fs.closeSync(srcFd);
+        } catch (e) {
+        }
+      }
+      if (dstFd >= 0) {
+        try {
+          fs.closeSync(dstFd);
+        } catch (e) {
+        }
+      }
+    }
+  }
+
+  /** 复制接收目录路径到剪贴板 */
+  private copyDir(): void {
+    const dir = fileReceiver.receivedDir();
+    try {
+      const data = pasteboard.createData(pasteboard.MIMETYPE_TEXT_PLAIN, dir);
+      pasteboard.getSystemPasteboard().setDataSync(data);
+      this.getUIContext().getPromptAction().showToast({ message: '路径已复制' });
+    } catch (e) {
+      Log.w(`复制路径失败: ${String(e)}`);
+      this.getUIContext().getPromptAction().showToast({ message: '复制失败' });
     }
   }
 
@@ -1063,18 +1202,44 @@ struct Index {
         .border({ width: 1, color: LINE })
         .width('100%')
 
-        this.SectionTitle('接收目录', '收到的文件保存在应用沙箱内，可在历史记录里打开')
-        Column({ space: 6 }) {
+        this.SectionTitle('接收目录', fileReceiver.isPublicDir()
+          ? '文件直接存到系统「下载」，可在文件管理中查看'
+          : '手机系统不允许第三方应用直接写「下载」，文件先存应用沙箱')
+        Column({ space: 8 }) {
           Text(fileReceiver.receivedDir())
             .fontSize(11)
             .fontColor(SUB)
             .copyOption(CopyOptions.LocalDevice)
             .width('100%')
             .textAlign(TextAlign.Start)
-          Text('长按可复制路径。删除应用或清理数据会一并删除这些文件。')
+          Text(fileReceiver.isPublicDir()
+            ? '在「文件管理 → 我的手机 → Download → 快传」中可以看到这些文件。'
+            : '要放到「下载」：在历史记录里点「另存」，选择器默认就停在 Download，一步确认即可（大文件走原生拷贝，实测 420MB 秒级完成）。')
             .fontSize(11)
             .fontColor(SUB)
             .width('100%')
+          Row({ space: 8 }) {
+            Blank()
+            Text('打开文件夹')
+              .fontSize(12)
+              .fontColor(SUB)
+              .padding({ left: 12, right: 12, top: 6, bottom: 6 })
+              .borderRadius(12)
+              .border({ width: 1, color: LINE })
+              .onClick(() => {
+                this.openReceiveFolder();
+              })
+            Text('复制路径')
+              .fontSize(12)
+              .fontColor(GREEN)
+              .padding({ left: 12, right: 12, top: 6, bottom: 6 })
+              .borderRadius(12)
+              .border({ width: 1, color: GREEN })
+              .onClick(() => {
+                this.copyDir();
+              })
+          }
+          .width('100%')
         }
         .padding(16)
         .backgroundColor(CARD)

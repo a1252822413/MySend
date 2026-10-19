@@ -5,8 +5,9 @@
 //   1) 路径穿越防护：绝对路径 / ".." / 盘符 一律拒绝
 //   2) 文件名冲突自动加 _1/_2 后缀
 //   3) 大文件流式写入，绝不整包进内存
-import { fileIo as fs } from '@kit.CoreFileKit';
+import { fileIo as fs, Environment } from '@kit.CoreFileKit';
 import { common } from '@kit.AbilityKit';
+import { BusinessError } from '@kit.BasicServicesKit';
 import { Log } from '../common/Logger';
 import { Const } from '../common/Constants';
 import { FileDto, PrepareUploadResponseDto } from '../model/Types';
@@ -62,6 +63,8 @@ export class OpenFileResult {
 
 class FileReceiverImpl {
   private baseDir: string = '';
+  /** true 表示落在系统「下载」目录（用户能在文件管理里直接看到） */
+  private publicDir: boolean = false;
   private sessions: Map<string, ReceiveSession> = new Map<string, ReceiveSession>();
   private progressListener: ((p: ReceiveProgress) => void) | null = null;
   private lastEmitAt: number = 0;
@@ -119,15 +122,80 @@ class FileReceiverImpl {
   }
 
   init(context: common.Context): void {
-    this.baseDir = `${context.filesDir}/${Const.RECEIVED_DIR_NAME}`;
+    const sandboxDir = `${context.filesDir}/${Const.RECEIVED_DIR_NAME}`;
+
+    // 优先用系统「下载」目录：用户能在文件管理里直接看到，也能被其他应用访问。
+    // 沙箱目录对普通应用更安全，但用户找不到文件（系统也不允许在文件管理里浏览
+    // 其他应用的沙箱），所以能写公共目录时优先公共目录。
+    //
+    // 手机上 Environment.getUserDownloadDir() 会抛 801（缺 FolderObtain syscap，
+    // 该能力只在 2in1 上提供），所以还要用公共目录的真实路径再探一次。
+    this.baseDir = sandboxDir;
+    this.publicDir = false;
+
+    const candidates: string[] = [];
     try {
-      if (!fs.accessSync(this.baseDir)) {
-        fs.mkdirSync(this.baseDir);
+      const d = Environment.getUserDownloadDir();
+      if (d.length > 0) {
+        candidates.push(d);
+        Log.i(`Environment.getUserDownloadDir() = ${d}`);
       }
     } catch (e) {
-      Log.e(`接收目录创建失败: ${JSON.stringify(e)}`);
+      const err = e as BusinessError;
+      Log.w(`Environment.getUserDownloadDir() 不可用 ${err.code} ${err.message}`);
     }
-    Log.i(`接收目录: ${this.baseDir}`);
+    // 公共目录固定挂载路径（手机端文件管理里的「我的手机/Download」）
+    candidates.push('/storage/Users/currentUser/Download');
+    candidates.push('/storage/media/100/local/files/Download');
+
+    for (let i = 0; i < candidates.length; i++) {
+      const target = `${candidates[i]}/${Const.PUBLIC_DIR_NAME}`;
+      Log.i(`探测公共目录[${i}]: ${target}`);
+      if (FileReceiverImpl.probeWritable(target)) {
+        this.baseDir = target;
+        this.publicDir = true;
+        Log.i(`接收目录使用公共下载目录: ${target}`);
+        break;
+      }
+    }
+    if (!this.publicDir) {
+      Log.w('公共下载目录都不可写，回退到应用沙箱');
+    }
+
+    this.ensureDir(this.baseDir);
+    Log.i(`接收目录: ${this.baseDir}（${this.publicDir ? '系统下载' : '应用沙箱'}）`);
+  }
+
+  /** 是否落在系统下载目录 */
+  isPublicDir(): boolean {
+    return this.publicDir;
+  }
+
+  private ensureDir(dir: string): void {
+    try {
+      if (!fs.accessSync(dir)) {
+        fs.mkdirSync(dir, true);
+      }
+    } catch (e) {
+      Log.e(`接收目录创建失败 ${dir}: ${JSON.stringify(e)}`);
+    }
+  }
+
+  /** 探测目录可写：能建目录 + 能写一个临时文件，才算可用 */
+  private static probeWritable(dir: string): boolean {
+    try {
+      fs.mkdirSync(dir, true);
+      const probe = `${dir}/.kc_write_probe`;
+      const f = fs.openSync(probe, fs.OpenMode.READ_WRITE | fs.OpenMode.CREATE | fs.OpenMode.TRUNC);
+      fs.writeSync(f.fd, 'ok');
+      fs.closeSync(f.fd);
+      fs.unlinkSync(probe);
+      return true;
+    } catch (e) {
+      const err = e as BusinessError;
+      Log.w(`目录不可写 ${dir}: ${err.code} ${err.message}`);
+      return false;
+    }
   }
 
   /** 创建会话并下发每个文件的 token（对应 /prepare-upload 的响应） */
