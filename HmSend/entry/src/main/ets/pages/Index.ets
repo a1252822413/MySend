@@ -11,6 +11,7 @@ import { sendClient, SendFileItem, SendResult } from '../service/SendClient';
 import { receiveRequests, ReceiveRequest } from '../service/ReceiveRequestService';
 import { historyService, HistoryRecord } from '../service/HistoryService';
 import { subnetScanner } from '../service/SubnetScanner';
+import { shareInbox, ShareFile } from '../service/ShareInbox';
 import { picker } from '@kit.CoreFileKit';
 import { fileIo as fs } from '@kit.CoreFileKit';
 import { common } from '@kit.AbilityKit';
@@ -70,6 +71,15 @@ struct Index {
     receiveRequests.setListener((req: ReceiveRequest | null) => {
       this.onReceiveRequest(req);
     });
+    // 运行中从别的应用分享进来：直接填到发送页
+    shareInbox.setListener((files: ShareFile[]) => {
+      this.applyShareFiles(files);
+    });
+    // 冷启动就是分享场景：want 可能比页面更早到达
+    const pending = shareInbox.take();
+    if (pending.length > 0) {
+      this.applyShareFiles(pending);
+    }
     this.refreshLocal();
     this.devices = deviceRegistry.list();
     this.history = historyService.list();
@@ -222,6 +232,29 @@ struct Index {
     .height('100%')
     .justifyContent(FlexAlign.Center)
     .backgroundColor('rgba(0,0,0,0.45)')
+  }
+
+  /** 把分享进来的文件填到发送页，并切过去让用户选设备 */
+  private applyShareFiles(files: ShareFile[]): void {
+    if (files.length === 0) {
+      return;
+    }
+    const next: SendFileItem[] = [];
+    for (let i = 0; i < this.sendFiles.length; i++) {
+      next.push(this.sendFiles[i]);
+    }
+    for (let i = 0; i < files.length; i++) {
+      const item = new SendFileItem();
+      item.path = files[i].path;
+      item.name = files[i].name;
+      item.size = files[i].size;
+      item.mime = 'application/octet-stream';
+      next.push(item);
+    }
+    this.sendFiles = next;
+    this.currentTab = 1;
+    this.sendTip = `已从分享添加 ${files.length} 个文件，请选择设备后发送`;
+    Log.i(`分享文件已填入发送页，共 ${next.length} 个待发`);
   }
 
   private refreshLocal(): void {

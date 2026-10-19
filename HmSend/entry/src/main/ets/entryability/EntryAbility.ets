@@ -8,6 +8,7 @@ import { httpServer } from '../service/HttpServer';
 import { discoveryService } from '../service/DiscoveryService';
 import { Log } from '../common/Logger';
 import { backgroundKeeper } from '../service/BackgroundKeeper';
+import { shareInbox } from '../service/ShareInbox';
 
 const DOMAIN = 0x0000;
 
@@ -32,6 +33,15 @@ export default class EntryAbility extends UIAbility {
     discoveryService.start().then(() => {
       Log.i('设备发现启动完成');
     });
+
+    // 若本次是从系统分享面板拉起的，把文件导入后交给发送页
+    shareInbox.intake(want, this.context);
+  }
+
+  onNewWant(want: Want, launchParam: AbilityConstant.LaunchParam): void {
+    hilog.info(DOMAIN, 'testTag', '%{public}s', 'Ability onNewWant');
+    // 应用已在运行时从别的应用分享进来
+    shareInbox.intake(want, this.context);
   }
 
   onDestroy(): void {
