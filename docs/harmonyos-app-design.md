@@ -369,6 +369,20 @@ Rust 协议核心 + NAPI，TLS 在 Rust 侧实现。方向上互为印证。
 实测扫到 `XIAOXIAO-PC @ 192.168.3.190`。并发 16、单次 1s 超时，全段约 20-30s。
 注意：该入口必须放在 `Scroll` 之外（见 §11.3）。
 
+### 11.7 系统分享面板（sendData）
+
+`module.json5` 的 EntryAbility 增加：
+
+```json5
+{ "actions": ["ohos.want.action.sendData"],
+  "uris": [{ "type": "general.file" }, { "type": "general.image" },
+           { "type": "general.video" }, { "type": "general.audio" }] }
+```
+
+文件 URI 在 `want.parameters['ability.params.stream']`（string 数组），单个文件时也兼容 `want.uri`。
+**必须先把文件复制进沙箱**（`cacheDir/shares`）再发送：分享授予的读权限是临时的，
+而传输可能持续几十秒到几分钟。`onCreate` 与 `onNewWant` 都要处理（冷启动/运行中）。
+
 ### 11.3 其它已踩实的坑
 
 - **客户端 socket 必须先 `bind` 再 `connect`**：否则 `send()` 报 `2303600 No bind socket`。
