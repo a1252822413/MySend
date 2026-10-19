@@ -2,15 +2,15 @@
   "string": [
     {
       "name": "module_desc",
-      "value": "module description"
+      "value": "快传主模块"
     },
     {
       "name": "EntryAbility_desc",
-      "value": "description"
+      "value": "局域网文件快传"
     },
     {
       "name": "EntryAbility_label",
-      "value": "label"
+      "value": "快传"
     }
   ]
 }

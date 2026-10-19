@@ -9,6 +9,8 @@ import { discoveryService } from '../service/DiscoveryService';
 import { Log } from '../common/Logger';
 import { backgroundKeeper } from '../service/BackgroundKeeper';
 import { shareInbox } from '../service/ShareInbox';
+import { notifyService } from '../service/NotifyService';
+import { AppState } from '../common/AppState';
 
 const DOMAIN = 0x0000;
 
@@ -26,6 +28,7 @@ export default class EntryAbility extends UIAbility {
     settingsService.init(this.context);
     fileReceiver.init(this.context);
     historyService.init(this.context);
+    notifyService.init(this.context);
 
     httpServer.start().then(() => {
       Log.i('接收服务启动完成');
@@ -70,12 +73,14 @@ export default class EntryAbility extends UIAbility {
 
   onForeground(): void {
     hilog.info(DOMAIN, 'testTag', '%{public}s', 'Ability onForeground');
+    AppState.foreground = true;
     // 回到前台就不再需要长时任务，及时释放（合规要求）
     backgroundKeeper.stop(this.context);
   }
 
   onBackground(): void {
     hilog.info(DOMAIN, 'testTag', '%{public}s', 'Ability onBackground');
+    AppState.foreground = false;
     // 切到后台申请长时任务，保证仍能接收文件
     backgroundKeeper.start(this.context);
   }

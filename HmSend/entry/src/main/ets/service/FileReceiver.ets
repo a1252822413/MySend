@@ -40,6 +40,20 @@ export class ReceiveSession {
   doneCount: number = 0;
 }
 
+/** 接收进度（供界面展示；active=false 表示本次会话已结束） */
+export class ReceiveProgress {
+  active: boolean = false;
+  senderAlias: string = '';
+  /** 当前文件 */
+  fileName: string = '';
+  received: number = 0;
+  total: number = 0;
+  /** 字节/秒（滑动估算，可能为 0） */
+  speed: number = 0;
+  doneFiles: number = 0;
+  totalFiles: number = 0;
+}
+
 export class OpenFileResult {
   statusCode: number = 400;
   message: string = '';
@@ -49,6 +63,60 @@ export class OpenFileResult {
 class FileReceiverImpl {
   private baseDir: string = '';
   private sessions: Map<string, ReceiveSession> = new Map<string, ReceiveSession>();
+  private progressListener: ((p: ReceiveProgress) => void) | null = null;
+  private lastEmitAt: number = 0;
+  private lastBytes: number = 0;
+  private lastTime: number = 0;
+
+  /** 订阅接收进度（界面用） */
+  setProgressListener(cb: (p: ReceiveProgress) => void): void {
+    this.progressListener = cb;
+  }
+
+  /** 接收目录（设置页展示用） */
+  receivedDir(): string {
+    return this.baseDir;
+  }
+
+  /**
+   * 汇总会话进度并回调。
+   * 节流 150ms：8KB 一个数据块，全速时每秒上百次回调，不节流会拖慢界面。
+   */
+  private emitProgress(session: ReceiveSession, fileName: string, active: boolean, force: boolean): void {
+    const cb = this.progressListener;
+    if (cb === null) {
+      return;
+    }
+    const now = Date.now();
+    if (!force && now - this.lastEmitAt < 150) {
+      return;
+    }
+    let received = 0;
+    let total = 0;
+    session.files.forEach((f: ReceiveFile) => {
+      received += f.received;
+      total += f.size;
+    });
+    const dt = now - this.lastTime;
+    let speed = 0;
+    if (dt > 0 && this.lastTime > 0) {
+      speed = Math.round((received - this.lastBytes) * 1000 / dt);
+    }
+    this.lastEmitAt = now;
+    this.lastTime = now;
+    this.lastBytes = received;
+
+    const p = new ReceiveProgress();
+    p.active = active;
+    p.senderAlias = session.senderAlias;
+    p.fileName = fileName;
+    p.received = received;
+    p.total = total;
+    p.speed = speed > 0 ? speed : 0;
+    p.doneFiles = session.doneCount;
+    p.totalFiles = session.files.size;
+    cb(p);
+  }
 
   init(context: common.Context): void {
     this.baseDir = `${context.filesDir}/${Const.RECEIVED_DIR_NAME}`;
@@ -128,6 +196,10 @@ class FileReceiverImpl {
       result.statusCode = 200;
       result.file = file;
       Log.i(`开始接收 ${file.fileName} -> ${target}`);
+      // 新会话起点：重置速度采样
+      this.lastBytes = 0;
+      this.lastTime = Date.now();
+      this.emitProgress(session, file.fileName, true, true);
     } catch (e) {
       result.statusCode = 500;
       result.message = `Open failed: ${JSON.stringify(e)}`;
@@ -153,6 +225,10 @@ class FileReceiverImpl {
     file.queue.push(copy);
     file.received += copy.length;
     this.drain(file);
+    const session = this.sessions.get(file.sessionId);
+    if (session !== undefined) {
+      this.emitProgress(session, file.fileName, true, false);
+    }
     return copy.length;
   }
 
@@ -232,11 +308,13 @@ class FileReceiverImpl {
       const hf = new HistoryFile();
       hf.name = f.fileName;
       hf.size = f.size;
+      hf.path = f.absPath;
       record.files.push(hf);
       total += f.size;
     });
     record.totalSize = total;
     historyService.add(record);
+    this.emitProgress(session, '', false, true);
     this.sessions.delete(session.sessionId);
   }
 
@@ -256,6 +334,7 @@ class FileReceiverImpl {
         }
       }
     });
+    this.emitProgress(session, '', false, true);
     this.sessions.delete(sessionId);
     Log.i(`会话取消 ${sessionId.substring(0, 8)}`);
     return true;

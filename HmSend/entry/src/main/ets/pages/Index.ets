@@ -12,9 +12,12 @@ import { receiveRequests, ReceiveRequest } from '../service/ReceiveRequestServic
 import { historyService, HistoryRecord } from '../service/HistoryService';
 import { subnetScanner } from '../service/SubnetScanner';
 import { shareInbox, ShareFile } from '../service/ShareInbox';
-import { picker } from '@kit.CoreFileKit';
+import { picker, fileUri } from '@kit.CoreFileKit';
 import { fileIo as fs } from '@kit.CoreFileKit';
-import { common } from '@kit.AbilityKit';
+import { common, wantConstant } from '@kit.AbilityKit';
+import { fileReceiver, ReceiveProgress } from '../service/FileReceiver';
+import { notifyService } from '../service/NotifyService';
+import { AppState } from '../common/AppState';
 
 const GREEN: string = '#16A34A';
 const BG: string = '#F3F5F7';
@@ -62,6 +65,15 @@ struct Index {
   @State scanning: boolean = false;
   @State scanText: string = '';
 
+  // ---- 接收进度 ----
+  @State rxActive: boolean = false;
+  @State rxName: string = '';
+  @State rxReceived: number = 0;
+  @State rxTotal: number = 0;
+  @State rxSpeed: number = 0;
+  @State rxDoneFiles: number = 0;
+  @State rxTotalFiles: number = 0;
+
   private timerId: number = -1;
 
   aboutToAppear(): void {
@@ -70,6 +82,10 @@ struct Index {
     });
     receiveRequests.setListener((req: ReceiveRequest | null) => {
       this.onReceiveRequest(req);
+    });
+    // 接收进度（含完成事件）
+    fileReceiver.setProgressListener((p: ReceiveProgress) => {
+      this.onReceiveProgress(p);
     });
     // 运行中从别的应用分享进来：直接填到发送页
     shareInbox.setListener((files: ShareFile[]) => {
@@ -158,6 +174,50 @@ struct Index {
     this.reqChecked = all;
   }
 
+  /** 接收进度浮层：任何页面都能看到（PC 发文件时用户可能不在接收页） */
+  @Builder
+  RxProgressCard() {
+    Column({ space: 6 }) {
+      Row() {
+        Text('正在接收').fontSize(12).fontColor(Color.White)
+        Blank()
+        Text(`${this.rxDoneFiles}/${this.rxTotalFiles}`).fontSize(11).fontColor('#D1FAE5')
+      }
+      .width('100%')
+
+      Text(this.rxName)
+        .fontSize(13)
+        .fontColor(Color.White)
+        .maxLines(1)
+        .textOverflow({ overflow: TextOverflow.Ellipsis })
+        .width('100%')
+
+      Progress({
+        value: this.rxTotal > 0 ? (this.rxReceived / this.rxTotal) * 100 : 0,
+        total: 100,
+        type: ProgressType.Linear
+      })
+        .width('100%')
+        .height(4)
+        .color('#A7F3D0')
+        .backgroundColor('#15803D')
+
+      Row() {
+        Text(this.humanSize(this.rxReceived) + ' / ' + this.humanSize(this.rxTotal))
+          .fontSize(11).fontColor('#D1FAE5')
+        Blank()
+        Text(this.rxSpeed > 0 ? `${this.humanSize(this.rxSpeed)}/s` : '')
+          .fontSize(11).fontColor('#D1FAE5')
+      }
+      .width('100%')
+    }
+    .padding(14)
+    .margin({ left: 16, right: 16, bottom: 76 })
+    .backgroundColor('#166534')
+    .borderRadius(14)
+    .width('calc(100% - 32vp)')
+  }
+
   @Builder
   ReceiveRequestLayer() {
     Column() {
@@ -232,6 +292,171 @@ struct Index {
     .height('100%')
     .justifyContent(FlexAlign.Center)
     .backgroundColor('rgba(0,0,0,0.45)')
+  }
+
+  /** 接收进度回调：驱动进度卡片；会话结束时提示 + 发通知 */
+  private onReceiveProgress(p: ReceiveProgress): void {
+    if (p.active) {
+      this.rxActive = true;
+      this.rxName = p.fileName;
+      this.rxReceived = p.received;
+      this.rxTotal = p.total;
+      this.rxSpeed = p.speed;
+      this.rxDoneFiles = p.doneFiles;
+      this.rxTotalFiles = p.totalFiles;
+      return;
+    }
+
+    // 会话结束
+    const doneFiles = p.doneFiles;
+    const totalFiles = p.totalFiles;
+    const total = p.total;
+    this.rxActive = false;
+    this.rxSpeed = 0;
+
+    if (totalFiles > 0 && doneFiles >= totalFiles) {
+      const text = totalFiles === 1
+        ? `已接收 ${this.rxName.length > 0 ? this.rxName : '文件'}（${this.humanSize(total)}）`
+        : `已接收 ${totalFiles} 个文件（${this.humanSize(total)}）`;
+      Log.i(`接收会话完成：${text}`);
+      // 应用内：toast（前台才有意义）
+      if (AppState.foreground) {
+        this.getUIContext().getPromptAction().showToast({ message: text, duration: 2500 });
+      }
+      // 系统通知：后台/锁屏时靠它提醒
+      notifyService.notify(1001, '接收完成', text);
+      this.sendTip = text;
+      if (this.currentTab === 2) {
+        this.history = historyService.list();
+      }
+    }
+  }
+
+  /** 按扩展名推断 MIME：给不出类型就不要发起打开（否则系统会弹一个选择框，连自己都列进去） */
+  private mimeOf(fileName: string): string {
+    const dot = fileName.lastIndexOf('.');
+    if (dot < 0) {
+      return '';
+    }
+    const ext = fileName.substring(dot + 1).toLowerCase();
+    if (ext === 'jpg' || ext === 'jpeg') {
+      return 'image/jpeg';
+    }
+    if (ext === 'png') {
+      return 'image/png';
+    }
+    if (ext === 'gif') {
+      return 'image/gif';
+    }
+    if (ext === 'webp') {
+      return 'image/webp';
+    }
+    if (ext === 'heic' || ext === 'heif') {
+      return 'image/heic';
+    }
+    if (ext === 'mp4') {
+      return 'video/mp4';
+    }
+    if (ext === 'mov') {
+      return 'video/quicktime';
+    }
+    if (ext === 'mp3') {
+      return 'audio/mpeg';
+    }
+    if (ext === 'm4a') {
+      return 'audio/mp4';
+    }
+    if (ext === 'wav') {
+      return 'audio/wav';
+    }
+    if (ext === 'pdf') {
+      return 'application/pdf';
+    }
+    if (ext === 'txt' || ext === 'md' || ext === 'log') {
+      return 'text/plain';
+    }
+    if (ext === 'doc') {
+      return 'application/msword';
+    }
+    if (ext === 'docx') {
+      return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+    }
+    if (ext === 'xls') {
+      return 'application/vnd.ms-excel';
+    }
+    if (ext === 'xlsx') {
+      return 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+    }
+    if (ext === 'ppt') {
+      return 'application/vnd.ms-powerpoint';
+    }
+    if (ext === 'pptx') {
+      return 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
+    }
+    if (ext === 'zip') {
+      return 'application/zip';
+    }
+    if (ext === 'apk') {
+      return 'application/vnd.android.package-archive';
+    }
+    return '';
+  }
+
+  /** 用系统应用打开已接收的文件 */
+  private openReceivedFile(path: string): void {
+    if (path.length === 0) {
+      this.getUIContext().getPromptAction().showToast({ message: '该记录没有文件路径' });
+      return;
+    }
+    try {
+      if (!fs.accessSync(path)) {
+        this.getUIContext().getPromptAction().showToast({ message: '文件已不存在' });
+        return;
+      }
+    } catch (e) {
+      this.getUIContext().getPromptAction().showToast({ message: '文件已不存在' });
+      return;
+    }
+    const slash = path.lastIndexOf('/');
+    const name = slash >= 0 ? path.substring(slash + 1) : path;
+    const mime = this.mimeOf(name);
+    if (mime.length === 0) {
+      this.getUIContext().getPromptAction().showToast({ message: '该类型暂无关联应用，可用「另存」导出后打开' });
+      return;
+    }
+    const ctx = this.getUIContext().getHostContext() as common.UIAbilityContext;
+    const uri = fileUri.getUriFromPath(path);
+    ctx.startAbility({
+      action: 'ohos.want.action.viewData',
+      uri: uri,
+      type: mime,
+      flags: wantConstant.Flags.FLAG_AUTH_READ_URI_PERMISSION
+    }).catch((e: Error) => {
+      Log.w(`打开文件失败: ${String(e)}`);
+      this.getUIContext().getPromptAction().showToast({ message: '没有可打开该文件的应用' });
+    });
+  }
+
+  /** 把沙箱里的文件另存到用户选的位置（文件管理/相册等） */
+  private async saveAs(path: string): Promise<void> {
+    if (path.length === 0) {
+      return;
+    }
+    const slash = path.lastIndexOf('/');
+    const name = slash >= 0 ? path.substring(slash + 1) : 'file';
+    try {
+      const ctx = this.getUIContext().getHostContext() as common.UIAbilityContext;
+      const p = new picker.DocumentViewPicker(ctx);
+      const uris = await p.save({ newFileNames: [name] });
+      if (uris.length === 0) {
+        return;
+      }
+      await fs.copyFile(path, uris[0]);
+      this.getUIContext().getPromptAction().showToast({ message: '已保存到所选位置' });
+    } catch (e) {
+      Log.e(`另存失败: ${String(e)}`);
+      this.getUIContext().getPromptAction().showToast({ message: '另存失败' });
+    }
   }
 
   /** 把分享进来的文件填到发送页，并切过去让用户选设备 */
@@ -731,13 +956,40 @@ struct Index {
                   .textOverflow({ overflow: TextOverflow.Ellipsis })
                   .width('100%')
 
-                Text(this.timeOf(rec.timestamp)).fontSize(11).fontColor(SUB).width('100%')
+                Row() {
+                  Text(this.timeOf(rec.timestamp)).fontSize(11).fontColor(SUB)
+                  Blank()
+                  if (rec.direction === 'receive' && this.firstPath(rec).length > 0) {
+                    Text('另存')
+                      .fontSize(11)
+                      .fontColor(SUB)
+                      .padding({ left: 10, right: 10, top: 4, bottom: 4 })
+                      .borderRadius(10)
+                      .border({ width: 1, color: LINE })
+                      .margin({ right: 8 })
+                      .onClick(() => {
+                        this.saveAs(this.firstPath(rec));
+                      })
+                    Text('打开')
+                      .fontSize(11)
+                      .fontColor(GREEN)
+                      .padding({ left: 10, right: 10, top: 4, bottom: 4 })
+                      .borderRadius(10)
+                      .border({ width: 1, color: GREEN })
+                  }
+                }
+                .width('100%')
               }
               .padding(12)
               .backgroundColor(CARD)
               .borderRadius(12)
               .border({ width: 1, color: LINE })
               .width('100%')
+              .onClick(() => {
+                if (rec.direction === 'receive') {
+                  this.openReceivedFile(this.firstPath(rec));
+                }
+              })
             }
           }, (rec: HistoryRecord) => rec.id)
         }
@@ -750,6 +1002,17 @@ struct Index {
     .backgroundColor(BG)
     .width('100%')
     .height('100%')
+  }
+
+  /** 历史记录里第一个文件的路径（接收记录才有） */
+  private firstPath(rec: HistoryRecord): string {
+    for (let i = 0; i < rec.files.length; i++) {
+      const f = rec.files[i];
+      if (f.path !== undefined && f.path.length > 0) {
+        return f.path;
+      }
+    }
+    return '';
   }
 
   private summaryOf(rec: HistoryRecord): string {
@@ -799,6 +1062,26 @@ struct Index {
         .borderRadius(12)
         .border({ width: 1, color: LINE })
         .width('100%')
+
+        this.SectionTitle('接收目录', '收到的文件保存在应用沙箱内，可在历史记录里打开')
+        Column({ space: 6 }) {
+          Text(fileReceiver.receivedDir())
+            .fontSize(11)
+            .fontColor(SUB)
+            .copyOption(CopyOptions.LocalDevice)
+            .width('100%')
+            .textAlign(TextAlign.Start)
+          Text('长按可复制路径。删除应用或清理数据会一并删除这些文件。')
+            .fontSize(11)
+            .fontColor(SUB)
+            .width('100%')
+        }
+        .padding(16)
+        .backgroundColor(CARD)
+        .borderRadius(12)
+        .border({ width: 1, color: LINE })
+        .width('100%')
+        .alignItems(HorizontalAlign.Start)
 
         this.SectionTitle('连接与安全', '改完即时生效')
 
@@ -941,6 +1224,16 @@ struct Index {
       .width('100%')
       .height('100%')
       .backgroundColor(BG)
+
+      if (this.rxActive) {
+        Column() {
+          this.RxProgressCard()
+        }
+        .width('100%')
+        .height('100%')
+        .justifyContent(FlexAlign.End)
+        .hitTestBehavior(HitTestMode.Transparent)
+      }
 
       if (this.hasRequest) {
         this.ReceiveRequestLayer()

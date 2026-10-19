@@ -7,6 +7,8 @@ import { Log } from '../common/Logger';
 export class HistoryFile {
   name: string = '';
   size: number = 0;
+  /** 接收文件的绝对路径（用于「打开」；发送记录为空） */
+  path: string = '';
 }
 
 export class HistoryRecord {

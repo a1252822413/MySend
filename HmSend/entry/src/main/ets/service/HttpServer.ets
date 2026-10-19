@@ -44,9 +44,6 @@ class HttpSession {
 
   /** 非空表示本次请求是上传，直接流式写盘 */
   private uploadFile: ReceiveFile | null = null;
-  /** 鸿蒙 TLS 的原生缓冲只有等到"有新数据"才会继续下发（见下方 nudge 说明） */
-  private nudgeTimer: number = -1;
-  private lastDataAt: number = 0;
   /** prepareRoute 是异步的（要等文件句柄打开），期间到达的数据块必须先暂存，
       否则会被误当成请求体缓存 → 上传丢数据。 */
   private preparing: boolean = false;
@@ -159,19 +156,11 @@ class HttpSession {
       return;
     }
     this.uploadFile = result.file;
-    this.lastDataAt = Date.now();
-    // 看门狗：鸿蒙的 TLS 实现把多余数据缓在原生层，只有在"又收到新数据"时才继续
-    // 投递 message 事件。客户端发完最后一段就静默了，于是尾部数据永远不上来。
-    // 对策：检测到 400ms 没有新数据且请求体未收完，就发一个空 TLS 记录去踢一下。
-    this.nudgeTimer = setInterval(() => {
-      this.checkStall();
-    }, 300);
   }
 
   private onBody(data: Uint8Array): void {
     const file = this.uploadFile;
     if (file !== null) {
-      this.lastDataAt = Date.now();
       const written = fileReceiver.write(file, data);
       this.bodyReceived += written;
       // 诊断：大文件传输时观察分块大小与累计进度
@@ -320,35 +309,7 @@ class HttpSession {
     return HttpSession.decode(merged);
   }
 
-  /** 停滞检测：必要时发空记录触发原生缓冲下发 */
-  private checkStall(): void {
-    if (this.responded || this.uploadFile === null) {
-      this.stopNudge();
-      return;
-    }
-    if (this.bodyReceived >= this.contentLength) {
-      this.stopNudge();
-      return;
-    }
-    if (Date.now() - this.lastDataAt < 400) {
-      return;
-    }
-    Log.i(`上传停滞 ${this.bodyReceived}/${this.contentLength}，发送空记录触发下发`);
-    this.conn.sendFn(new ArrayBuffer(0)).catch((e: BusinessError) => {
-      Log.w(`空记录发送失败: ${e.code} ${e.message}`);
-    });
-    this.lastDataAt = Date.now();
-  }
-
-  private stopNudge(): void {
-    if (this.nudgeTimer !== -1) {
-      clearInterval(this.nudgeTimer);
-      this.nudgeTimer = -1;
-    }
-  }
-
   private respond(code: number, body: string): void {
-    this.stopNudge();
     if (this.responded) {
       return;
     }
