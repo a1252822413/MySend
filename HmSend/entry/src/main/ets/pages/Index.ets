@@ -310,11 +310,7 @@ struct Index {
       if (this.scanning) {
         Text(`正在扫描局域网 ${this.scanText}`).fontSize(11).fontColor(SUB).margin({ top: 4 })
       } else {
-        Text('一直找不到？试试扫描局域网')
-          .fontSize(12).fontColor(GREEN).margin({ top: 6 })
-          .onClick(() => {
-            this.doScan();
-          })
+        Text('一直找不到？点右上角「扫描局域网」').fontSize(12).fontColor(SUB).margin({ top: 6 })
       }
     }
     .width('100%')
@@ -329,13 +325,19 @@ struct Index {
     }
     this.scanning = true;
     this.scanText = '0/254';
-    const found = await subnetScanner.scan((done: number, total: number) => {
-      this.scanText = `${done}/${total}`;
-    });
+    try {
+      const found = await subnetScanner.scan((done: number, total: number) => {
+        this.scanText = `${done}/${total}`;
+      });
+      this.devices = deviceRegistry.list();
+      this.sendTip = found > 0 ? `扫描完成，新发现 ${found} 台设备` : '扫描完成，没有发现新设备';
+      Log.i(`扫描结束：新发现 ${found} 台`);
+    } catch (e) {
+      Log.e(`扫描异常: ${String(e)}`);
+      this.sendTip = '扫描失败';
+    }
     this.scanning = false;
     this.scanText = '';
-    this.devices = deviceRegistry.list();
-    this.sendTip = found > 0 ? `扫描完成，新发现 ${found} 台设备` : '扫描完成，没有发现新设备';
   }
 
   @Builder
@@ -347,7 +349,8 @@ struct Index {
 
         Column({ space: 4 }) {
           Text('附近设备').fontSize(15).fontWeight(FontWeight.Medium).fontColor(TEXT)
-          Text(`已发现 ${this.devices.length} 台`).fontSize(12).fontColor(SUB)
+          Text(this.scanning ? `正在扫描局域网 ${this.scanText}` : `已发现 ${this.devices.length} 台`)
+            .fontSize(12).fontColor(SUB)
         }
         .alignItems(HorizontalAlign.Start)
         .width('100%')
@@ -841,9 +844,26 @@ struct Index {
   build() {
     Stack() {
       Column() {
-      Row() {
+      Row({ space: 8 }) {
         Text('快传').fontSize(22).fontWeight(FontWeight.Medium).fontColor(TEXT)
         Blank()
+        // 扫描入口放在 Scroll 之外：实测放在 Scroll 内的 Text/Button 点击不响应，
+        // 这里固定在标题栏，任何页面状态下都能点。
+        if (this.currentTab === 0) {
+          Button(this.scanning ? '扫描中…' : '扫描局域网')
+            .fontSize(11)
+            .fontColor(this.scanning ? SUB : GREEN)
+            .height(28)
+            .padding({ left: 12, right: 12 })
+            .backgroundColor(Color.Transparent)
+            .borderRadius(14)
+            .border({ width: 1, color: this.scanning ? LINE : GREEN })
+            .enabled(!this.scanning)
+            .onClick(() => {
+              Log.i('点击「扫描局域网」');
+              this.doScan();
+            })
+        }
         Text(this.devices.length > 0 ? `${this.devices.length} 台在线` : '搜索中…')
           .fontSize(12).fontColor(SUB)
       }

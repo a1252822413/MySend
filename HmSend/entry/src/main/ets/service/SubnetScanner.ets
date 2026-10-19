@@ -55,6 +55,13 @@ class SubnetScannerImpl {
         if (onTick !== undefined) {
           onTick(done, total);
         }
+        // 给系统一点时间回收上一批的 socket：鸿蒙对并发 fd 数量敏感，
+        // 连续高并发探测会导致后续 connect 直接失败（表现为"扫不到设备"）。
+        await new Promise<void>((resolve: () => void) => {
+          setTimeout(() => {
+            resolve();
+          }, 30);
+        });
       }
       Log.i(`子网扫描完成：新发现 ${found} 台`);
     } catch (e) {
@@ -70,7 +77,7 @@ class SubnetScannerImpl {
     const probe = new DeviceItem('', '', ip, port);
     probe.protocol = secure ? 'https' : 'http';
     try {
-      const body = await sendClient.fetchInfo(probe, 1200);
+      const body = await sendClient.fetchInfo(probe, 1000);
       if (body.length === 0) {
         return 0;
       }

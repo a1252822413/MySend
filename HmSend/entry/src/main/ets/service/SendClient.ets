@@ -67,17 +67,24 @@ class HttpConn {
   async connect(secure: boolean, host: string, port: number, timeoutMs: number = 12000): Promise<void> {
     if (secure) {
       const t = socket.constructTLSSocketInstance();
-      // 鸿蒙要求先 bind 再 connect，否则 send 时报 2303600 No bind socket
-      await HttpConn.withTimeout(t.bind({ address: '0.0.0.0', port: 0, family: 1 }), 5000, 'tls.bind');
-      Log.i(`TLS bind 完成，开始 connect ${host}:${port}`);
-      await HttpConn.withTimeout(t.connect({
-        address: { address: host, port: port, family: 1 },
-        // 对端是自签名证书（PC/手机各自生成），跳过校验以避免信任链问题
-        secureOptions: { ca: [TlsCerts.CERT_PEM] },
-        skipRemoteValidation: true,
-        timeout: 10000
-      }), timeoutMs, 'tls.connect');
-      Log.i(`TLS connect 完成 ${host}:${port}`);
+      // 先挂到 this 上：连接失败/超时时 close() 才能释放它。
+      // （之前是 connect 成功后才赋值，导致探测失败时 socket 泄漏，
+      //   子网扫描 254 个 IP 累积后 fd 用尽，后续探测全部失败。）
+      this.tls = t;
+      try {
+        // 鸿蒙要求先 bind 再 connect，否则 send 时报 2303600 No bind socket
+        await HttpConn.withTimeout(t.bind({ address: '0.0.0.0', port: 0, family: 1 }), 5000, 'tls.bind');
+        await HttpConn.withTimeout(t.connect({
+          address: { address: host, port: port, family: 1 },
+          // 对端是自签名证书（PC/手机各自生成），跳过校验以避免信任链问题
+          secureOptions: { ca: [TlsCerts.CERT_PEM] },
+          skipRemoteValidation: true,
+          timeout: 10000
+        }), timeoutMs, 'tls.connect');
+      } catch (e) {
+        await this.close();
+        throw e as Error;
+      }
       // 关键：事件订阅必须在 connect 之后注册。
       // 在 bind/connect 之前注册的 'message' 不会生效（实测收不到任何数据）。
       t.on('message', (info: socket.SocketMessageInfo) => {
@@ -89,13 +96,17 @@ class HttpConn {
       t.on('close', () => {
         this.closed = true;
       });
-      this.tls = t;
     } else {
       const t = socket.constructTCPSocketInstance();
-      // 同上：客户端 socket 必须先 bind
-      await HttpConn.withTimeout(t.bind({ address: '0.0.0.0', port: 0, family: 1 }), 5000, 'tcp.bind');
-      await HttpConn.withTimeout(t.connect({ address: { address: host, port: port, family: 1 }, timeout: 10000 }), timeoutMs, 'tcp.connect');
-      Log.i(`TCP connect 完成 ${host}:${port}`);
+      this.tcp = t;
+      try {
+        // 同上：客户端 socket 必须先 bind
+        await HttpConn.withTimeout(t.bind({ address: '0.0.0.0', port: 0, family: 1 }), 5000, 'tcp.bind');
+        await HttpConn.withTimeout(t.connect({ address: { address: host, port: port, family: 1 }, timeout: 10000 }), timeoutMs, 'tcp.connect');
+      } catch (e) {
+        await this.close();
+        throw e as Error;
+      }
       // 同上：订阅必须在 connect 之后
       t.on('message', (info: socket.SocketMessageInfo) => {
         this.append(new Uint8Array(info.message));
@@ -118,11 +129,10 @@ class HttpConn {
   async close(): Promise<void> {
     try {
       if (this.tls !== null) {
-        await HttpConn.withTimeout(this.tls.close(), 3000, 'tls.close');
+        await HttpConn.withTimeout(this.tls.close(), 800, 'tls.close');
       } else if (this.tcp !== null) {
-        await HttpConn.withTimeout(this.tcp.close(), 3000, 'tcp.close');
+        await HttpConn.withTimeout(this.tcp.close(), 800, 'tcp.close');
       }
-      Log.i('连接已关闭');
     } catch (e) {
       Log.w(`关闭连接异常: ${String(e)}`);
     }

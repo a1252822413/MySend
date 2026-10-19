@@ -17,6 +17,7 @@ class DeviceRegistryImpl {
     if (dto.fingerprint === undefined || dto.fingerprint.length === 0) {
       return;
     }
+    const hasIp = ip.length > 0;
     const existing = this.devices.get(dto.fingerprint);
     if (existing !== undefined) {
       existing.alias = dto.alias;
@@ -25,8 +26,15 @@ class DeviceRegistryImpl {
       existing.port = dto.port;
       existing.protocol = dto.protocol;
       existing.download = dto.download;
-      existing.ip = ip;
+      // 只有拿到真实 IP 时才覆盖：prepare-upload 注册进来时没有 IP，
+      // 若直接写空串会把组播发现到的好 IP 抹掉，导致列表里出现"不能发送的设备"。
+      if (hasIp) {
+        existing.ip = ip;
+      }
       existing.lastSeen = Date.now();
+    } else if (!hasIp) {
+      // 没有 IP 的设备无法发送，也不该出现在"附近设备"里，直接忽略
+      return;
     } else {
       const item = new DeviceItem(dto.alias, dto.fingerprint, ip, dto.port);
       item.deviceModel = dto.deviceModel;
