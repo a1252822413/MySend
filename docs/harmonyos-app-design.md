@@ -352,6 +352,23 @@ entry/src/main/ets/service/HttpServer.ets  // ArkTS 侧用 ConnAdapter 把字节
 参考：`HandySend`（Apache-2.0，已上架华为应用市场）采用同一思路——
 Rust 协议核心 + NAPI，TLS 在 Rust 侧实现。方向上互为印证。
 
+### 11.5 后台常驻实测（dataTransfer 长时任务）
+
+| 操作 | 日志 | 结果 |
+|---|---|---|
+| 按 Home 切后台 | `已进入后台长时任务（dataTransfer）` | 通知栏出现长时任务 |
+| 后台 + 锁屏，传 20MB | `开始接收 …` → `接收完成 (20971520/20971520)` | ✅ HTTP 200 / 9.6s |
+| 回前台 | `已退出后台长时任务` | 及时释放 |
+
+`dataTransfer` 类型无需 AGC 审批，但要求通知可见、业务结束即停，所以 `onForeground`
+必须调 `stopBackgroundRunning`，不能常驻。
+
+### 11.6 子网扫描（组播被拦时的兜底）
+
+用户点击标题栏「扫描局域网」→ 逐 IP 调 `GET /info`，命中即写入设备表。
+实测扫到 `XIAOXIAO-PC @ 192.168.3.190`。并发 16、单次 1s 超时，全段约 20-30s。
+注意：该入口必须放在 `Scroll` 之外（见 §11.3）。
+
 ### 11.3 其它已踩实的坑
 
 - **客户端 socket 必须先 `bind` 再 `connect`**：否则 `send()` 报 `2303600 No bind socket`。
@@ -362,6 +379,17 @@ Rust 协议核心 + NAPI，TLS 在 Rust 侧实现。方向上互为印证。
 - `TLSSocketConnection.send(data)` 直接收 payload；`TCPSocketConnection.send({data})` 要包一层。
 - `TextEncoder.encodeInto('')` 在 ArkTS 会抛异常，空响应体必须单独判空（否则 upload 的 200 永远发不出去）。
 - 不要在 `on('message')` 回调里同步 `send`，用 `setTimeout(0)` 跳出回调上下文。
+- **`Scroll` 内的 `Text` / `Button` 点击可能不响应**：同一个页面上 Tab 栏、`Column` 里的
+  chip 都能点，唯独 `Scroll` 里的按钮点不动（坐标换算已用 Tab 栏验证过是对的）。
+  解决：把入口移到 `Scroll` 之外（如标题栏）。排查手法是先点一个已知有反馈的控件
+  验证坐标映射，确认坐标没问题后再怀疑容器。
+- **连接失败必须显式释放 socket**：`connect()` 里若把 `this.tls = t` 写在 `await connect`
+  之后，超时/失败路径 `close()` 就拿不到引用 → socket 泄漏。子网扫描 254 个 IP 时
+  fd 用尽，后续探测全部失败（表现为「扫描完成，新发现 0 台」，但设备明明在线）。
+- **`close()` 的超时不要设太长**：失败连接上限 3s 会把 254 个 IP 的扫描从 20s 拖到 74s，
+  改成 800ms 后明显好转。
+- **单纯锁屏不会触发 `onBackground`**：只有按 Home / 切到其他应用才触发。
+  因此「锁屏能不能收文件」要靠长时任务 + 进程仍在，验证时要先切后台再锁屏才是真实场景。
 - 调试期记录：设备锁屏时 `aa start` 报 10106102；`hilog -x` 只保留约 1 分钟。
 
 ## 附：为什么这份方案不承诺"支持竞品的三个协议"
