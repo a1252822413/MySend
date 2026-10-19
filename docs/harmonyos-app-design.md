@@ -383,6 +383,18 @@ Rust 协议核心 + NAPI，TLS 在 Rust 侧实现。方向上互为印证。
 **必须先把文件复制进沙箱**（`cacheDir/shares`）再发送：分享授予的读权限是临时的，
 而传输可能持续几十秒到几分钟。`onCreate` 与 `onNewWant` 都要处理（冷启动/运行中）。
 
+### 11.8 接收体验（进度 / 提醒 / 文件位置）
+
+- **进度**：`FileReceiver` 提供 `setProgressListener`，按会话汇总（已收/总量 + 当前文件 +
+  速度 + 完成文件数），150ms 节流。界面用全局浮层（Tab 栏上方），任意页面都能看到。
+- **完成提醒**：前台 `promptAction.showToast` + 系统通知（`notificationManager.publish`）。
+  通知未授权时返回 `1600004`，首次失败会自动 `requestEnableNotification` 一次。
+- **文件位置**：沙箱 `filesDir/received`（绝对路径形如
+  `/data/storage/el2/base/haps/entry/files/received`），设置页展示并可复制。
+  历史记录的接收项支持「打开」（按扩展名给 MIME，精确拉系统应用）与「另存」
+  （`DocumentViewPicker.save()` 导出到文件管理/相册）。
+  注意：不给 MIME 直接 `viewData` 会弹出"选择应用"框，连本应用自己都会列进去。
+
 ### 11.3 其它已踩实的坑
 
 - **客户端 socket 必须先 `bind` 再 `connect`**：否则 `send()` 报 `2303600 No bind socket`。
@@ -404,6 +416,11 @@ Rust 协议核心 + NAPI，TLS 在 Rust 侧实现。方向上互为印证。
   改成 800ms 后明显好转。
 - **单纯锁屏不会触发 `onBackground`**：只有按 Home / 切到其他应用才触发。
   因此「锁屏能不能收文件」要靠长时任务 + 进程仍在，验证时要先切后台再锁屏才是真实场景。
+- **换成 native TLS 后必须删掉旧的"停滞看门狗"**：那段代码是给 `TLSSocketServer`
+  写的补丁（400ms 无数据就发一个空 TLS 记录去"踢"）。原生 OpenSSL 下它会在 JS 线程
+  并发调用 `SSL_write`，与读线程的 `SSL_read` 抢同一个 `SSL` 对象，把流搅乱。
+  症状：**限速上传（如 2.5MB/s）会永久卡在某个整数 MB**，日志狂刷「上传停滞」。
+  移除后限速 20MB 恢复正常（9.16s）。全速传输因为几乎不会触发看门狗，所以之前没暴露。
 - 调试期记录：设备锁屏时 `aa start` 报 10106102；`hilog -x` 只保留约 1 分钟。
 
 ## 附：为什么这份方案不承诺"支持竞品的三个协议"
