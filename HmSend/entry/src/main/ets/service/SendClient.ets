@@ -64,7 +64,7 @@ class HttpConn {
   private onData: (() => void) | null = null;
   private closed: boolean = false;
 
-  async connect(secure: boolean, host: string, port: number): Promise<void> {
+  async connect(secure: boolean, host: string, port: number, timeoutMs: number = 12000): Promise<void> {
     if (secure) {
       const t = socket.constructTLSSocketInstance();
       // 鸿蒙要求先 bind 再 connect，否则 send 时报 2303600 No bind socket
@@ -76,7 +76,7 @@ class HttpConn {
         secureOptions: { ca: [TlsCerts.CERT_PEM] },
         skipRemoteValidation: true,
         timeout: 10000
-      }), 12000, 'tls.connect');
+      }), timeoutMs, 'tls.connect');
       Log.i(`TLS connect 完成 ${host}:${port}`);
       // 关键：事件订阅必须在 connect 之后注册。
       // 在 bind/connect 之前注册的 'message' 不会生效（实测收不到任何数据）。
@@ -94,7 +94,7 @@ class HttpConn {
       const t = socket.constructTCPSocketInstance();
       // 同上：客户端 socket 必须先 bind
       await HttpConn.withTimeout(t.bind({ address: '0.0.0.0', port: 0, family: 1 }), 5000, 'tcp.bind');
-      await HttpConn.withTimeout(t.connect({ address: { address: host, port: port, family: 1 }, timeout: 10000 }), 12000, 'tcp.connect');
+      await HttpConn.withTimeout(t.connect({ address: { address: host, port: port, family: 1 }, timeout: 10000 }), timeoutMs, 'tcp.connect');
       Log.i(`TCP connect 完成 ${host}:${port}`);
       // 同上：订阅必须在 connect 之后
       t.on('message', (info: socket.SocketMessageInfo) => {
@@ -493,12 +493,12 @@ class SendClientImpl {
   }
 
   /** 取对端 info 的原始 body（自检用，验证 chunked 解码） */
-  async fetchInfo(device: DeviceItem): Promise<string> {
+  async fetchInfo(device: DeviceItem, timeoutMs: number = 12000): Promise<string> {
     const conn = new HttpConn();
     try {
-      await conn.connect(device.protocol === 'https', device.ip, device.port);
+      await conn.connect(device.protocol === 'https', device.ip, device.port, timeoutMs);
       await conn.send(`GET ${Const.PATH_INFO} HTTP/1.1\r\nHost: ${device.ip}:${device.port}\r\nConnection: close\r\n\r\n`);
-      const resp = await conn.readResponse(10000);
+      const resp = await conn.readResponse(Math.max(2000, timeoutMs));
       Log.i(`fetchInfo status=${resp.status} bodyLen=${resp.body.length}`);
       return resp.body;
     } finally {

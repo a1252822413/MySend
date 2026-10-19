@@ -10,6 +10,7 @@ import { DeviceItem } from '../model/Types';
 import { sendClient, SendFileItem, SendResult } from '../service/SendClient';
 import { receiveRequests, ReceiveRequest } from '../service/ReceiveRequestService';
 import { historyService, HistoryRecord } from '../service/HistoryService';
+import { subnetScanner } from '../service/SubnetScanner';
 import { picker } from '@kit.CoreFileKit';
 import { fileIo as fs } from '@kit.CoreFileKit';
 import { common } from '@kit.AbilityKit';
@@ -55,6 +56,10 @@ struct Index {
 
   // ---- 历史页 ----
   @State history: HistoryRecord[] = [];
+
+  // ---- 子网扫描 ----
+  @State scanning: boolean = false;
+  @State scanText: string = '';
 
   private timerId: number = -1;
 
@@ -301,10 +306,36 @@ struct Index {
     Column({ space: 8 }) {
       Text('正在搜索附近设备…').fontSize(14).fontWeight(FontWeight.Medium).fontColor(TEXT)
       Text('确保对方设备已打开快传，并连接同一 Wi-Fi').fontSize(12).fontColor(SUB)
+
+      if (this.scanning) {
+        Text(`正在扫描局域网 ${this.scanText}`).fontSize(11).fontColor(SUB).margin({ top: 4 })
+      } else {
+        Text('一直找不到？试试扫描局域网')
+          .fontSize(12).fontColor(GREEN).margin({ top: 6 })
+          .onClick(() => {
+            this.doScan();
+          })
+      }
     }
     .width('100%')
     .padding({ top: 32, bottom: 32 })
     .alignItems(HorizontalAlign.Center)
+  }
+
+  /** 组播被拦时的兜底：逐个 IP 探测 /info */
+  private async doScan(): Promise<void> {
+    if (this.scanning) {
+      return;
+    }
+    this.scanning = true;
+    this.scanText = '0/254';
+    const found = await subnetScanner.scan((done: number, total: number) => {
+      this.scanText = `${done}/${total}`;
+    });
+    this.scanning = false;
+    this.scanText = '';
+    this.devices = deviceRegistry.list();
+    this.sendTip = found > 0 ? `扫描完成，新发现 ${found} 台设备` : '扫描完成，没有发现新设备';
   }
 
   @Builder
