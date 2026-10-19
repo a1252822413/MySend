@@ -330,7 +330,13 @@ struct Index {
         this.scanText = `${done}/${total}`;
       });
       this.devices = deviceRegistry.list();
-      this.sendTip = found > 0 ? `扫描完成，新发现 ${found} 台设备` : '扫描完成，没有发现新设备';
+      if (found > 0) {
+        this.sendTip = `扫描完成，新发现 ${found} 台设备`;
+      } else if (this.devices.length > 0) {
+        this.sendTip = `扫描完成，${this.devices.length} 台设备在线`;
+      } else {
+        this.sendTip = '扫描完成，没有发现设备';
+      }
       Log.i(`扫描结束：新发现 ${found} 台`);
     } catch (e) {
       Log.e(`扫描异常: ${String(e)}`);

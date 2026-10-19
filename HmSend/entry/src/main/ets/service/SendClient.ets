@@ -82,7 +82,11 @@ class HttpConn {
           timeout: 10000
         }), timeoutMs, 'tls.connect');
       } catch (e) {
-        await this.close();
+        // 不 await：close 自身有 800ms 超时，若阻塞会让子网扫描慢一倍。
+        // 这里只发起释放，让底层异步回收。
+        this.close().then(() => {
+        }).catch(() => {
+        });
         throw e as Error;
       }
       // 关键：事件订阅必须在 connect 之后注册。
@@ -104,7 +108,9 @@ class HttpConn {
         await HttpConn.withTimeout(t.bind({ address: '0.0.0.0', port: 0, family: 1 }), 5000, 'tcp.bind');
         await HttpConn.withTimeout(t.connect({ address: { address: host, port: port, family: 1 }, timeout: 10000 }), timeoutMs, 'tcp.connect');
       } catch (e) {
-        await this.close();
+        this.close().then(() => {
+        }).catch(() => {
+        });
         throw e as Error;
       }
       // 同上：订阅必须在 connect 之后

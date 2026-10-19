@@ -41,7 +41,7 @@ class SubnetScannerImpl {
       let done = 0;
 
       // 每批 16 个并发，兼顾速度与系统 socket 数量限制
-      const batchSize = 16;
+      const batchSize = 12;
       for (let start = 1; start <= total; start += batchSize) {
         const tasks: Promise<number>[] = [];
         for (let i = start; i < start + batchSize && i <= total; i++) {
@@ -77,7 +77,7 @@ class SubnetScannerImpl {
     const probe = new DeviceItem('', '', ip, port);
     probe.protocol = secure ? 'https' : 'http';
     try {
-      const body = await sendClient.fetchInfo(probe, 1000);
+      const body = await sendClient.fetchInfo(probe, 900);
       if (body.length === 0) {
         return 0;
       }
