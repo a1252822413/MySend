@@ -7,6 +7,7 @@ import { fileReceiver } from '../service/FileReceiver';
 import { httpServer } from '../service/HttpServer';
 import { discoveryService } from '../service/DiscoveryService';
 import { Log } from '../common/Logger';
+import { backgroundKeeper } from '../service/BackgroundKeeper';
 
 const DOMAIN = 0x0000;
 
@@ -58,12 +59,14 @@ export default class EntryAbility extends UIAbility {
   }
 
   onForeground(): void {
-    // Ability has brought to foreground
     hilog.info(DOMAIN, 'testTag', '%{public}s', 'Ability onForeground');
+    // 回到前台就不再需要长时任务，及时释放（合规要求）
+    backgroundKeeper.stop(this.context);
   }
 
   onBackground(): void {
-    // Ability has back to background
     hilog.info(DOMAIN, 'testTag', '%{public}s', 'Ability onBackground');
+    // 切到后台申请长时任务，保证仍能接收文件
+    backgroundKeeper.start(this.context);
   }
 }
