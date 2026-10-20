@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>快传 · 界面重构 / 工业仪表方向</title>
+<meta name="description" content="快传 HarmonyOS App 界面重设计：工业仪表方向的高保真原型。" />
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Noto+Sans+SC:wght@400;500;700;900&display=swap" rel="stylesheet" />
+
+<link rel="stylesheet" href="styles/tokens.css" />
+<link rel="stylesheet" href="styles/base.css" />
+<link rel="stylesheet" href="styles/components.css" />
+</head>
+<body>
+
+<!-- 页头：设计定调 -->
+<header class="wrap masthead">
+  <div>
+    <p class="eyebrow reveal">Kuai · HarmonyOS UI / Rebuild 02</p>
+    <h1 class="reveal">把传输做成<em>仪表</em>，<br />而不是一张表单</h1>
+    <p class="lede reveal">
+      快传的核心不是「填设备、选文件、点发送」，而是<strong>此刻链路有多快、对端是谁、文件落在哪</strong>。
+      所以整套界面按工业仪表的逻辑重建：等宽数字承担全部读数，发丝线划分层级，
+      信号绿只留给「在线 / 接收 / 主操作」这一件事。
+    </p>
+  </div>
+
+  <dl class="decisions reveal">
+    <div>
+      <dt>方向</dt>
+      <dd>工业实用 <span>— 仪表盘密度、等宽数字、发丝边框</span></dd>
+    </div>
+    <div>
+      <dt>展示字</dt>
+      <dd>JetBrains Mono <span>— 承担所有数字与标签</span></dd>
+    </div>
+    <div>
+      <dt>正文字</dt>
+      <dd>Noto Sans SC <span>— 900 字重做中文标题，负字距</span></dd>
+    </div>
+    <div>
+      <dt>主色</dt>
+      <dd>#3BE49A <span>— 唯一强调色，仅 10% 面积</span></dd>
+    </div>
+    <div>
+      <dt>记忆点</dt>
+      <dd>接收时的同心波束 + 56px 速度读数 <span>— 像示波器，不像进度条</span></dd>
+    </div>
+  </dl>
+</header>
+
+<main class="wrap">
+
+  <div class="section-head">
+    <h2>Six Screens</h2>
+    <p>390 × 844 · 1:1</p>
+  </div>
+
+  <section class="screen-grid" aria-label="界面总览">
+
+    <!-- ============ 01 接收 ============ -->
+    <figure class="frame reveal">
+      <figcaption><b>01</b><span>接收 / RECEIVE</span></figcaption>
+      <div class="phone">
+        <div class="status-bar">
+          <span>9:41</span>
+          <span class="glyphs">
+            <svg width="16" height="11" viewBox="0 0 16 11" fill="currentColor" aria-hidden="true"><rect x="0" y="7" width="2.5" height="4" rx=".6"/><rect x="4" y="5" width="2.5" height="6" rx=".6"/><rect x="8" y="2.5" width="2.5" height="8.5" rx=".6"/><rect x="12" y="0" width="2.5" height="11" rx=".6" opacity=".4"/></svg>
+            <svg width="15" height="11" viewBox="0 0 15 11" fill="none" stroke="currentColor" stroke-width="1.3" aria-hidden="true"><path d="M1 3.6a10 10 0 0 1 13 0M3.6 6.3a6.4 6.4 0 0 1 7.8 0"/><circle cx="7.5" cy="9.4" r="1" fill="currentColor" stroke="none"/></svg>
+            <svg width="23" height="11" viewBox="0 0 23 11" fill="none" aria-hidden="true"><rect x=".6" y=".6" width="18" height="9.8" rx="2.4" stroke="currentColor" stroke-opacity=".5"/><rect x="2.4" y="2.4" width="12" height="6.2" rx="1.2" fill="currentColor"/><path d="M20.4 3.6v3.8" stroke="currentColor" stroke-opacity=".5" stroke-width="1.6" stroke-linecap="round"/></svg>
+          </span>
+        </div>
+
+        <div class="app-bar">
+          <h2>快传</h2>
+          <span class="bar-note">v1.0.0</span>
+        </div>
+
+        <div class="screen-body">
+          <div class="rule"><span>01 / LOCAL</span></div>
+
+          <div class="plaque">
+            <div class="plaque-top">
+              <span class="label">本机 · <span class="badge">HTTPS</span></span>
+              <div class="signal-ring scanning" aria-hidden="true"><i></i><i></i><i></i></div>
+            </div>
+            <h3>Mate 70 Pro 优享版</h3>
+            <div class="addr">192.168.3.133:53317</div>
+            <div class="fp">指纹 1866 5237 1EBD CB3C</div>
+          </div>
+
+          <div class="list-head">
+            <span class="label">在线设备</span>
+            <span class="count">02 台</span>
+          </div>
+
+          <div class="device-row" role="button" tabindex="0">
+            <span class="dot"></span>
+            <span>
+              <span class="name">XIAOXIAO-PC</span>
+              <span class="sub">Windows · https</span>
+            </span>
+            <span class="rtt"><b>12</b> ms</span>
+          </div>
+
+          <div class="device-row" role="button" tabindex="0">
+            <span class="dot"></span>
+            <span>
+              <span class="name">MacBook-Air</span>
+              <span class="sub">macOS · https</span>
+            </span>
+            <span class="rtt"><b>24</b> ms</span>
+          </div>
+
+          <div class="list-head" style="margin-top:18px">
+            <span class="label">最近一次</span>
+            <span class="count" style="color:var(--text-mute)">09:41</span>
+          </div>
+
+          <div class="device-row" style="cursor:default">
+            <span class="dot idle"></span>
+            <span>
+              <span class="name">相册测试.jpg</span>
+              <span class="sub">来自 XIAOXIAO-PC</span>
+            </span>
+            <span class="rtt">132.8 KB</span>
+          </div>
+        </div>
+
+        <nav class="tabbar" aria-label="主导航">
+          <button class="tab" aria-current="page">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v11m0 0 4-4m-4 4-4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
+            接收
+          </button>
+          <button class="tab">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21V10m0 0 4 4m-4-4-4 4M4 7V5a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v2"/></svg>
+            发送
+          </button>
+          <button class="tab">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>
+            历史
+          </button>
+          <button class="tab">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h9M17 7h3M4 17h5M13 17h7"/><circle cx="15" cy="7" r="2"/><circle cx="11" cy="17" r="2"/></svg>
+            设置
+          </button>
+        </nav>
+      </div>
+    </figure>
+
+    <!-- ============ 02 发送 ============ -->
+    <figure class="frame reveal">
+      <figcaption><b>02</b><span>发送 / SEND</span></figcaption>
+      <div class="phone">
+        <div class="status-bar">
+          <span>9:41</span>
+          <span class="glyphs">
+            <svg width="16" height="11" viewBox="0 0 16 11" fill="currentColor" aria-hidden="true"><rect x="0" y="7" width="2.5" height="4" rx=".6"/><rect x="4" y="5" width="2.5" height="6" rx=".6"/><rect x="8" y="2.5" width="2.5" height="8.5" rx=".6"/><rect x="12" y="0" width="2.5" height="11" rx=".6" opacity=".4"/></svg>
+            <svg width="15" height="11" viewBox="0 0 15 11" fill="none" stroke="currentColor" stroke-width="1.3" aria-hidden="true"><path d="M1 3.6a10 10 0 0 1 13 0M3.6 6.3a6.4 6.4 0 0 1 7.8 0"/><circle cx="7.5" cy="9.4" r="1" fill="currentColor" stroke="none"/></svg>
+            <svg width="23" height="11" viewBox="0 0 23 11" fill="none" aria-hidden="true"><rect x=".6" y=".6" width="18" height="9.8" rx="2.4" stroke="currentColor" stroke-opacity=".5"/><rect x="2.4" y="2.4" width="12" height="6.2" rx="1.2" fill="currentColor"/><path d="M20.4 3.6v3.8" stroke="currentColor" stroke-opacity=".5" stroke-width="1.6" stroke-linecap="round"/></svg>
+          </span>
+        </div>
+
+        <div class="app-bar">
+          <h2>发送</h2>
+          <span class="bar-note">3 个待发</span>
+        </div>
+
+        <div class="screen-body" style="padding-bottom:96px">
+          <div class="rule"><span>02 / TARGET</span></div>
+
+          <div class="target">
+            <span class="label">发送到</span>
+            <h3>XIAOXIAO-PC</h3>
+            <span class="addr mono" style="font-size:12px;color:var(--text-dim)">192.168.3.190:53317 · <span class="badge">HTTPS</span></span>
+          </div>
+
+          <div class="list-head">
+            <span class="label">待发文件</span>
+            <span class="count">03</span>
+          </div>
+
+          <div class="file-row">
+            <span class="fname">WorkBuddy-win32-x64-user.exe</span>
+            <span class="fsize">420.7 MB</span>
+            <button class="x" aria-label="移除 WorkBuddy 安装包">
+              <svg width="12" height="12" viewBox="0 0 12 12" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M2 2l8 8M10 2l-8 8"/></svg>
+            </button>
+          </div>
+
+          <div class="file-row">
+            <span class="fname">相册测试.jpg</span>
+            <span class="fsize">132.8 KB</span>
+            <button class="x" aria-label="移除 相册测试">
+              <svg width="12" height="12" viewBox="0 0 12 12" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M2 2l8 8M10 2l-8 8"/></svg>
+            </button>
+          </div>
+
+          <div class="file-row">
+            <span class="fname">界面重构-设计稿.pdf</span>
+            <span class="fsize">8.4 MB</span>
+            <button class="x" aria-label="移除 设计稿">
+              <svg width="12" height="12" viewBox="0 0 12 12" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M2 2l8 8M10 2l-8 8"/></svg>
+            </button>
+          </div>
+
+          <p class="label" style="margin-top:14px;letter-spacing:.06em;text-transform:none">
+            预计 58 秒 · 平均 7.2 MB/s
+          </p>
+
+          <div class="send-foot">
+            <span class="sum"><b>429.2 MB</b>3 个文件</span>
+            <button class="btn btn-primary" style="min-width:132px">发送</button>
+          </div>
+        </div>
+
+        <nav class="tabbar" aria-label="主导航">
+          <button class="tab">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v11m0 0 4-4m-4 4-4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
+            接收
+          </button>
+          <button class="tab" aria-current="page">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21V10m0 0 4 4m-4-4-4 4M4 7V5a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v2"/></svg>
+            发送
+          </button>
+          <button class="tab">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>
+            历史
+          </button>
+          <button class="tab">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h9M17 7h3M4 17h5M13 17h7"/><circle cx="15" cy="7" r="2"/><circle cx="11" cy="17" r="2"/></svg>
+            设置
+          </button>
+        </nav>
+      </div>
+    </figure>
+
+    <!-- ============ 03 接收确认（弹层） ============ -->
+    <figure class="frame reveal">
+      <figcaption><b>03</b><span>接收确认 / CONFIRM</span></figcaption>
+      <div class="phone">
+        <div class="status-bar">
+          <span>9:41</span>
+          <span class="glyphs">
+            <svg width="16" height="11" viewBox="0 0 16 11" fill="currentColor" aria-hidden="true"><rect x="0" y="7" width="2.5" height="4" rx=".6"/><rect x="4" y="5" width="2.5" height="6" rx=".6"/><rect x="8" y="2.5" width="2.5" height="8.5" rx=".6"/><rect x="12" y="0" width="2.5" height="11" rx=".6" opacity=".4"/></svg>
+            <svg width="15" height="11" viewBox="0 0 15 11" fill="none" stroke="currentColor" stroke-width="1.3" aria-hidden="true"><path d="M1 3.6a10 10 0 0 1 13 0M3.6 6.3a6.4 6.4 0 0 1 7.8 0"/><circle cx="7.5" cy="9.4" r="1" fill="currentColor" stroke="none"/></svg>
+            <svg width="23" height="11" viewBox="0 0 23 11" fill="none" aria-hidden="true"><rect x=".6" y=".6" width="18" height="9.8" rx="2.4" stroke="currentColor" stroke-opacity=".5"/><rect x="2.4" y="2.4" width="12" height="6.2" rx="1.2" fill="currentColor"/><path d="M20.4 3.6v3.8" stroke="currentColor" stroke-opacity=".5" stroke-width="1.6" stroke-linecap="round"/></svg>
+          </span>
+        </div>
+
+        <div class="app-bar">
+          <h2>快传</h2>
+          <span class="bar-note">v1.0.0</span>
+        </div>
+
+        <div class="screen-body">
+          <div class="rule"><span>01 / LOCAL</span></div>
+          <div class="plaque">
+            <div class="plaque-top">
+              <span class="label">本机 · <span class="badge">HTTPS</span></span>
+            </div>
+            <h3>Mate 70 Pro 优享版</h3>
+            <div class="addr">192.168.3.133:53317</div>
+          </div>
+        </div>
+
+        <div class="scrim" aria-hidden="true"></div>
+
+        <section class="sheet" aria-label="接收确认">
+          <div class="grabber"></div>
+          <span class="label">来自 <span class="badge">HTTPS</span></span>
+          <h3 style="margin-top:6px">XIAOXIAO-PC</h3>
+          <p class="sheet-sub">192.168.3.190 · 3 个文件 · 429.2 MB</p>
+
+          <div class="file-row" style="min-height:44px">
+            <span class="fname">WorkBuddy-win32-x64-user.exe</span>
+            <span class="fsize">420.7 MB</span>
+            <span></span>
+          </div>
+          <div class="file-row" style="min-height:44px">
+            <span class="fname">相册测试.jpg</span>
+            <span class="fsize">132.8 KB</span>
+            <span></span>
+          </div>
+          <div class="file-row" style="min-height:44px">
+            <span class="fname">界面重构-设计稿.pdf</span>
+            <span class="fsize">8.4 MB</span>
+            <span></span>
+          </div>
+
+          <div class="sheet-actions">
+            <button class="btn">拒绝</button>
+            <button class="btn btn-primary">接收全部</button>
+          </div>
+          <p class="label" style="margin-top:10px;text-align:center;letter-spacing:.04em;text-transform:none">
+            120 秒后自动拒绝
+          </p>
+        </section>
+      </div>
+    </figure>
+
+    <!-- ============ 04 接收中 ============ -->
+    <figure class="frame reveal">
+      <figcaption><b>04</b><span>传输中 / IN FLIGHT</span></figcaption>
+      <div class="phone">
+        <div class="status-bar">
+          <span>9:41</span>
+          <span class="glyphs">
+            <svg width="16" height="11" viewBox="0 0 16 11" fill="currentColor" aria-hidden="true"><rect x="0" y="7" width="2.5" height="4" rx=".6"/><rect x="4" y="5" width="2.5" height="6" rx=".6"/><rect x="8" y="2.5" width="2.5" height="8.5" rx=".6"/><rect x="12" y="0" width="2.5" height="11" rx=".6" opacity=".4"/></svg>
+            <svg width="15" height="11" viewBox="0 0 15 11" fill="none" stroke="currentColor" stroke-width="1.3" aria-hidden="true"><path d="M1 3.6a10 10 0 0 1 13 0M3.6 6.3a6.4 6.4 0 0 1 7.8 0"/><circle cx="7.5" cy="9.4" r="1" fill="currentColor" stroke="none"/></svg>
+            <svg width="23" height="11" viewBox="0 0 23 11" fill="none" aria-hidden="true"><rect x=".6" y=".6" width="18" height="9.8" rx="2.4" stroke="currentColor" stroke-opacity=".5"/><rect x="2.4" y="2.4" width="12" height="6.2" rx="1.2" fill="currentColor"/><path d="M20.4 3.6v3.8" stroke="currentColor" stroke-opacity=".5" stroke-width="1.6" stroke-linecap="round"/></svg>
+          </span>
+        </div>
+
+        <div class="transfer-stage">
+          <div class="app-bar" style="padding:0">
+            <span class="label">接收中 · 来自 XIAOXIAO-PC</span>
+            <span class="label" style="color:var(--text-dim)">取消</span>
+          </div>
+
+          <div class="beam" aria-hidden="true">
+            <i></i><i></i><i></i>
+            <div style="text-align:center">
+              <div class="speed">12.8</div>
+              <div class="unit">MB / S</div>
+            </div>
+          </div>
+
+          <div class="transfer-info">
+            <div class="tname">相册测试.jpg</div>
+            <div class="tmeta">
+              <span>9.3 / 20.0 MB</span>
+              <span>46%</span>
+            </div>
+            <div class="bar"><span></span></div>
+            <div class="tmeta" style="margin-top:10px">
+              <span>剩余约 1 秒</span>
+              <span>1 / 3 个文件</span>
+            </div>
+
+            <p class="label" style="margin-top:28px;line-height:1.8;letter-spacing:.02em;text-transform:none">
+              完成后自动保存到<br />
+              <span class="mono" style="color:var(--text-dim);font-size:10px">Download / 快传</span>
+            </p>
+          </div>
+        </div>
+      </div>
+    </figure>
+
+    <!-- ============ 05 历史 ============ -->
+    <figure class="frame reveal">
+      <figcaption><b>05</b><span>历史 / HISTORY</span></figcaption>
+      <div class="phone">
+        <div class="status-bar">
+          <span>9:41</span>
+          <span class="glyphs">
+            <svg width="16" height="11" viewBox="0 0 16 11" fill="currentColor" aria-hidden="true"><rect x="0" y="7" width="2.5" height="4" rx=".6"/><rect x="4" y="5" width="2.5" height="6" rx=".6"/><rect x="8" y="2.5" width="2.5" height="8.5" rx=".6"/><rect x="12" y="0" width="2.5" height="11" rx=".6" opacity=".4"/></svg>
+            <svg width="15" height="11" viewBox="0 0 15 11" fill="none" stroke="currentColor" stroke-width="1.3" aria-hidden="true"><path d="M1 3.6a10 10 0 0 1 13 0M3.6 6.3a6.4 6.4 0 0 1 7.8 0"/><circle cx="7.5" cy="9.4" r="1" fill="currentColor" stroke="none"/></svg>
+            <svg width="23" height="11" viewBox="0 0 23 11" fill="none" aria-hidden="true"><rect x=".6" y=".6" width="18" height="9.8" rx="2.4" stroke="currentColor" stroke-opacity=".5"/><rect x="2.4" y="2.4" width="12" height="6.2" rx="1.2" fill="currentColor"/><path d="M20.4 3.6v3.8" stroke="currentColor" stroke-opacity=".5" stroke-width="1.6" stroke-linecap="round"/></svg>
+          </span>
+        </div>
+
+        <div class="app-bar">
+          <h2>传输历史</h2>
+          <span class="bar-note">08 条 · 清空</span>
+        </div>
+
+        <div class="screen-body">
+          <div class="rule"><span>05 / LOG</span></div>
+
+          <div class="timeline">
+            <div class="tl-item">
+              <div class="tl-time"><b>接 收</b> 今天 09:41</div>
+              <div class="tl-name">相册测试.jpg</div>
+              <div class="tl-meta">XIAOXIAO-PC · 132.8 KB</div>
+              <div class="tl-actions">
+                <button class="btn btn-sm btn-ghost">打开</button>
+                <button class="btn btn-sm">另存</button>
+                <button class="btn btn-sm">相册</button>
+              </div>
+            </div>
+
+            <div class="tl-item send">
+              <div class="tl-time"><b>发 送</b> 昨天 18:20</div>
+              <div class="tl-name">界面重构-设计稿.pdf</div>
+              <div class="tl-meta">MacBook-Air · 8.4 MB</div>
+            </div>
+
+            <div class="tl-item">
+              <div class="tl-time"><b>接 收</b> 昨天 10:38</div>
+              <div class="tl-name">限速20M.bin</div>
+              <div class="tl-meta">XIAOXIAO-PC · 20.0 MB</div>
+              <div class="tl-actions">
+                <button class="btn btn-sm btn-ghost">打开</button>
+                <button class="btn btn-sm">另存</button>
+              </div>
+            </div>
+
+            <div class="tl-item">
+              <div class="tl-time"><b>接 收</b> 10-18 20:33</div>
+              <div class="tl-name">历史验证.txt</div>
+              <div class="tl-meta">XIAOXIAO-PC · 17 B</div>
+              <div class="tl-actions">
+                <button class="btn btn-sm btn-ghost">打开</button>
+                <button class="btn btn-sm">另存</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <nav class="tabbar" aria-label="主导航">
+          <button class="tab">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v11m0 0 4-4m-4 4-4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
+            接收
+          </button>
+          <button class="tab">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21V10m0 0 4 4m-4-4-4 4M4 7V5a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v2"/></svg>
+            发送
+          </button>
+          <button class="tab" aria-current="page">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>
+            历史
+          </button>
+          <button class="tab">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h9M17 7h3M4 17h5M13 17h7"/><circle cx="15" cy="7" r="2"/><circle cx="11" cy="17" r="2"/></svg>
+            设置
+          </button>
+        </nav>
+      </div>
+    </figure>
+
+    <!-- ============ 06 设置 ============ -->
+    <figure class="frame reveal">
+      <figcaption><b>06</b><span>设置 / SETTINGS</span></figcaption>
+      <div class="phone">
+        <div class="status-bar">
+          <span>9:41</span>
+          <span class="glyphs">
+            <svg width="16" height="11" viewBox="0 0 16 11" fill="currentColor" aria-hidden="true"><rect x="0" y="7" width="2.5" height="4" rx=".6"/><rect x="4" y="5" width="2.5" height="6" rx=".6"/><rect x="8" y="2.5" width="2.5" height="8.5" rx=".6"/><rect x="12" y="0" width="2.5" height="11" rx=".6" opacity=".4"/></svg>
+            <svg width="15" height="11" viewBox="0 0 15 11" fill="none" stroke="currentColor" stroke-width="1.3" aria-hidden="true"><path d="M1 3.6a10 10 0 0 1 13 0M3.6 6.3a6.4 6.4 0 0 1 7.8 0"/><circle cx="7.5" cy="9.4" r="1" fill="currentColor" stroke="none"/></svg>
+            <svg width="23" height="11" viewBox="0 0 23 11" fill="none" aria-hidden="true"><rect x=".6" y=".6" width="18" height="9.8" rx="2.4" stroke="currentColor" stroke-opacity=".5"/><rect x="2.4" y="2.4" width="12" height="6.2" rx="1.2" fill="currentColor"/><path d="M20.4 3.6v3.8" stroke="currentColor" stroke-opacity=".5" stroke-width="1.6" stroke-linecap="round"/></svg>
+          </span>
+        </div>
+
+        <div class="app-bar">
+          <h2>设置</h2>
+          <span class="bar-note">HTTPS 运行中</span>
+        </div>
+
+        <div class="screen-body">
+          <div class="rule"><span>06 / CONFIG</span></div>
+
+          <div class="set-group">
+            <span class="label">设备身份</span>
+            <div class="set-row">
+              <span class="k">本机显示名</span>
+              <span class="v">Mate 70 Pro 优享版</span>
+            </div>
+            <div class="set-row">
+              <span class="k">监听端口<small>LocalSend 默认 53317</small></span>
+              <span class="v">53317</span>
+            </div>
+          </div>
+
+          <div class="set-group">
+            <span class="label">接收目录</span>
+            <div class="path-box">/storage/Users/currentUser/Download/快传</div>
+            <div class="path-actions">
+              <button class="btn btn-sm btn-ghost">更换目录</button>
+              <button class="btn btn-sm">打开文件夹</button>
+            </div>
+          </div>
+
+          <div class="set-group">
+            <span class="label">相册与通知</span>
+            <div class="set-row">
+              <span class="k">图片/视频提示存入相册</span>
+              <span class="toggle" role="switch" aria-checked="true" tabindex="0"></span>
+            </div>
+          </div>
+
+          <div class="set-group">
+            <span class="label">连接与安全</span>
+            <div class="set-row">
+              <span class="k">使用 HTTPS<small>原生 TLS，自签证书</small></span>
+              <span class="toggle" role="switch" aria-checked="true" tabindex="0"></span>
+            </div>
+            <div class="set-row">
+              <span class="k">自动接收</span>
+              <span class="toggle" role="switch" aria-checked="false" tabindex="0"></span>
+            </div>
+            <div class="set-row">
+              <span class="k">接收 PIN 码</span>
+              <span class="v">未设置</span>
+            </div>
+          </div>
+        </div>
+
+        <nav class="tabbar" aria-label="主导航">
+          <button class="tab">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v11m0 0 4-4m-4 4-4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
+            接收
+          </button>
+          <button class="tab">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21V10m0 0 4 4m-4-4-4 4M4 7V5a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v2"/></svg>
+            发送
+          </button>
+          <button class="tab">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>
+            历史
+          </button>
+          <button class="tab" aria-current="page">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h9M17 7h3M4 17h5M13 17h7"/><circle cx="15" cy="7" r="2"/><circle cx="11" cy="17" r="2"/></svg>
+            设置
+          </button>
+        </nav>
+      </div>
+    </figure>
+
+  </section>
+
+  <!-- 规范 -->
+  <section class="spec">
+    <div>
+      <h3>色板 / Palette</h3>
+      <div class="swatches">
+        <div class="swatch" style="background:#0a0d0c"><span>#0A0D0C</span></div>
+        <div class="swatch" style="background:#101614"><span>#101614</span></div>
+        <div class="swatch" style="background:#3be49a"><span>#3BE49A</span></div>
+      </div>
+      <ul>
+        <li>底 / 面板 <b>60 / 30</b></li>
+        <li>强调绿 <b>≤ 10</b></li>
+        <li>正文对比度 <b>15 : 1</b></li>
+      </ul>
+    </div>
+
+    <div>
+      <h3>字阶 / Type</h3>
+      <ul>
+        <li>速度读数 <b>48 / 700 mono</b></li>
+        <li>设备名 <b>30 / 900 / -0.035em</b></li>
+        <li>正文 <b>14 / 400 / 1.65</b></li>
+        <li>等宽标签 <b>10 / 400 / 0.18em</b></li>
+      </ul>
+    </div>
+
+    <div>
+      <h3>节奏 / Rhythm</h3>
+      <ul>
+        <li>间距梯度 <b>4 · 8 · 12 · 16 · 24 · 32 · 48</b></li>
+        <li>圆角 <b>2 · 8 · 14</b></li>
+        <li>触摸目标 <b>≥ 44 px</b></li>
+        <li>行高 <b>48 / 52 / 60</b></li>
+      </ul>
+    </div>
+
+    <div>
+      <h3>动效 / Motion</h3>
+      <ul>
+        <li>入场错峰 <b>80 ms × 6</b></li>
+        <li>常规过渡 <b>320 ms</b></li>
+        <li>缓动 <b>0.16, 1, 0.3, 1</b></li>
+        <li>降级 <b>reduced-motion 全关</b></li>
+      </ul>
+    </div>
+  </section>
+
+  <footer class="page-foot">
+    <span>KUAI / UI REBUILD 02</span>
+    <span>INDUSTRIAL · SINGLE ACCENT · MONO READOUTS</span>
+  </footer>
+</main>
+
+<script src="scripts/main.js"></script>
+</body>
+</html>

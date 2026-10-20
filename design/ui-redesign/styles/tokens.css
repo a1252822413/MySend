@@ -1,0 +1,80 @@
+/* ============================================================
+   快传 · 设计令牌
+   方向：工业实用（Industrial / instrumentation）
+   原则：一个强调色（信号绿）只给「接收 / 在线 / 主操作」，
+        其余全部用发丝线与灰阶建立层级。
+   色比：底色 60% / 面板 30% / 强调 10%
+   ============================================================ */
+
+:root {
+  /* ---- 表面 ---- */
+  --bg-void: #070a09;      /* 页面最外层，比手机屏更暗一档 */
+  --bg: #0a0d0c;           /* 手机屏底 */
+  --surface: #101614;      /* 一级面板 */
+  --surface-2: #151d1a;    /* 二级面板 / 输入框 */
+  --surface-3: #1c2622;    /* 按下态、滑块槽 */
+
+  /* ---- 线 ---- */
+  --line: rgba(233, 241, 238, 0.08);
+  --line-strong: rgba(233, 241, 238, 0.16);
+  --line-accent: rgba(59, 228, 154, 0.34);
+
+  /* ---- 文字 ---- */
+  --text: #e9f1ee;         /* 主文字，对 #0a0d0c 约 15:1 */
+  --text-dim: #9aa8a3;     /* 次要，约 6.9:1 */
+  --text-mute: #78877f;    /* 微型标签，约 4.6:1 */
+
+  /* ---- 强调（全站唯一） ---- */
+  --accent: #3be49a;
+  --accent-soft: rgba(59, 228, 154, 0.14);
+  --accent-glow: rgba(59, 228, 154, 0.28);
+
+  /* ---- 语义 ---- */
+  --warn: #ffb64d;
+  --danger: #ff6b5a;
+
+  /* ---- 字体 ---- */
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --font-sans: "Noto Sans SC", "HarmonyOS Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
+
+  /* ---- 字阶（1.25 比例，取整到设备友好值） ---- */
+  --fs-hero: 30px;    /* 设备名、核心数字 */
+  --fs-display: 48px; /* 只给速度读数 */
+  --fs-h1: 21px;
+  --fs-h2: 16px;
+  --fs-body: 14px;
+  --fs-sm: 12px;
+  --fs-label: 11px;   /* 等宽大写标签 */
+  --fs-micro: 10px;
+
+  /* ---- 间距 ---- */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 24px;
+  --sp-6: 32px;
+  --sp-7: 48px;
+  --sp-8: 64px;
+
+  /* ---- 圆角（克制：只有 2 / 8 / 14 / 手机壳） ---- */
+  --r-xs: 2px;
+  --r-sm: 8px;
+  --r-md: 14px;
+  --r-phone: 46px;
+
+  /* ---- 阴影（带环境色，不用纯黑） ---- */
+  --shadow-1: 0 2px 8px rgba(2, 6, 5, 0.5);
+  --shadow-2: 0 10px 30px rgba(2, 6, 5, 0.55);
+  --shadow-3: 0 30px 80px rgba(2, 6, 5, 0.7);
+
+  /* ---- 动效 ---- */
+  --ease: cubic-bezier(0.16, 1, 0.3, 1);
+  --dur-fast: 160ms;
+  --dur-base: 320ms;
+  --dur-slow: 640ms;
+
+  /* ---- 手机屏尺寸（390 × 844，iPhone/HarmonyOS 主流逻辑分辨率） ---- */
+  --phone-w: 390px;
+  --phone-h: 844px;
+}
