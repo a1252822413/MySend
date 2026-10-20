@@ -67,6 +67,8 @@ struct Index {
   @State sendTip: string = '';
   /** 文本输入弹窗 */
   @State textSheetOn: boolean = false;
+  /** 键盘高度（vp）：自绘弹窗不会自动避让，要手动抬起来 */
+  @State kbHeight: number = 0;
   @State textDraft: string = '';
 
   // ---- 接收确认弹层状态 ----
@@ -126,6 +128,7 @@ struct Index {
     this.refreshLocal();
     this.loadLocalIp();
     this.applyWindowTheme();
+    this.watchKeyboard();
     // 设备状态机全局只开一份，页面不再自己轮询
     deviceRegistry.startPresence();
     this.devices = deviceRegistry.list();
@@ -972,6 +975,19 @@ struct Index {
     Log.i(`分享文件已填入发送页，共 ${next.length} 个待发`);
   }
 
+  /** 监听软键盘高度：自绘的底部弹窗需要自己避让，否则按钮会被键盘压住 */
+  private async watchKeyboard(): Promise<void> {
+    try {
+      const ctx = this.getUIContext().getHostContext() as common.UIAbilityContext;
+      const win = await window.getLastWindow(ctx);
+      win.on('keyboardHeightChange', (height: number) => {
+        this.kbHeight = px2vp(height);
+      });
+    } catch (e) {
+      Log.w(`键盘监听失败: ${JSON.stringify(e)}`);
+    }
+  }
+
   /** 窗口背景与系统栏跟随主题：否则状态栏/导航条会露出系统默认白底 */
   private async applyWindowTheme(): Promise<void> {
     try {
@@ -1150,7 +1166,7 @@ struct Index {
       .width('100%')
 
       Text(this.alias)
-        .fontSize(20)
+        .fontSize(18)
         .fontWeight(FontWeight.Bold)
         .fontColor(this.tk().text)
         .letterSpacing(-0.5)
@@ -1365,18 +1381,14 @@ struct Index {
 
   /** 添加入口方块：图标 + 标题 + 去向说明（光有"文件"两个字，别人不知道点了去哪） */
   @Builder
-  AddTile(iconPath: string, title: string, sub: string, onTap: () => void) {
+  AddTile(icon: Resource, title: string, sub: string, onTap: () => void) {
     Column({ space: 6 }) {
       Stack() {
-        Path()
-          .commands(iconPath)
+        Image(icon)
           .width(22)
           .height(22)
-          .fill(Color.Transparent)
-          .stroke(this.tk().accentInk)
-          .strokeWidth(1.7)
-          .strokeLineCap(LineCapStyle.Round)
-          .strokeLineJoin(LineJoinStyle.Round)
+          .fillColor(this.tk().accentInk)
+          .objectFit(ImageFit.Contain)
       }
       .width(40)
       .height(40)
@@ -1470,7 +1482,7 @@ struct Index {
       .padding({ left: 16, right: 16, top: 12, bottom: 18 })
       .backgroundColor(this.tk().surface)
       .borderRadius(28)
-      .margin({ left: 8, right: 8, bottom: 8 })
+      .margin({ left: 8, right: 8, bottom: 8 + this.kbHeight })
       .width('calc(100% - 16vp)')
     }
     .width('100%')
@@ -1569,13 +1581,13 @@ struct Index {
             .padding({ left: 4, right: 4, top: 6 })
 
           Row({ space: 10 }) {
-            this.AddTile('M3 7h6l2 2.6h10V19H3z', '文件', '文件管理', () => {
+            this.AddTile($r('app.media.ic_folder'), '文件', '文件管理', () => {
               this.pickFiles();
             })
-            this.AddTile('M4 5.6h16v12.8H4z M7 15.6l3.6-3.8 2.8 2.6 2.2-2 3.4 3.2', '媒体', '相册', () => {
+            this.AddTile($r('app.media.ic_photo'), '媒体', '相册', () => {
               this.pickMedia();
             })
-            this.AddTile('M5 7.4h14M5 12h14M5 16.6h8.6', '文本', '输入文字', () => {
+            this.AddTile($r('app.media.ic_text'), '文本', '输入文字', () => {
               this.textSheetOn = true;
             })
           }
@@ -2474,6 +2486,7 @@ struct Index {
         .scrollable(false)
         .animationDuration(0)
         .barFloatingStyle({
+          barWidth: { smallWidth: 358, mediumWidth: 358, largeWidth: 358 },
           barSideMargin: 16,
           barBottomMargin: 10,
           gradientMask: {
