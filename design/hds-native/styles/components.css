@@ -658,3 +658,88 @@
   font-size: var(--fs-xs);
   color: var(--mute);
 }
+
+/* ---------------- 添加入口三宫格 ---------------- */
+
+.add-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.add-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 12px 6px 10px;
+  border: 0;
+  border-radius: 20px;
+  background: var(--card);
+  box-shadow: var(--card-shadow);
+  cursor: pointer;
+  font-family: var(--font);
+  transition: transform var(--dur-fast) var(--ease), box-shadow var(--dur-fast) ease-out;
+}
+
+.add-tile:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--card-shadow-hi);
+}
+
+.add-tile:active {
+  transform: scale(0.97);
+}
+
+.add-tile .ico {
+  width: 40px;
+  height: 40px;
+  border-radius: 13px;
+  display: grid;
+  place-items: center;
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+}
+
+.add-tile .ico svg { width: 21px; height: 21px; }
+
+.add-tile .t {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  line-height: 1.2;
+}
+
+.add-tile .s {
+  font-size: 10px;
+  color: var(--mute);
+  line-height: 1.2;
+}
+
+/* ---------------- 文本输入 ---------------- */
+
+.text-input {
+  width: 100%;
+  min-height: 132px;
+  padding: 14px;
+  border: 0;
+  border-radius: 16px;
+  background: var(--card-2);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 15px;
+  line-height: 1.6;
+  resize: none;
+  outline: none;
+}
+
+.text-input::placeholder { color: var(--mute); }
+
+.text-meta {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 8px;
+  font-size: 11px;
+  color: var(--mute);
+}
