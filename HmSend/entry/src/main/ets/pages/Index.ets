@@ -16,7 +16,8 @@ import { picker, fileUri, fileShare } from '@kit.CoreFileKit';
 import { fileIo as fs } from '@kit.CoreFileKit';
 import { common, wantConstant } from '@kit.AbilityKit';
 import { connection } from '@kit.NetworkKit';
-import { window } from '@kit.ArkUI';
+import { window, SymbolGlyphModifier } from '@kit.ArkUI';
+import { HdsTabs, HdsTabsController, hdsMaterial } from '@kit.UIDesignKit';
 import { pasteboard, BusinessError } from '@kit.BasicServicesKit';
 import { photoAccessHelper } from '@kit.MediaLibraryKit';
 import { fileReceiver, ReceiveProgress } from '../service/FileReceiver';
@@ -89,6 +90,8 @@ struct Index {
   @State localIp: string = '';
 
   private timerId: number = -1;
+  /** HDS 底部页签控制器（悬浮胶囊 + 沉浸光感） */
+  private tabsCtrl: HdsTabsController = new HdsTabsController();
 
   /** 当前主题令牌；读 themeMode 会自动登记依赖，切换时整页刷新 */
   private tk(): ThemeTokens {
@@ -1163,7 +1166,7 @@ struct Index {
     .alignItems(HorizontalAlign.Start)
     .padding({ left: 16, right: 16, top: 14, bottom: 16 })
     .backgroundColor(this.tk().surface)
-    .borderRadius(18)
+    .borderRadius(24)
     .border({ width: 1, color: this.tk().cardBorder })
     .shadow({ radius: 3, color: this.tk().cardShadow, offsetX: 0, offsetY: 1 })
     .width('100%')
@@ -1198,7 +1201,7 @@ struct Index {
     }
     .padding({ left: 14, right: 14, top: 13, bottom: 13 })
     .backgroundColor(this.tk().surface)
-    .borderRadius(18)
+    .borderRadius(24)
     .border({ width: 1, color: this.tk().cardBorder })
     .shadow({ radius: 2, color: this.tk().cardShadow, offsetX: 0, offsetY: 1 })
     .width('100%')
@@ -1223,7 +1226,7 @@ struct Index {
     .padding({ top: 30, bottom: 30, left: 16, right: 16 })
     .alignItems(HorizontalAlign.Center)
     .backgroundColor(this.tk().surface)
-    .borderRadius(18)
+    .borderRadius(24)
     .border({ width: 1, color: this.tk().cardBorder })
   }
 
@@ -1379,7 +1382,7 @@ struct Index {
               .width('100%')
               .padding({ left: 14, right: 14, top: 12, bottom: 12 })
               .backgroundColor(this.isTargetSelected(item) ? this.tk().accentSoft : this.tk().surface)
-              .borderRadius(18)
+              .borderRadius(24)
               .border({ width: 1, color: this.isTargetSelected(item) ? this.tk().lineAccent : this.tk().cardBorder })
               .onClick(() => {
                 this.toggleTarget(item);
@@ -1406,7 +1409,7 @@ struct Index {
             .width('100%')
             .padding({ top: 22, bottom: 22 })
             .backgroundColor(this.tk().surface)
-            .borderRadius(18)
+            .borderRadius(24)
             .border({ width: 1, color: this.tk().cardBorder })
           } else {
             ForEach(this.sendFiles, (f: SendFileItem, idx: number) => {
@@ -1452,7 +1455,7 @@ struct Index {
               .width('100%')
               .padding({ left: 12, right: 12, top: 10, bottom: 10 })
               .backgroundColor(this.tk().surface)
-              .borderRadius(18)
+              .borderRadius(24)
               .border({ width: 1, color: this.tk().cardBorder })
             }, (f: SendFileItem, idx: number) => `${f.path}_${idx}`)
           }
@@ -1521,7 +1524,7 @@ struct Index {
             .width('100%')
             .padding(14)
             .backgroundColor(this.tk().surface)
-            .borderRadius(18)
+            .borderRadius(24)
             .border({ width: 1, color: this.tk().cardBorder })
           }
 
@@ -1809,7 +1812,7 @@ struct Index {
               .alignItems(HorizontalAlign.Start)
               .padding({ left: 14, right: 14, top: 12, bottom: 12 })
               .backgroundColor(this.tk().surface)
-              .borderRadius(18)
+              .borderRadius(24)
               .border({ width: 1, color: this.tk().cardBorder })
               .width('100%')
               .onClick(() => {
@@ -1825,7 +1828,7 @@ struct Index {
         .scrollBar(BarState.Off)
       }
     }
-    .padding({ left: 16, right: 16, top: 6 })
+    .padding({ left: 16, right: 16, top: 6, bottom: 108 })
     .alignItems(HorizontalAlign.Start)
     .backgroundColor(this.tk().bg)
     .width('100%')
@@ -1913,7 +1916,7 @@ struct Index {
         .width('100%')
         .padding(16)
         .backgroundColor(this.tk().surface)
-        .borderRadius(18)
+        .borderRadius(24)
         .border({ width: 1, color: this.tk().cardBorder })
 
         this.SectionTitle('设备身份', '对方看到的设备名')
@@ -1933,7 +1936,7 @@ struct Index {
         .alignItems(HorizontalAlign.Start)
         .padding(16)
         .backgroundColor(this.tk().surface)
-        .borderRadius(18)
+        .borderRadius(24)
         .border({ width: 1, color: this.tk().cardBorder })
         .width('100%')
 
@@ -1960,7 +1963,7 @@ struct Index {
               .fontColor(Color.White)
               .backgroundColor(this.tk().accent)
               .padding({ left: 12, right: 12, top: 6, bottom: 6 })
-              .borderRadius(18)
+              .borderRadius(24)
               .onClick(() => {
                 this.pickReceiveDir();
               })
@@ -1968,7 +1971,7 @@ struct Index {
               .fontSize(12)
               .fontColor(this.tk().textDim)
               .padding({ left: 12, right: 12, top: 6, bottom: 6 })
-              .borderRadius(18)
+              .borderRadius(24)
               .border({ width: 1, color: this.tk().line })
               .onClick(() => {
                 this.openReceiveFolder();
@@ -1977,7 +1980,7 @@ struct Index {
               .fontSize(12)
               .fontColor(this.tk().accent)
               .padding({ left: 12, right: 12, top: 6, bottom: 6 })
-              .borderRadius(18)
+              .borderRadius(24)
               .border({ width: 1, color: this.tk().accent })
               .onClick(() => {
                 this.copyDir();
@@ -1987,7 +1990,7 @@ struct Index {
         }
         .padding(16)
         .backgroundColor(this.tk().surface)
-        .borderRadius(18)
+        .borderRadius(24)
         .border({ width: 1, color: this.tk().cardBorder })
         .width('100%')
         .alignItems(HorizontalAlign.Start)
@@ -2007,7 +2010,7 @@ struct Index {
         }
         .padding(16)
         .backgroundColor(this.tk().surface)
-        .borderRadius(18)
+        .borderRadius(24)
         .border({ width: 1, color: this.tk().cardBorder })
         .width('100%')
         .alignItems(HorizontalAlign.Start)
@@ -2053,7 +2056,7 @@ struct Index {
         }
         .padding(16)
         .backgroundColor(this.tk().surface)
-        .borderRadius(18)
+        .borderRadius(24)
         .border({ width: 1, color: this.tk().cardBorder })
         .width('100%')
 
@@ -2102,10 +2105,10 @@ struct Index {
       Column() {
       Row({ space: 8 }) {
         Text('快传')
-          .fontSize(21)
+          .fontSize(28)
           .fontWeight(FontWeight.Bold)
           .fontColor(this.tk().text)
-          .letterSpacing(-0.3)
+          .letterSpacing(-0.6)
         Blank()
         // 扫描入口放在 Scroll 之外：实测放在 Scroll 内的 Text/Button 点击不响应，
         // 这里固定在标题栏，任何页面状态下都能点。
@@ -2131,22 +2134,34 @@ struct Index {
       .padding({ left: 20, right: 20, top: 10, bottom: 6 })
       .backgroundColor(this.tk().bg)
 
-      Tabs({ barPosition: BarPosition.End, index: this.currentTab }) {
+      HdsTabs({ controller: this.tabsCtrl }) {
         TabContent() {
           this.ReceiveTab()
-        }.tabBar(this.TabBarItem(0, '接收'))
+        }.tabBar(new BottomTabBarStyle({
+            normal: new SymbolGlyphModifier($r('sys.symbol.arrow_down_circle')),
+            selected: new SymbolGlyphModifier($r('sys.symbol.arrow_down_circle'))
+          }, '接收'))
 
         TabContent() {
           this.SendTab()
-        }.tabBar(this.TabBarItem(1, '发送'))
+        }.tabBar(new BottomTabBarStyle({
+            normal: new SymbolGlyphModifier($r('sys.symbol.arrow_up_circle')),
+            selected: new SymbolGlyphModifier($r('sys.symbol.arrow_up_circle'))
+          }, '发送'))
 
         TabContent() {
           this.HistoryTab()
-        }.tabBar(this.TabBarItem(2, '历史'))
+        }.tabBar(new BottomTabBarStyle({
+            normal: new SymbolGlyphModifier($r('sys.symbol.clock')),
+            selected: new SymbolGlyphModifier($r('sys.symbol.clock'))
+          }, '历史'))
 
         TabContent() {
           this.SettingsTab()
-        }.tabBar(this.TabBarItem(3, '设置'))
+        }.tabBar(new BottomTabBarStyle({
+            normal: new SymbolGlyphModifier($r('sys.symbol.gearshape')),
+            selected: new SymbolGlyphModifier($r('sys.symbol.gearshape'))
+          }, '设置'))
       }
       .onChange((index: number) => {
         this.currentTab = index;
@@ -2162,12 +2177,23 @@ struct Index {
           this.history = historyService.list();
         }
       })
-        .barMode(BarMode.Fixed)
-        .barHeight(72)
-        .barBackgroundColor(this.tk().bg)
-        .divider({ strokeWidth: 1, color: this.tk().line })
+        .vertical(false)
+        .barPosition(BarPosition.End)
+        .barOverlap(true)
         .scrollable(false)
         .animationDuration(0)
+        .barFloatingStyle({
+          barSideMargin: 16,
+          barBottomMargin: 10,
+          gradientMask: {
+            maskColor: this.themeMode === 'light' ? '#66F0F3F1' : '#660A0E0C',
+            maskHeight: 96
+          },
+          systemMaterialEffect: {
+            materialType: hdsMaterial.MaterialType.ADAPTIVE,
+            materialLevel: hdsMaterial.MaterialLevel.ADAPTIVE
+          }
+        })
         .layoutWeight(1)
       }
       .width('100%')
