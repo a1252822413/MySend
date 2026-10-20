@@ -1273,7 +1273,7 @@ struct Index {
         } else {
           ForEach(this.devices, (item: DeviceItem) => {
             this.DeviceRow(item)
-          }, (item: DeviceItem) => item.fingerprint)
+          }, (item: DeviceItem) => `${item.fingerprint}_${item.presence}`)
         }
       }
       .padding({ left: 16, right: 16, top: 6, bottom: 16 })
@@ -1415,7 +1415,7 @@ struct Index {
                 }
                 this.toggleTarget(item);
               })
-            }, (item: DeviceItem) => item.fingerprint)
+            }, (item: DeviceItem) => `${item.fingerprint}_${item.presence}`)
           }
 
           Row() {
@@ -2170,7 +2170,7 @@ struct Index {
               this.doScan();
             })
         }
-        Text(this.onlineCount() > 0 ? `${this.onlineCount()} 台在线` : '搜索中…')
+        Text(this.devices.length === 0 ? '搜索中…' : `${this.onlineCount()} 台在线`)
           .fontSize(12).fontColor(this.tk().textDim)
       }
       .width('100%')
