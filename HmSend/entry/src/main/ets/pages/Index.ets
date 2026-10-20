@@ -65,6 +65,9 @@ struct Index {
   @State totalBytes: number = 0;
   @State currentFile: string = '';
   @State sendTip: string = '';
+  /** 文本输入弹窗 */
+  @State textSheetOn: boolean = false;
+  @State textDraft: string = '';
 
   // ---- 接收确认弹层状态 ----
   @State hasRequest: boolean = false;
@@ -1333,6 +1336,149 @@ struct Index {
     return total;
   }
 
+  /** 标题栏圆形图标按钮（HDS 标题栏做法） */
+  @Builder
+  IconCircle(iconPath: string, disabled: boolean, onTap: () => void) {
+    Stack() {
+      Path()
+        .commands(iconPath)
+        .width(19)
+        .height(19)
+        .fill(Color.Transparent)
+        .stroke(this.tk().text)
+        .strokeWidth(1.8)
+        .strokeLineCap(LineCapStyle.Round)
+        .strokeLineJoin(LineJoinStyle.Round)
+    }
+    .width(40)
+    .height(40)
+    .borderRadius(20)
+    .backgroundColor(this.tk().surface)
+    .shadow({ radius: 8, color: this.tk().cardShadow, offsetX: 0, offsetY: 2 })
+    .opacity(disabled ? 0.45 : 1)
+    .onClick(() => {
+      if (!disabled) {
+        onTap();
+      }
+    })
+  }
+
+  /** 添加入口方块：图标 + 标题 + 去向说明（光有"文件"两个字，别人不知道点了去哪） */
+  @Builder
+  AddTile(iconPath: string, title: string, sub: string, onTap: () => void) {
+    Column({ space: 6 }) {
+      Stack() {
+        Path()
+          .commands(iconPath)
+          .width(22)
+          .height(22)
+          .fill(Color.Transparent)
+          .stroke(this.tk().accentInk)
+          .strokeWidth(1.7)
+          .strokeLineCap(LineCapStyle.Round)
+          .strokeLineJoin(LineJoinStyle.Round)
+      }
+      .width(40)
+      .height(40)
+      .borderRadius(13)
+      .backgroundColor(this.tk().accentSoft)
+
+      Text(title)
+        .fontSize(13)
+        .fontWeight(FontWeight.Medium)
+        .fontColor(this.tk().text)
+
+      Text(sub)
+        .fontSize(10)
+        .fontColor(this.tk().textMute)
+    }
+    .layoutWeight(1)
+    .padding({ top: 12, bottom: 10 })
+    .backgroundColor(this.tk().surface)
+    .borderRadius(20)
+    .onClick(onTap)
+  }
+
+  /** 文本输入弹窗（底部 sheet，和接收确认同一套语言） */
+  @Builder
+  TextSheet() {
+    Column() {
+      Blank()
+
+      Column({ space: 12 }) {
+        Row()
+          .width(34).height(4).borderRadius(2)
+          .backgroundColor(this.tk().lineStrong)
+          .margin({ bottom: 4 })
+
+        Column({ space: 3 }) {
+          Text('发送文本')
+            .fontSize(20).fontWeight(FontWeight.Bold).fontColor(this.tk().text)
+          Text('对方会收到一段文字，可直接复制')
+            .fontSize(12).fontColor(this.tk().textDim)
+        }
+        .alignItems(HorizontalAlign.Start)
+        .width('100%')
+
+        TextArea({ text: this.textDraft, placeholder: '输入要发送的内容…' })
+          .height(132)
+          .width('100%')
+          .fontSize(15)
+          .fontColor(this.tk().text)
+          .placeholderColor(this.tk().textMute)
+          .backgroundColor(this.tk().surface2)
+          .borderRadius(16)
+          .padding(12)
+          .onChange((v: string) => {
+            this.textDraft = v;
+          })
+
+        Row() {
+          Text('最多 2000 字').fontSize(10).fontColor(this.tk().textMute)
+          Blank()
+          Text(`${this.textDraft.length} / 2000`)
+            .fontSize(10).fontColor(this.tk().textMute)
+        }
+        .width('100%')
+
+        Row({ space: 10 }) {
+          Button('取消')
+            .layoutWeight(1)
+            .height(46)
+            .backgroundColor(this.tk().surface2)
+            .fontColor(this.tk().text)
+            .borderRadius(14)
+            .onClick(() => {
+              this.textSheetOn = false;
+            })
+          Button('添加到待发')
+            .layoutWeight(1.6)
+            .height(46)
+            .backgroundColor(this.tk().accent)
+            .fontColor(this.tk().onAccent)
+            .fontWeight(FontWeight.Bold)
+            .borderRadius(14)
+            .enabled(this.textDraft.trim().length > 0)
+            .opacity(this.textDraft.trim().length > 0 ? 1 : 0.5)
+            .onClick(() => {
+              this.submitText();
+            })
+        }
+        .width('100%')
+      }
+      .alignItems(HorizontalAlign.Start)
+      .padding({ left: 16, right: 16, top: 12, bottom: 18 })
+      .backgroundColor(this.tk().surface)
+      .borderRadius(28)
+      .margin({ left: 8, right: 8, bottom: 8 })
+      .width('calc(100% - 16vp)')
+    }
+    .width('100%')
+    .height('100%')
+    .justifyContent(FlexAlign.End)
+    .backgroundColor(this.tk().scrim)
+  }
+
   @Builder
   SendTab() {
     Stack({ alignContent: Alignment.Bottom }) {
@@ -1418,13 +1564,39 @@ struct Index {
             }, (item: DeviceItem) => `${item.fingerprint}_${item.presence}`)
           }
 
+          Text('添加内容')
+            .fontSize(10).letterSpacing(1.5).fontColor(this.tk().textMute)
+            .padding({ left: 4, right: 4, top: 6 })
+
+          Row({ space: 10 }) {
+            this.AddTile('M3 7h6l2 2.6h10V19H3z', '文件', '文件管理', () => {
+              this.pickFiles();
+            })
+            this.AddTile('M4 5.6h16v12.8H4z M7 15.6l3.6-3.8 2.8 2.6 2.2-2 3.4 3.2', '媒体', '相册', () => {
+              this.pickMedia();
+            })
+            this.AddTile('M5 7.4h14M5 12h14M5 16.6h8.6', '文本', '输入文字', () => {
+              this.textSheetOn = true;
+            })
+          }
+          .width('100%')
+          .alignItems(VerticalAlign.Top)
+
           Row() {
             Text('待发文件')
               .fontSize(10).letterSpacing(1.5).fontColor(this.tk().textMute)
             Blank()
-            Text(this.sendFiles.length > 0 ? `${this.sendFiles.length} 个` : '未选择')
-              .fontSize(10).letterSpacing(1)
-              .fontColor(this.sendFiles.length > 0 ? this.tk().accentInk : this.tk().textMute)
+            if (this.sendFiles.length > 0) {
+              Text('清空')
+                .fontSize(10).fontColor(this.tk().textDim)
+                .padding({ left: 8, right: 4, top: 2, bottom: 2 })
+                .onClick(() => {
+                  this.sendFiles = [];
+                })
+            } else {
+              Text('未选择')
+                .fontSize(10).letterSpacing(1).fontColor(this.tk().textMute)
+            }
           }
           .width('100%')
           .padding({ left: 4, right: 4, top: 6 })
@@ -1487,31 +1659,6 @@ struct Index {
               .border({ width: 1, color: this.tk().cardBorder })
             }, (f: SendFileItem, idx: number) => `${f.path}_${idx}`)
           }
-
-          Row({ space: 8 }) {
-            Button('添加文件')
-              .layoutWeight(1)
-              .height(40)
-              .backgroundColor(this.tk().surface2)
-              .fontColor(this.tk().text)
-              .borderRadius(12)
-              .enabled(!this.sending)
-              .onClick(() => {
-                this.pickFiles();
-              })
-            Button('清空')
-              .height(40)
-              .width(76)
-              .backgroundColor(this.tk().surface2)
-              .fontColor(this.tk().textDim)
-              .borderRadius(12)
-              .enabled(!this.sending && this.sendFiles.length > 0)
-              .onClick(() => {
-                this.sendFiles = [];
-              })
-          }
-          .width('100%')
-          .margin({ top: 2 })
 
           TextInput({ text: this.pinInput, placeholder: '接收方 PIN（未设置可留空）' })
             .height(44)
@@ -1629,6 +1776,101 @@ struct Index {
   }
 
   /** 打开系统文件选择器，把选中的文件加进待发送列表 */
+  /** 从相册选图片/视频（和文件管理是两个入口） */
+  private async pickMedia(): Promise<void> {
+    try {
+      const ctx = this.getUIContext().getHostContext() as common.UIAbilityContext;
+      const p = new photoAccessHelper.PhotoViewPicker();
+      const res = await p.select({
+        MIMEType: photoAccessHelper.PhotoViewMIMETypes.IMAGE_VIDEO_TYPE,
+        maxSelectNumber: 20
+      });
+      const uris = res.photoUris;
+      if (uris === undefined || uris.length === 0) {
+        return;
+      }
+      const added: SendFileItem[] = [];
+      for (let i = 0; i < this.sendFiles.length; i++) {
+        added.push(this.sendFiles[i]);
+      }
+      for (let i = 0; i < uris.length; i++) {
+        const uri = uris[i];
+        const item = new SendFileItem();
+        item.path = uri;
+        const slash = uri.lastIndexOf('/');
+        const raw = slash >= 0 ? uri.substring(slash + 1) : uri;
+        item.name = decodeURIComponent(raw);
+        try {
+          const st = fs.statSync(uri);
+          item.size = st.size;
+        } catch (e) {
+          Log.w(`读取媒体信息失败 ${uri}: ${JSON.stringify(e)}`);
+          item.size = 0;
+        }
+        const lower = item.name.toLowerCase();
+        item.mime = lower.endsWith('.png') ? 'image/png'
+          : lower.endsWith('.gif') ? 'image/gif'
+          : lower.endsWith('.mp4') ? 'video/mp4'
+          : lower.endsWith('.mov') ? 'video/quicktime'
+          : 'image/jpeg';
+        added.push(item);
+      }
+      this.sendFiles = added;
+      this.sendTip = `已添加 ${uris.length} 个媒体`;
+      Log.i(`相册选择 ${uris.length} 个`);
+    } catch (e) {
+      Log.e(`选择媒体失败: ${JSON.stringify(e)}`);
+      this.sendTip = '选择媒体失败';
+    }
+  }
+
+  /**
+   * 文本消息：落成一个真实的 .txt 落在沙箱里，再当普通文件发送。
+   * 这样 SendClient / 历史记录 / 对方接收都不用为"文本"写第二套逻辑。
+   */
+  private async submitText(): Promise<void> {
+    const raw = this.textDraft.trim();
+    if (raw.length === 0) {
+      return;
+    }
+    try {
+      const ctx = this.getUIContext().getHostContext() as common.UIAbilityContext;
+      const dir = `${ctx.filesDir}/texts`;
+      if (!fs.accessSync(dir)) {
+        fs.mkdirSync(dir, true);
+      }
+      // 用内容开头做文件名，对方收到一眼能看出是什么
+      const safe = raw.replace(/[\r\n\/\\:*?"<>|]/g, ' ').trim().substring(0, 16);
+      const base = safe.length > 0 ? safe : '文本';
+      const name = `${base}.txt`;
+      const path = `${dir}/${Date.now()}_${name}`;
+      const f = fs.openSync(path, fs.OpenMode.CREATE | fs.OpenMode.READ_WRITE | fs.OpenMode.TRUNC);
+      fs.writeSync(f.fd, raw);
+      fs.closeSync(f.fd);
+
+      const item = new SendFileItem();
+      item.path = path;
+      item.name = name;
+      item.size = fs.statSync(path).size;
+      item.mime = 'text/plain';
+
+      const next: SendFileItem[] = [];
+      for (let i = 0; i < this.sendFiles.length; i++) {
+        next.push(this.sendFiles[i]);
+      }
+      next.push(item);
+      this.sendFiles = next;
+
+      this.textDraft = '';
+      this.textSheetOn = false;
+      this.sendTip = '文本已添加到待发';
+      Log.i(`文本已添加：${name}（${item.size} 字节）`);
+    } catch (e) {
+      Log.e(`文本落盘失败: ${JSON.stringify(e)}`);
+      this.sendTip = '文本添加失败';
+    }
+  }
+
   private async pickFiles(): Promise<void> {
     try {
       const ctx = this.getUIContext().getHostContext() as common.UIAbilityContext;
@@ -2146,35 +2388,40 @@ struct Index {
   build() {
     Stack() {
       Column() {
-      Row({ space: 8 }) {
-        Text('快传')
-          .fontSize(28)
-          .fontWeight(FontWeight.Bold)
-          .fontColor(this.tk().text)
-          .letterSpacing(-0.6)
-        Blank()
-        // 扫描入口放在 Scroll 之外：实测放在 Scroll 内的 Text/Button 点击不响应，
-        // 这里固定在标题栏，任何页面状态下都能点。
-        if (this.currentTab === 0) {
-          Button(this.scanning ? '扫描中…' : '扫描局域网')
+      Row({ space: 10 }) {
+        Column({ space: 2 }) {
+          Text('快传')
+            .fontSize(32)
+            .fontWeight(FontWeight.Bold)
+            .fontColor(this.tk().text)
+            .letterSpacing(-0.8)
+          Text(this.devices.length === 0 ? '搜索附近设备…' : `${this.onlineCount()} 台在线`)
             .fontSize(11)
-            .fontColor(this.scanning ? this.tk().textDim : this.tk().accent)
-            .height(28)
-            .padding({ left: 12, right: 12 })
-            .backgroundColor(Color.Transparent)
-            .borderRadius(14)
-            .border({ width: 1, color: this.scanning ? this.tk().line : this.tk().accent })
-            .enabled(!this.scanning)
-            .onClick(() => {
-              Log.i('点击「扫描局域网」');
-              this.doScan();
-            })
+            .fontColor(this.tk().textDim)
         }
-        Text(this.devices.length === 0 ? '搜索中…' : `${this.onlineCount()} 台在线`)
-          .fontSize(12).fontColor(this.tk().textDim)
+        .alignItems(HorizontalAlign.Start)
+
+        Blank()
+
+        // 扫描入口固定在这里：实测放进 Scroll 内点击不响应
+        if (this.currentTab === 0) {
+          this.IconCircle('M18 11a7 7 0 1 1-14 0 7 7 0 0 1 14 0 M16.2 16.2L21 21', this.scanning, () => {
+            Log.i('点击「扫描局域网」');
+            this.doScan();
+          })
+        }
+        this.IconCircle(
+          this.themeMode === 'light'
+            ? 'M20.5 14.5A8.5 8.5 0 1 1 9.5 3.5a6.6 6.6 0 0 0 11 11Z'
+            : 'M16 12a4 4 0 1 1-8 0 4 4 0 0 1 8 0 M12 5v1.6m0 10.8V19M5 12h1.6m10.8 0H19',
+          false,
+          () => {
+            this.switchTheme(this.themeMode === 'light' ? 'dark' : 'light');
+          }
+        )
       }
       .width('100%')
-      .padding({ left: 20, right: 20, top: 10, bottom: 6 })
+      .padding({ left: 20, right: 20, top: 8, bottom: 8 })
       .backgroundColor(this.tk().bg)
 
       HdsTabs({ controller: this.tabsCtrl }) {
@@ -2252,6 +2499,10 @@ struct Index {
         .height('100%')
         .justifyContent(FlexAlign.End)
         .hitTestBehavior(HitTestMode.Transparent)
+      }
+
+      if (this.textSheetOn) {
+        this.TextSheet()
       }
 
       if (this.hasRequest) {
