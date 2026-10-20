@@ -335,7 +335,7 @@
 
     <!-- ============ 04 传输中 ============ -->
     <figure class="frame reveal">
-      <figcaption><b>04</b><span>传输中 / IN FLIGHT</span></figcaption>
+      <figcaption><b>04</b><span>传输进度 / PROGRESS POP</span></figcaption>
       <div class="phone">
         <div class="status-bar">
           <span>9:41</span>
@@ -346,37 +346,89 @@
           </span>
         </div>
 
-        <div class="transfer-stage">
-          <div class="app-bar" style="padding:0">
-            <span class="label">接收中 · 来自 XIAOXIAO-PC</span>
-            <span class="label" style="color:var(--text-dim)">取消</span>
-          </div>
+        <div class="screen-body">
+          <div class="rule"><span>01 / LOCAL</span></div>
 
-          <div class="beam" aria-hidden="true">
-            <i></i><i></i><i></i>
-            <div>
-              <div class="speed">12.8</div>
-              <div class="unit">MB / S</div>
+          <section class="card me-card">
+            <div class="me-top">
+              <span class="label">本机 · <span class="badge">HTTPS</span></span>
+              <span class="signal-ring scanning" aria-hidden="true"><i></i><i></i><i></i></span>
             </div>
-          </div>
-
-          <section class="card transfer-info">
-            <div class="tname">相册测试.jpg</div>
-            <div class="tmeta">
-              <span>9.3 / 20.0 MB</span>
-              <span>46%</span>
-            </div>
-            <div class="bar"><span></span></div>
-            <div class="tmeta" style="margin:10px 0 0">
-              <span>剩余约 1 秒</span>
-              <span>1 / 3 个文件</span>
-            </div>
-            <div class="dest">
-              <span>保存到</span>
-              <b>Download / 快传</b>
-            </div>
+            <h3>Mate 70 Pro 优享版</h3>
+            <div class="addr">192.168.3.133:53317</div>
+            <div class="fp">指纹 1866 5237 1EBD CB3C</div>
           </section>
+
+          <div class="list-head">
+            <span class="label">在线设备</span>
+            <span class="count">02 台</span>
+          </div>
+
+          <article class="card device-card" role="button" tabindex="0">
+            <span class="dot"></span>
+            <span>
+              <span class="name">XIAOXIAO-PC</span>
+              <span class="sub">Windows · https · 传输中</span>
+            </span>
+            <span class="rtt"><b>12</b> ms</span>
+          </article>
+
+          <article class="card device-card" role="button" tabindex="0">
+            <span class="dot"></span>
+            <span>
+              <span class="name">MacBook-Air</span>
+              <span class="sub">macOS · https</span>
+            </span>
+            <span class="rtt"><b>24</b> ms</span>
+          </article>
         </div>
+
+        <div class="scrim-soft" aria-hidden="true"></div>
+
+        <section class="card progress-pop" aria-label="传输进度">
+          <div class="pp-head">
+            <span class="label">接收中 · <b>XIAOXIAO-PC</b></span>
+            <button class="pp-close" aria-label="取消传输">
+              <svg width="12" height="12" viewBox="0 0 12 12" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M2 2l8 8M10 2l-8 8"/></svg>
+            </button>
+          </div>
+
+          <div class="pp-main">
+            <span class="pp-ring" aria-hidden="true"><i></i><i></i><i></i></span>
+            <span class="pp-speed"><span class="num">12.8</span><span class="unit">MB/S</span></span>
+          </div>
+
+          <div class="pp-name">相册测试.jpg</div>
+          <div class="bar"><span></span></div>
+          <div class="pp-meta">
+            <span>9.3 / 20.0 MB</span>
+            <span>46% · 剩余 1 秒</span>
+          </div>
+
+          <div class="pp-dest">
+            <span>保存到</span>
+            <b>Download / 快传</b>
+          </div>
+        </section>
+
+        <nav class="tabbar" aria-label="主导航">
+          <button class="tab" aria-current="page">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v11m0 0 4-4m-4 4-4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
+            接收
+          </button>
+          <button class="tab">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21V10m0 0 4 4m-4-4-4 4M4 7V5a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v2"/></svg>
+            发送
+          </button>
+          <button class="tab">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>
+            历史
+          </button>
+          <button class="tab">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h9M17 7h3M4 17h5M13 17h7"/><circle cx="15" cy="7" r="2"/><circle cx="11" cy="17" r="2"/></svg>
+            设置
+          </button>
+        </nav>
       </div>
     </figure>
 

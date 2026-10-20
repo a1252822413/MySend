@@ -640,114 +640,168 @@
   margin-top: 12px;
 }
 
-/* ---------------- 传输中 ---------------- */
+/* ---------------- 传输进度弹窗 ---------------- */
 
-.transfer-stage {
+/* 轻遮罩：只压暗一点，不夺取上下文 */
+.scrim-soft {
   position: absolute;
-  top: 44px;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 12;
-  background: radial-gradient(30rem 22rem at 50% 34%, var(--halo-a), transparent 70%), var(--bg);
-  display: flex;
-  flex-direction: column;
-  padding: 0 18px 20px;
+  inset: 0;
+  background: var(--scrim-soft);
+  z-index: 10;
 }
 
-.beam {
-  position: relative;
-  height: 236px;
+/* 浮在 Tab 上方的进度卡：像下载浮窗，不占满屏、不打断操作 */
+.progress-pop {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: 84px;
+  z-index: 11;
+  padding: 13px 16px 14px;
+  border-radius: 20px;
+}
+
+/* 亮色下白卡 + 浅底，边框要比默认卡更明确一点才不会糊 */
+[data-theme="light"] .progress-pop {
+  border-color: rgba(16, 22, 19, 0.12);
+}
+
+.pp-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.pp-head .label b {
+  color: var(--text-dim);
+  font-weight: 500;
+  letter-spacing: 0.04em;
+}
+
+.pp-close {
+  width: 24px;
+  height: 24px;
   display: grid;
   place-items: center;
-  margin-top: 6px;
+  border: 0;
+  background: none;
+  color: var(--text-mute);
+  cursor: pointer;
+  border-radius: var(--r-xs);
+  transition: color var(--dur-fast) ease-out;
 }
 
-.beam i {
+.pp-close:hover {
+  color: var(--text);
+}
+
+.pp-main {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin: 12px 0 14px;
+}
+
+/* 小号波束：只保留两层环 + 中心点，比全屏版克制 */
+.pp-ring {
+  width: 46px;
+  height: 46px;
+  flex: 0 0 46px;
+  position: relative;
+  display: grid;
+  place-items: center;
+}
+
+.pp-ring i {
   position: absolute;
   border-radius: 50%;
   border: 1px solid var(--ring);
 }
 
-.beam i:nth-child(1) {
-  width: 196px;
-  height: 196px;
+.pp-ring i:nth-child(1) {
+  width: 46px;
+  height: 46px;
   opacity: 0.45;
+  animation: ring-pulse 2.2s var(--ease) infinite;
 }
 
-.beam i:nth-child(2) {
-  width: 144px;
-  height: 144px;
-  opacity: 0.7;
+.pp-ring i:nth-child(2) {
+  width: 28px;
+  height: 28px;
+  opacity: 0.8;
 }
 
-.beam i:nth-child(3) {
-  width: 92px;
-  height: 92px;
-  opacity: 0.95;
-  animation: ring-pulse 2s var(--ease) infinite;
+.pp-ring i:nth-child(3) {
+  width: 8px;
+  height: 8px;
+  border: 0;
+  background: var(--accent);
+  box-shadow: 0 0 10px var(--accent-glow);
 }
 
-.beam::after {
-  content: "";
-  position: absolute;
-  width: 260px;
-  height: 260px;
-  border-radius: 50%;
-  background: radial-gradient(circle, var(--halo-a), transparent 64%);
-  pointer-events: none;
+.pp-speed {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
 }
 
-.beam > div {
-  position: relative;
-  z-index: 1;
-  text-align: center;
-}
-
-.beam .speed {
+.pp-speed .num {
   font-family: var(--font-mono);
-  font-size: var(--fs-display);
+  font-size: 34px;
   font-weight: 700;
   letter-spacing: -0.04em;
-  color: var(--text);
   line-height: 1;
+  color: var(--text);
   font-variant-numeric: tabular-nums;
 }
 
-.beam .unit {
+.pp-speed .unit {
   font-family: var(--font-mono);
-  font-size: 12px;
-  font-weight: 500;
-  letter-spacing: 0.3em;
+  font-size: 11px;
+  letter-spacing: 0.16em;
   color: var(--accent-ink);
-  margin-top: 8px;
 }
 
-.transfer-info {
-  margin-top: auto;
-  padding: 14px 16px;
-}
-
-.transfer-info .tname {
-  font-size: 15px;
+.pp-name {
+  font-size: 13px;
   font-weight: 500;
   color: var(--text);
-  margin-bottom: 6px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  margin-bottom: 7px;
 }
 
-.transfer-info .tmeta {
+.pp-meta {
   display: flex;
   justify-content: space-between;
   font-family: var(--font-mono);
   font-size: var(--fs-micro);
   color: var(--text-mute);
   letter-spacing: 0.06em;
-  margin-bottom: 8px;
+  margin-top: 6px;
 }
 
+.pp-dest {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: var(--fs-micro);
+  color: var(--text-mute);
+}
+
+.pp-dest b {
+  color: var(--text-dim);
+  font-weight: 400;
+}
+
+/* 进度条 */
 .bar {
   height: 4px;
   border-radius: 2px;
@@ -762,24 +816,7 @@
   width: 46%;
   border-radius: 2px;
   background: var(--accent);
-  box-shadow: 0 0 12px var(--accent-glow);
-}
-
-.transfer-info .dest {
-  margin-top: 12px;
-  padding-top: 10px;
-  border-top: 1px solid var(--line);
-  font-family: var(--font-mono);
-  font-size: var(--fs-micro);
-  color: var(--text-mute);
-  display: flex;
-  justify-content: space-between;
-  gap: 8px;
-}
-
-.transfer-info .dest b {
-  color: var(--text-dim);
-  font-weight: 400;
+  box-shadow: 0 0 10px var(--accent-glow);
 }
 
 /* ---------------- 历史卡 ---------------- */

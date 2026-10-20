@@ -48,6 +48,7 @@
   --shell-border: rgba(233, 241, 238, 0.14);
   --shell-shadow: 0 16px 40px rgba(2, 6, 5, 0.55);
   --scrim: rgba(4, 7, 6, 0.62);
+  --scrim-soft: rgba(4, 7, 6, 0.38);
   --ring: rgba(59, 228, 154, 0.55);
   --sheet-shadow: 0 -4px 18px rgba(0, 0, 0, 0.38);
 }
@@ -89,6 +90,7 @@
   --shell-border: rgba(16, 22, 19, 0.12);
   --shell-shadow: 0 14px 32px rgba(16, 22, 19, 0.12);
   --scrim: rgba(15, 22, 19, 0.3);
+  --scrim-soft: rgba(15, 22, 19, 0.22);
   --ring: rgba(10, 130, 85, 0.48);
 }
 
