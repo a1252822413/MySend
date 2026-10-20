@@ -75,6 +75,9 @@ struct Index {
   @State textSheetOn: boolean = false;
   /** 键盘高度（vp）：自绘弹窗不会自动避让，要手动抬起来 */
   @State kbHeight: number = 0;
+  /** 访问控制（跟 settings 同步，切换时落盘） */
+  @State accessMode: string = 'off';
+  @State accessList: string = '';
   /** 本机卡信号环的水波：两个相位错开的扩散环 */
   @State wave1: number = 1;
   @State waveOp1: number = 0.5;
@@ -156,6 +159,47 @@ struct Index {
   aboutToDisappear(): void {
     this.waveOn = false;
     deviceRegistry.stopPresence();
+  }
+
+  private accessArray(): string[] {
+    const out: string[] = [];
+    const parts = this.accessList.split(',');
+    for (let i = 0; i < parts.length; i++) {
+      if (parts[i].length > 0) {
+        out.push(parts[i]);
+      }
+    }
+    return out;
+  }
+
+  private inAccess(fp: string): boolean {
+    return this.accessArray().indexOf(fp) >= 0;
+  }
+
+  private setAccessMode(mode: string): void {
+    this.accessMode = mode;
+    settingsService.save((s: Settings) => {
+      s.accessMode = mode;
+    });
+    Log.i(`访问控制切换为 ${mode}`);
+  }
+
+  private toggleAccess(fp: string): void {
+    if (fp.length === 0) {
+      return;
+    }
+    const arr = this.accessArray();
+    const idx = arr.indexOf(fp);
+    if (idx >= 0) {
+      arr.splice(idx, 1);
+    } else {
+      arr.push(fp);
+    }
+    const next = arr.join(',');
+    this.accessList = next;
+    settingsService.save((s: Settings) => {
+      s.accessList = next;
+    });
   }
 
   /** 只数真正在线的设备（列表里还包含「离开」的） */
@@ -1119,6 +1163,8 @@ struct Index {
     this.pin = s.pin;
     this.autoAccept = s.autoAccept;
     this.albumAuto = s.albumAuto;
+    this.accessMode = settingsService.value.accessMode;
+    this.accessList = settingsService.value.accessList;
     this.receiveDirPath = fileReceiver.receivedDir();
     this.receivePublic = fileReceiver.isPublicDir();
     this.serverState = httpServer.isRunning() ? (s.https ? 'HTTPS 服务运行中' : 'HTTP 服务运行中') : '服务未启动';
@@ -1454,6 +1500,23 @@ struct Index {
     .border({ width: 1, color: this.themeMode === 'light' ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.12)' })
     .shadow({ radius: 18, color: this.tk().cardShadow, offsetX: 0, offsetY: 6 })
     .margin({ bottom: 10 })
+  }
+
+  @Builder
+  AccessChip(mode: string, label: string) {
+    Text(label)
+      .fontSize(12)
+      .fontColor(this.accessMode === mode ? this.tk().accentInk : this.tk().textDim)
+      .backgroundColor(this.accessMode === mode ? this.tk().accentSoft : this.tk().surface2)
+      .border({ width: 1, color: this.accessMode === mode ? this.tk().lineAccent : Color.Transparent })
+      .borderRadius(11)
+      .padding({ top: 9, bottom: 9 })
+      .layoutWeight(1)
+      .textAlign(TextAlign.Center)
+      .stateStyles({ pressed: pressFx })
+      .onClick(() => {
+        this.setAccessMode(mode);
+      })
   }
 
   /** 标题栏圆形图标按钮（HDS 标题栏做法） */
@@ -2414,6 +2477,93 @@ struct Index {
         .width('100%')
         .alignItems(HorizontalAlign.Start)
 
+        this.SectionTitle('访问控制', this.accessMode === 'off'
+          ? '默认接受所有设备的传输请求'
+          : (this.accessMode === 'whitelist'
+            ? `只接受名单内的设备（当前 ${this.accessArray().length} 台）`
+            : `拒绝名单内的设备（当前 ${this.accessArray().length} 台）`))
+
+        Column({ space: 12 }) {
+          Row({ space: 8 }) {
+            this.AccessChip('off', '关闭')
+            this.AccessChip('blacklist', '黑名单')
+            this.AccessChip('whitelist', '白名单')
+          }
+          .width('100%')
+
+          if (this.accessMode !== 'off') {
+            Row() {
+              Text(this.accessArray().length === 0
+                ? (this.accessMode === 'whitelist'
+                  ? '名单为空，当前所有设备都会被拒绝'
+                  : '名单为空，等同于关闭')
+                : (this.accessMode === 'whitelist'
+                  ? '只有名单内的设备能发来文件，其他人会被直接拒绝'
+                  : '名单内的设备会被直接拒绝，其他人正常发送'))
+                .fontSize(11)
+                .fontColor(this.accessArray().length === 0 && this.accessMode === 'whitelist'
+                  ? this.tk().warn
+                  : this.tk().textMute)
+                .layoutWeight(1)
+              if (this.accessArray().length > 0) {
+                Text('清空')
+                  .fontSize(11)
+                  .fontColor(this.tk().textDim)
+                  .padding({ left: 10, top: 2, bottom: 2 })
+                  .onClick(() => {
+                    this.accessList = '';
+                    settingsService.save((s: Settings) => {
+                      s.accessList = '';
+                    });
+                  })
+              }
+            }
+            .width('100%')
+
+            if (this.devices.length === 0) {
+              Text('附近还没有设备，先让对方打开快传')
+                .fontSize(11)
+                .fontColor(this.tk().textDim)
+                .width('100%')
+                .padding({ top: 4, bottom: 4 })
+            } else {
+              ForEach(this.devices, (item: DeviceItem) => {
+                Row({ space: 10 }) {
+                  Row()
+                    .width(8).height(8).borderRadius(4)
+                    .backgroundColor(this.inAccess(item.fingerprint) ? this.tk().accent : this.tk().lineStrong)
+
+                  Column({ space: 1 }) {
+                    Text(item.alias.length > 0 ? item.alias : '未知设备')
+                      .fontSize(13).fontColor(this.tk().text)
+                      .maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
+                    Text(`${item.platformLabel()} · ${item.ip}`)
+                      .fontSize(10).fontColor(this.tk().textMute)
+                      .maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
+                  }
+                  .alignItems(HorizontalAlign.Start)
+                  .layoutWeight(1)
+
+                  Text(this.inAccess(item.fingerprint) ? '已在名单' : '未加入')
+                    .fontSize(10)
+                    .fontColor(this.inAccess(item.fingerprint) ? this.tk().accentInk : this.tk().textMute)
+                }
+                .width('100%')
+                .padding({ top: 8, bottom: 8 })
+                .onClick(() => {
+                  this.toggleAccess(item.fingerprint);
+                })
+              }, (item: DeviceItem) => `${item.fingerprint}_${item.presence}`)
+            }
+          }
+        }
+        .alignItems(HorizontalAlign.Start)
+        .padding(16)
+        .backgroundColor(this.tk().surface)
+        .borderRadius(24)
+        .border({ width: 1, color: this.tk().cardBorder })
+        .width('100%')
+
         this.SectionTitle('连接与安全', '改完即时生效')
 
         Column({ space: 16 }) {
@@ -2471,12 +2621,13 @@ struct Index {
         Text(`当前服务：${this.serverState}`).fontSize(11).fontColor(this.tk().textDim).width('100%')
         Text('快传鸿蒙版 v1.0.0 · 协议 LocalSend v2.2').fontSize(11).fontColor(this.tk().textDim).width('100%')
       }
-      .padding(16)
+      .padding({ left: 16, right: 16, top: 16, bottom: 96 })
       .width('100%')
     }
     .backgroundColor(this.tk().bg)
     .width('100%')
     .height('100%')
+    .scrollBar(BarState.Off)
   }
 
   /** 保存设置并重启服务（HTTPS 开关、端口变更必须重启监听才生效） */
@@ -2582,7 +2733,9 @@ struct Index {
         }
         if (index === 3) {
           // 授权是异步恢复的，进设置页时重新读一次真实状态
-          this.receiveDirPath = fileReceiver.receivedDir();
+          this.accessMode = settingsService.value.accessMode;
+    this.accessList = settingsService.value.accessList;
+    this.receiveDirPath = fileReceiver.receivedDir();
           this.receivePublic = fileReceiver.isPublicDir();
         }
         if (index === 2) {

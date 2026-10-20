@@ -251,6 +251,29 @@ class HttpSession {
       return;
     }
 
+    // 访问控制：黑名单直接拒，白名单只放行名单内的设备
+    const accessMode = settingsService.value.accessMode;
+    if (accessMode !== 'off') {
+      const fp = req.info !== undefined && req.info.fingerprint !== undefined ? req.info.fingerprint : '';
+      const list = settingsService.value.accessList.split(',');
+      let inList = false;
+      for (let i = 0; i < list.length; i++) {
+        if (list[i].length > 0 && list[i] === fp) {
+          inList = true;
+          break;
+        }
+      }
+      const allowed = accessMode === 'whitelist' ? inList : !inList;
+      if (!allowed) {
+        const alias = req.info !== undefined && req.info.alias !== undefined ? req.info.alias : '未知设备';
+        Log.w(`访问控制拒绝：${alias} (${fp}) 模式=${accessMode}`);
+        this.respond(403, JSON.stringify({
+          message: accessMode === 'whitelist' ? 'Not in whitelist' : 'Blocked by blacklist'
+        }));
+        return;
+      }
+    }
+
     const senderAlias = req.info !== undefined && req.info.alias !== undefined ? req.info.alias : '未知设备';
     // 发送方信息顺带入表，便于界面立刻显示
     if (req.info !== undefined) {
