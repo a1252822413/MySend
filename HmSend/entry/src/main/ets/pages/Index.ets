@@ -79,6 +79,12 @@ struct Index {
   @State accessMode: string = 'blacklist';
   @State blackList: string = '';
   @State whiteList: string = '';
+  /** 加入名单前的二次确认：非空即弹层，存的是待加入设备的指纹 */
+  @State pendingFp: string = '';
+  @State pendingName: string = '';
+  @State pendingSub: string = '';
+  /** 待加入设备是否正在另一份名单里（互斥提示用） */
+  @State pendingCross: boolean = false;
   /** 本机卡信号环的水波：两个相位错开的扩散环 */
   @State wave1: number = 1;
   @State waveOp1: number = 0.5;
@@ -182,6 +188,60 @@ struct Index {
     return this.accessArray().indexOf(fp) >= 0;
   }
 
+  /** 逗号串里是否含某个指纹 */
+  private listHas(list: string, fp: string): boolean {
+    const parts = list.split(',');
+    for (let i = 0; i < parts.length; i++) {
+      if (parts[i] === fp) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /** 从逗号串里剔掉某个指纹，返回新串 */
+  private listWithout(list: string, fp: string): string {
+    const out: string[] = [];
+    const parts = list.split(',');
+    for (let i = 0; i < parts.length; i++) {
+      if (parts[i].length > 0 && parts[i] !== fp) {
+        out.push(parts[i]);
+      }
+    }
+    return out.join(',');
+  }
+
+  /** 该设备是否在另一份名单里（黑白互斥判定） */
+  private inOtherList(fp: string): boolean {
+    return this.accessMode === 'whitelist'
+      ? this.listHas(this.blackList, fp)
+      : this.listHas(this.whiteList, fp);
+  }
+
+  /** 启动时清一次历史遗留：同一指纹不许同时出现在两份名单，白名单优先 */
+  private syncAccessExclusive(): void {
+    if (this.whiteList.length === 0 || this.blackList.length === 0) {
+      return;
+    }
+    const whites: string[] = this.whiteList.split(',');
+    let black = this.blackList;
+    let hit = false;
+    for (let i = 0; i < whites.length; i++) {
+      const fp = whites[i];
+      if (fp.length > 0 && this.listHas(black, fp)) {
+        black = this.listWithout(black, fp);
+        hit = true;
+        Log.i(`访问控制去重：${fp} 同时存在于黑白名单，已从黑名单移除`);
+      }
+    }
+    if (hit) {
+      this.blackList = black;
+      settingsService.save((s: Settings) => {
+        s.blackList = black;
+      });
+    }
+  }
+
   private setAccessMode(mode: string): void {
     this.accessMode = mode;
     settingsService.save((s: Settings) => {
@@ -190,18 +250,75 @@ struct Index {
     Log.i(`访问控制切换为 ${mode}`);
   }
 
-  private toggleAccess(fp: string): void {
+  /** 点设备行：已在名单 → 直接移除；不在 → 先弹二次确认 */
+  private pickAccess(fp: string, alias: string, sub: string): void {
     if (fp.length === 0) {
       return;
     }
-    const arr = this.accessArray();
-    const idx = arr.indexOf(fp);
-    if (idx >= 0) {
-      arr.splice(idx, 1);
-    } else {
-      arr.push(fp);
+    if (this.inAccess(fp)) {
+      this.removeFromCurrent(fp);
+      return;
     }
-    const next = arr.join(',');
+    this.pendingFp = fp;
+    this.pendingName = alias;
+    this.pendingSub = sub;
+    this.pendingCross = this.inOtherList(fp);
+  }
+
+  private cancelPendingAccess(): void {
+    this.pendingFp = '';
+    this.pendingName = '';
+    this.pendingSub = '';
+    this.pendingCross = false;
+  }
+
+  /** 确认加入：写入当前名单，同时从另一份名单剔掉（互斥） */
+  private confirmPendingAccess(): void {
+    const fp = this.pendingFp;
+    if (fp.length === 0) {
+      return;
+    }
+    const toWhite = this.accessMode === 'whitelist';
+    const next = this.appendFp(this.currentAccessList(), fp);
+    let crossBlack = this.blackList;
+    let crossWhite = this.whiteList;
+    if (toWhite) {
+      this.whiteList = next;
+      crossBlack = this.listWithout(this.blackList, fp);
+      this.blackList = crossBlack;
+    } else {
+      this.blackList = next;
+      crossWhite = this.listWithout(this.whiteList, fp);
+      this.whiteList = crossWhite;
+    }
+    settingsService.save((s: Settings) => {
+      if (toWhite) {
+        s.whiteList = next;
+        s.blackList = crossBlack;
+      } else {
+        s.blackList = next;
+        s.whiteList = crossWhite;
+      }
+    });
+    Log.i(`访问控制：${fp} 加入${toWhite ? '白' : '黑'}名单${this.pendingCross ? '（已从另一名单移除）' : ''}`);
+    this.cancelPendingAccess();
+  }
+
+  private appendFp(list: string, fp: string): string {
+    const arr: string[] = [];
+    const parts = list.split(',');
+    for (let i = 0; i < parts.length; i++) {
+      if (parts[i].length > 0 && parts[i] !== fp) {
+        arr.push(parts[i]);
+      }
+    }
+    arr.push(fp);
+    return arr.join(',');
+  }
+
+  /** 从当前名单移除（不需要确认） */
+  private removeFromCurrent(fp: string): void {
+    const next = this.listWithout(this.currentAccessList(), fp);
     const toWhite = this.accessMode === 'whitelist';
     if (toWhite) {
       this.whiteList = next;
@@ -215,6 +332,124 @@ struct Index {
         s.blackList = next;
       }
     });
+    Log.i(`访问控制：${fp} 从${toWhite ? '白' : '黑'}名单移除`);
+  }
+
+  /** 加入名单前的二次确认（底部 sheet，跟接收确认同一套语言） */
+  @Builder
+  AccessConfirmLayer() {
+    Column() {
+      Column() {
+        Row()
+          .width(34)
+          .height(3)
+          .borderRadius(2)
+          .backgroundColor(this.tk().lineStrong)
+          .margin({ bottom: 14 })
+
+        Row({ space: 8 }) {
+          Text(this.accessMode === 'whitelist' ? '加入白名单？' : '加入黑名单？')
+            .fontSize(19)
+            .fontWeight(FontWeight.Bold)
+            .fontColor(this.tk().text)
+            .layoutWeight(1)
+          Text(this.accessMode === 'whitelist' ? 'ALLOW' : 'DENY')
+            .fontSize(9)
+            .letterSpacing(1.4)
+            .fontColor(this.accessMode === 'whitelist' ? this.tk().accentInk : this.tk().warn)
+            .backgroundColor(this.accessMode === 'whitelist' ? this.tk().accentSoft : this.tk().surface2)
+            .border({ width: 1, color: this.accessMode === 'whitelist' ? this.tk().lineAccent : this.tk().lineStrong })
+            .borderRadius(4)
+            .padding({ left: 6, right: 6, top: 2, bottom: 2 })
+        }
+        .width('100%')
+        .margin({ bottom: 12 })
+
+        Row({ space: 10 }) {
+          Row()
+            .width(8)
+            .height(8)
+            .borderRadius(4)
+            .backgroundColor(this.tk().accent)
+          Column({ space: 2 }) {
+            Text(this.pendingName)
+              .fontSize(14)
+              .fontColor(this.tk().text)
+              .maxLines(1)
+              .textOverflow({ overflow: TextOverflow.Ellipsis })
+            Text(this.pendingSub)
+              .fontSize(10)
+              .fontColor(this.tk().textMute)
+              .maxLines(1)
+              .textOverflow({ overflow: TextOverflow.Ellipsis })
+          }
+          .alignItems(HorizontalAlign.Start)
+          .layoutWeight(1)
+        }
+        .width('100%')
+        .padding({ left: 12, right: 12, top: 10, bottom: 10 })
+        .backgroundColor(this.tk().surface2)
+        .borderRadius(12)
+        .margin({ bottom: 12 })
+
+        Text(this.accessMode === 'whitelist'
+          ? '加入后，只有名单内的设备能给你发文件，其他设备会被直接拒绝。'
+          : '加入后，这台设备发来的文件会被直接拒绝（HTTP 403），不会再打扰你。')
+          .fontSize(11)
+          .fontColor(this.tk().textDim)
+          .width('100%')
+          .margin({ bottom: 8 })
+
+        if (this.pendingCross) {
+          Text(this.accessMode === 'whitelist'
+            ? '该设备当前在黑名单里，加入白名单会同时把它从黑名单移除。'
+            : '该设备当前在白名单里，加入黑名单会同时把它从白名单移除。')
+            .fontSize(11)
+            .fontColor(this.tk().warn)
+            .width('100%')
+            .padding({ left: 10, right: 10, top: 8, bottom: 8 })
+            .backgroundColor(this.tk().surface2)
+            .borderRadius(8)
+            .margin({ bottom: 8 })
+        }
+
+        Row({ space: 10 }) {
+          Button('取消')
+            .layoutWeight(1)
+            .height(46)
+            .backgroundColor(this.tk().surface2)
+            .fontColor(this.tk().text)
+            .borderRadius(12)
+            .onClick(() => {
+              this.cancelPendingAccess();
+            })
+          Button(this.accessMode === 'whitelist' ? '确认加入白名单' : '确认加入黑名单')
+            .layoutWeight(1.7)
+            .height(46)
+            .backgroundColor(this.tk().accent)
+            .fontColor(this.tk().onAccent)
+            .fontWeight(FontWeight.Bold)
+            .borderRadius(12)
+            .onClick(() => {
+              this.confirmPendingAccess();
+            })
+        }
+        .width('100%')
+        .margin({ top: 4 })
+      }
+      .alignItems(HorizontalAlign.Start)
+      .padding({ left: 16, right: 16, top: 10, bottom: 16 })
+      .backgroundColor(this.tk().surface)
+      .borderRadius(22)
+      .border({ width: 1, color: this.tk().cardBorder })
+      .shadow({ radius: 18, color: this.tk().cardShadow, offsetX: 0, offsetY: -4 })
+      .margin({ left: 8, right: 8, bottom: 8 })
+      .width('calc(100% - 16vp)')
+    }
+    .width('100%')
+    .height('100%')
+    .justifyContent(FlexAlign.End)
+    .backgroundColor(this.tk().scrim)
   }
 
   /** 只数真正在线的设备（列表里还包含「离开」的） */
@@ -1184,6 +1419,8 @@ struct Index {
     this.receiveDirPath = fileReceiver.receivedDir();
     this.receivePublic = fileReceiver.isPublicDir();
     this.serverState = httpServer.isRunning() ? (s.https ? 'HTTPS 服务运行中' : 'HTTP 服务运行中') : '服务未启动';
+    // 老数据里可能同一设备同时躺在两份名单，进页面时清一次
+    this.syncAccessExclusive();
   }
 
   /** 底部 Tab：文字 + 选中态小卡（图标资源后续再补） */
@@ -2493,9 +2730,20 @@ struct Index {
         .width('100%')
         .alignItems(HorizontalAlign.Start)
 
-        this.SectionTitle('访问控制', this.accessMode === 'whitelist'
-          ? `只接受名单内的设备（当前 ${this.accessArray().length} 台）`
-          : `拒绝名单内的设备（当前 ${this.accessArray().length} 台）`)
+        // 标题内联：@Builder 按值传参不会随状态重建，计数只能写成直接节点
+        Column({ space: 3 }) {
+          Text('访问控制').fontSize(10).letterSpacing(1.5).fontColor(this.tk().textMute)
+          Text(this.accessMode === 'whitelist'
+            ? `只接受名单内的设备（当前 ${this.accessArray().length} 台）`
+            : `拒绝名单内的设备（当前 ${this.accessArray().length} 台）`)
+            .fontSize(11)
+            .fontColor(this.tk().textDim)
+            .maxLines(2)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
+        }
+        .alignItems(HorizontalAlign.Start)
+        .width('100%')
+        .padding({ left: 4, right: 4 })
 
         Column({ space: 12 }) {
           Row({ space: 8 }) {
@@ -2566,14 +2814,16 @@ struct Index {
                 .alignItems(HorizontalAlign.Start)
                 .layoutWeight(1)
 
-                Text(this.inAccess(item.fingerprint) ? '已在名单' : '未加入')
+                Text(this.inAccess(item.fingerprint) ? '已在名单 · 移除' : '点按加入')
                   .fontSize(10)
                   .fontColor(this.inAccess(item.fingerprint) ? this.tk().accentInk : this.tk().textMute)
               }
               .width('100%')
               .padding({ top: 8, bottom: 8 })
               .onClick(() => {
-                this.toggleAccess(item.fingerprint);
+                this.pickAccess(item.fingerprint,
+                  item.alias.length > 0 ? item.alias : '未知设备',
+                  `${item.platformLabel()} · ${item.ip}`);
               })
             }, (item: DeviceItem) => `${item.fingerprint}_${item.presence}`)
           }
@@ -2794,6 +3044,10 @@ struct Index {
 
       if (this.hasRequest) {
         this.ReceiveRequestLayer()
+      }
+
+      if (this.pendingFp.length > 0) {
+        this.AccessConfirmLayer()
       }
     }
     .width('100%')
