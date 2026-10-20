@@ -7,6 +7,7 @@ import { fileReceiver } from '../service/FileReceiver';
 import { httpServer } from '../service/HttpServer';
 import { discoveryService } from '../service/DiscoveryService';
 import { Log } from '../common/Logger';
+import { initTheme } from '../common/Theme';
 import { backgroundKeeper } from '../service/BackgroundKeeper';
 import { shareInbox } from '../service/ShareInbox';
 import { notifyService } from '../service/NotifyService';
@@ -26,6 +27,8 @@ export default class EntryAbility extends UIAbility {
     // 服务初始化顺序：设置 -> 文件接收器 -> HTTP(S) 服务 -> 组播发现
     // 注意：这一步必须在 UI 之前，否则首页读不到本机信息。
     settingsService.init(this.context);
+    // 主题先灌进 AppStorage，UI 起来时直接读得到（避免首帧闪烁）
+    initTheme(settingsService.value.themeMode);
     fileReceiver.init(this.context);
     // 异步恢复上次授权的接收目录（持久化授权必须每次启动激活）
     fileReceiver.restoreAuthorizedDir();

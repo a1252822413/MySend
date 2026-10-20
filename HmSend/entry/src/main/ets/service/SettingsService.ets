@@ -35,8 +35,10 @@ export class Settings {
   /** 同一个目录的 uri（activatePermission 恢复授权时要用 uri，不能用路径） */
   receiveDirUri: string = '';
   whitelistOnly: boolean = false;
-  /** 'system' | 'light' | 'dark' */
+  /** 'system' | 'light' | 'dark'（旧字段，保留兼容） */
   theme: string = 'system';
+  /** 界面主题：'dark' | 'light'，默认暗色（与设计稿一致） */
+  themeMode: string = 'dark';
   deviceModel: string = 'HarmonyOS';
   deviceType: string = 'mobile';
   /** 明文模式下的随机指纹（https 模式下用证书指纹） */
@@ -71,6 +73,7 @@ class SettingsServiceImpl {
     s.receiveDirUri = this.readString('receiveDirUri', '');
     s.whitelistOnly = this.readBoolean('whitelistOnly', false);
     s.theme = this.readString('theme', 'system');
+    s.themeMode = this.readString('themeMode', 'dark');
     s.deviceModel = this.readString('deviceModel', SettingsServiceImpl.defaultModel());
     s.deviceType = this.readString('deviceType', 'mobile');
     s.httpFingerprint = this.readString('httpFingerprint', SettingsServiceImpl.randomFingerprint());
@@ -121,6 +124,7 @@ class SettingsServiceImpl {
     this.write('receiveDirUri', s.receiveDirUri);
     this.write('whitelistOnly', s.whitelistOnly);
     this.write('theme', s.theme);
+    this.write('themeMode', s.themeMode);
     this.write('deviceModel', s.deviceModel);
     this.write('deviceType', s.deviceType);
     this.write('httpFingerprint', s.httpFingerprint);
