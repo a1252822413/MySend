@@ -1,53 +1,111 @@
 /* ============================================================
-   快传 · 设计令牌
-   方向：工业实用（Industrial / instrumentation）
-   原则：一个强调色（信号绿）只给「接收 / 在线 / 主操作」，
-        其余全部用发丝线与灰阶建立层级。
-   色比：底色 60% / 面板 30% / 强调 10%
+   快传 · 设计令牌（双主题）
+   方向：工业实用 + 卡片层级
+   暗色是主场景（默认），亮色为对等实现，不是"反色凑数"
+   原则：强调色只给「在线 / 接收 / 主操作」，其余用灰阶与卡片层级
    ============================================================ */
 
-:root {
-  /* ---- 表面 ---- */
-  --bg-void: #070a09;      /* 页面最外层，比手机屏更暗一档 */
-  --bg: #0a0d0c;           /* 手机屏底 */
-  --surface: #101614;      /* 一级面板 */
-  --surface-2: #151d1a;    /* 二级面板 / 输入框 */
-  --surface-3: #1c2622;    /* 按下态、滑块槽 */
+:root,
+[data-theme="dark"] {
+  /* ---- 表面（卡片化后层次靠背景差 + 描边，不靠线） ---- */
+  --bg-void: #070a09;      /* 页面最外层 */
+  --bg: #0a0e0c;           /* 手机屏底 */
+  --surface: #151f1b;      /* 一级卡片 */
+  --surface-2: #1b2622;    /* 卡内嵌块（路径、输入、轨道） */
+  --surface-3: #24302b;    /* 按下态、开关槽 */
+  --surface-hi: #1d2823;   /* 悬停态 */
 
-  /* ---- 线 ---- */
-  --line: rgba(233, 241, 238, 0.08);
-  --line-strong: rgba(233, 241, 238, 0.16);
+  /* ---- 线（只在卡片内部做组内分隔） ---- */
+  --line: rgba(233, 241, 238, 0.07);
+  --line-strong: rgba(233, 241, 238, 0.13);
   --line-accent: rgba(59, 228, 154, 0.34);
 
   /* ---- 文字 ---- */
-  --text: #e9f1ee;         /* 主文字，对 #0a0d0c 约 15:1 */
-  --text-dim: #9aa8a3;     /* 次要，约 6.9:1 */
-  --text-mute: #78877f;    /* 微型标签，约 4.6:1 */
+  --text: #e9f1ee;         /* 对 --bg 约 15:1 */
+  --text-dim: #9aa8a3;     /* 约 6.9:1 */
+  --text-mute: #7b8a84;    /* 约 4.7:1 */
 
-  /* ---- 强调（全站唯一） ---- */
-  --accent: #3be49a;
-  --accent-soft: rgba(59, 228, 154, 0.14);
+  /* ---- 强调 ---- */
+  --accent: #3be49a;       /* 图形 / 边框 / 按钮底 */
+  --accent-ink: #3be49a;   /* 用作文字时的绿 */
+  --on-accent: #04110b;    /* 绿底上的字 */
+  --accent-soft: rgba(59, 228, 154, 0.13);
   --accent-glow: rgba(59, 228, 154, 0.28);
 
   /* ---- 语义 ---- */
   --warn: #ffb64d;
   --danger: #ff6b5a;
 
-  /* ---- 字体 ---- */
+  /* ---- 卡片 ---- */
+  --card-border: rgba(233, 241, 238, 0.1);
+  --card-shadow: 0 1px 0 rgba(255, 255, 255, 0.05) inset, 0 12px 28px rgba(0, 0, 0, 0.5);
+  --card-shadow-hover: 0 1px 0 rgba(255, 255, 255, 0.07) inset, 0 18px 40px rgba(0, 0, 0, 0.58);
+
+  /* ---- 氛围 ---- */
+  --grid: rgba(233, 241, 238, 0.03);
+  --halo-a: rgba(59, 228, 154, 0.1);
+  --halo-b: rgba(59, 228, 154, 0.05);
+  --shell-border: rgba(233, 241, 238, 0.14);
+  --shell-shadow: 0 30px 80px rgba(2, 6, 5, 0.7);
+  --scrim: rgba(4, 7, 6, 0.62);
+  --ring: rgba(59, 228, 154, 0.55);
+  --sheet-shadow: 0 -18px 60px rgba(0, 0, 0, 0.45);
+}
+
+[data-theme="light"] {
+  --bg-void: #eaeeec;
+  --bg: #f0f3f1;
+  --surface: #ffffff;
+  --surface-2: #f1f5f3;
+  --surface-3: #e3eae7;
+  --surface-hi: #fbfdfc;
+
+  --line: rgba(16, 22, 19, 0.07);
+  --line-strong: rgba(16, 22, 19, 0.13);
+  --line-accent: rgba(11, 143, 91, 0.3);
+
+  --text: #0f1614;         /* 对白卡约 16:1 */
+  --text-dim: #55635c;     /* 约 7:1 */
+  --text-mute: #6b7a72;    /* 约 4.8:1 */
+
+  /* 亮底上绿色必须压深才够读：图形用 --accent，小字用 --accent-ink */
+  --accent: #0a8255;
+  --accent-ink: #07714a;
+  --on-accent: #ffffff;
+  --accent-soft: rgba(11, 143, 91, 0.1);
+  --accent-glow: rgba(11, 143, 91, 0.22);
+
+  --warn: #b06f00;
+  --danger: #c0392b;
+
+  --card-border: rgba(16, 22, 19, 0.07);
+  --card-shadow: 0 1px 2px rgba(16, 22, 19, 0.05), 0 10px 24px rgba(16, 22, 19, 0.1);
+  --sheet-shadow: 0 -12px 40px rgba(16, 22, 19, 0.14);
+  --card-shadow-hover: 0 2px 4px rgba(16, 22, 19, 0.05), 0 18px 40px rgba(16, 22, 19, 0.1);
+
+  --grid: rgba(16, 22, 19, 0.045);
+  --halo-a: rgba(11, 143, 91, 0.08);
+  --halo-b: rgba(11, 143, 91, 0.04);
+  --shell-border: rgba(16, 22, 19, 0.12);
+  --shell-shadow: 0 24px 60px rgba(16, 22, 19, 0.14);
+  --scrim: rgba(15, 22, 19, 0.3);
+  --ring: rgba(10, 130, 85, 0.48);
+}
+
+/* 与主题无关的固定值 */
+:root {
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   --font-sans: "Noto Sans SC", "HarmonyOS Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
 
-  /* ---- 字阶（1.25 比例，取整到设备友好值） ---- */
-  --fs-hero: 30px;    /* 设备名、核心数字 */
-  --fs-display: 48px; /* 只给速度读数 */
+  --fs-hero: 30px;
+  --fs-display: 48px;
   --fs-h1: 21px;
   --fs-h2: 16px;
   --fs-body: 14px;
   --fs-sm: 12px;
-  --fs-label: 11px;   /* 等宽大写标签 */
+  --fs-label: 11px;
   --fs-micro: 10px;
 
-  /* ---- 间距 ---- */
   --sp-1: 4px;
   --sp-2: 8px;
   --sp-3: 12px;
@@ -57,24 +115,16 @@
   --sp-7: 48px;
   --sp-8: 64px;
 
-  /* ---- 圆角（克制：只有 2 / 8 / 14 / 手机壳） ---- */
-  --r-xs: 2px;
+  --r-xs: 4px;
   --r-sm: 8px;
-  --r-md: 14px;
+  --r-card: 18px;
   --r-phone: 46px;
 
-  /* ---- 阴影（带环境色，不用纯黑） ---- */
-  --shadow-1: 0 2px 8px rgba(2, 6, 5, 0.5);
-  --shadow-2: 0 10px 30px rgba(2, 6, 5, 0.55);
-  --shadow-3: 0 30px 80px rgba(2, 6, 5, 0.7);
-
-  /* ---- 动效 ---- */
   --ease: cubic-bezier(0.16, 1, 0.3, 1);
   --dur-fast: 160ms;
   --dur-base: 320ms;
   --dur-slow: 640ms;
 
-  /* ---- 手机屏尺寸（390 × 844，iPhone/HarmonyOS 主流逻辑分辨率） ---- */
   --phone-w: 390px;
   --phone-h: 844px;
 }

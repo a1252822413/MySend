@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="zh-CN" data-theme="dark">
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>快传 · 界面重构 / 工业仪表方向</title>
-<meta name="description" content="快传 HarmonyOS App 界面重设计：工业仪表方向的高保真原型。" />
+<title>快传 · 界面重构 03 / 卡片化 · 双主题</title>
+<meta name="description" content="快传 HarmonyOS App 界面重设计：卡片层级 + 仪表化读数，暗色与亮色双主题。" />
 
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -13,50 +13,64 @@
 <link rel="stylesheet" href="styles/tokens.css" />
 <link rel="stylesheet" href="styles/base.css" />
 <link rel="stylesheet" href="styles/components.css" />
+
+<script>
+  // 首屏防闪：进页面先按上次选择上主题（默认暗色）
+  (function () {
+    try {
+      var t = localStorage.getItem('kuai-theme');
+      if (t === 'light') document.documentElement.dataset.theme = 'light';
+    } catch (e) {}
+  })();
+</script>
 </head>
 <body>
 
-<!-- 页头：设计定调 -->
+<!-- 页头：设计定调 + 主题切换 -->
 <header class="wrap masthead">
   <div>
-    <p class="eyebrow reveal">Kuai · HarmonyOS UI / Rebuild 02</p>
-    <h1 class="reveal">把传输做成<em>仪表</em>，<br />而不是一张表单</h1>
+    <p class="eyebrow reveal">Kuai · HarmonyOS UI / Rebuild 03</p>
+    <h1 class="reveal">卡片分层次，<em>数字</em>说话</h1>
     <p class="lede reveal">
-      快传的核心不是「填设备、选文件、点发送」，而是<strong>此刻链路有多快、对端是谁、文件落在哪</strong>。
-      所以整套界面按工业仪表的逻辑重建：等宽数字承担全部读数，发丝线划分层级，
-      信号绿只留给「在线 / 接收 / 主操作」这一件事。
+      上一版用发丝线分层，读起来太平。这一版把每个可操作单元做成<strong>实体卡片</strong>：
+      背景差 + 圆角 + 轻投影建立层级，卡片内部才用线做分隔。
+      仪表感保留在读数上——设备名、速度、指纹、大小，全部等宽对齐。
+      <strong>暗色与亮色是两套独立调校，不是简单反色。</strong>
     </p>
   </div>
 
-  <dl class="decisions reveal">
-    <div>
-      <dt>方向</dt>
-      <dd>工业实用 <span>— 仪表盘密度、等宽数字、发丝边框</span></dd>
+  <div class="masthead-right reveal">
+    <div class="theme-switch" role="group" aria-label="配色主题">
+      <button type="button" data-theme-btn="dark" aria-pressed="true">Dark</button>
+      <button type="button" data-theme-btn="light" aria-pressed="false">Light</button>
     </div>
-    <div>
-      <dt>展示字</dt>
-      <dd>JetBrains Mono <span>— 承担所有数字与标签</span></dd>
-    </div>
-    <div>
-      <dt>正文字</dt>
-      <dd>Noto Sans SC <span>— 900 字重做中文标题，负字距</span></dd>
-    </div>
-    <div>
-      <dt>主色</dt>
-      <dd>#3BE49A <span>— 唯一强调色，仅 10% 面积</span></dd>
-    </div>
-    <div>
-      <dt>记忆点</dt>
-      <dd>接收时的同心波束 + 56px 速度读数 <span>— 像示波器，不像进度条</span></dd>
-    </div>
-  </dl>
+
+    <dl class="decisions">
+      <div>
+        <dt>方向</dt>
+        <dd>工业实用 + 卡片层级 <span>— 卡片承载信息，线只做组内分隔</span></dd>
+      </div>
+      <div>
+        <dt>层级</dt>
+        <dd>背景差 / 18px 圆角 / 轻投影 <span>— 暗色靠内侧高光，亮色靠柔和投影</span></dd>
+      </div>
+      <div>
+        <dt>强调</dt>
+        <dd>暗 #3BE49A / 亮 #0B8F5B <span>— 亮底绿色必须压深才够读</span></dd>
+      </div>
+      <div>
+        <dt>记忆点</dt>
+        <dd>接收时的同心波束 + 48px 速度读数 <span>— 像示波器，不像进度条</span></dd>
+      </div>
+    </dl>
+  </div>
 </header>
 
 <main class="wrap">
 
   <div class="section-head">
-    <h2>Six Screens</h2>
-    <p>390 × 844 · 1:1</p>
+    <h2>Six Screens · Two Themes</h2>
+    <p>390 × 844 · 1:1 · 右上角切换 Dark / Light</p>
   </div>
 
   <section class="screen-grid" aria-label="界面总览">
@@ -82,52 +96,51 @@
         <div class="screen-body">
           <div class="rule"><span>01 / LOCAL</span></div>
 
-          <div class="plaque">
-            <div class="plaque-top">
+          <section class="card me-card">
+            <div class="me-top">
               <span class="label">本机 · <span class="badge">HTTPS</span></span>
-              <div class="signal-ring scanning" aria-hidden="true"><i></i><i></i><i></i></div>
+              <span class="signal-ring scanning" aria-hidden="true"><i></i><i></i><i></i></span>
             </div>
             <h3>Mate 70 Pro 优享版</h3>
             <div class="addr">192.168.3.133:53317</div>
             <div class="fp">指纹 1866 5237 1EBD CB3C</div>
-          </div>
+          </section>
 
           <div class="list-head">
             <span class="label">在线设备</span>
             <span class="count">02 台</span>
           </div>
 
-          <div class="device-row" role="button" tabindex="0">
+          <article class="card device-card" role="button" tabindex="0">
             <span class="dot"></span>
             <span>
               <span class="name">XIAOXIAO-PC</span>
               <span class="sub">Windows · https</span>
             </span>
             <span class="rtt"><b>12</b> ms</span>
-          </div>
+          </article>
 
-          <div class="device-row" role="button" tabindex="0">
+          <article class="card device-card" role="button" tabindex="0">
             <span class="dot"></span>
             <span>
               <span class="name">MacBook-Air</span>
               <span class="sub">macOS · https</span>
             </span>
             <span class="rtt"><b>24</b> ms</span>
+          </article>
+
+          <div class="list-head" style="margin-top:12px">
+            <span class="label">网络</span>
+            <span class="count dim">已加密</span>
           </div>
 
-          <div class="list-head" style="margin-top:18px">
-            <span class="label">最近一次</span>
-            <span class="count" style="color:var(--text-mute)">09:41</span>
-          </div>
-
-          <div class="device-row" style="cursor:default">
-            <span class="dot idle"></span>
+          <article class="card device-card idle" style="grid-template-columns:minmax(0,1fr) auto">
             <span>
-              <span class="name">相册测试.jpg</span>
-              <span class="sub">来自 XIAOXIAO-PC</span>
+              <span class="name" style="font-size:13px">HUAWEI-5G · 5 GHz</span>
+              <span class="sub">192.168.3.0/24</span>
             </span>
-            <span class="rtt">132.8 KB</span>
-          </div>
+            <span class="rtt">‑42 dBm</span>
+          </article>
         </div>
 
         <nav class="tabbar" aria-label="主导航">
@@ -169,13 +182,13 @@
           <span class="bar-note">3 个待发</span>
         </div>
 
-        <div class="screen-body" style="padding-bottom:96px">
+        <div class="screen-body" style="padding-bottom:92px">
           <div class="rule"><span>02 / TARGET</span></div>
 
           <div class="target">
             <span class="label">发送到</span>
             <h3>XIAOXIAO-PC</h3>
-            <span class="addr mono" style="font-size:12px;color:var(--text-dim)">192.168.3.190:53317 · <span class="badge">HTTPS</span></span>
+            <span class="mono" style="font-size:12px;color:var(--text-dim)">192.168.3.190:53317 · <span class="badge">HTTPS</span></span>
           </div>
 
           <div class="list-head">
@@ -183,37 +196,46 @@
             <span class="count">03</span>
           </div>
 
-          <div class="file-row">
-            <span class="fname">WorkBuddy-win32-x64-user.exe</span>
-            <span class="fsize">420.7 MB</span>
+          <article class="card file-card">
+            <span class="ext">exe</span>
+            <span>
+              <span class="fname">WorkBuddy-win32-x64-user.exe</span>
+              <span class="fsize">420.7 MB</span>
+            </span>
             <button class="x" aria-label="移除 WorkBuddy 安装包">
               <svg width="12" height="12" viewBox="0 0 12 12" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M2 2l8 8M10 2l-8 8"/></svg>
             </button>
-          </div>
+          </article>
 
-          <div class="file-row">
-            <span class="fname">相册测试.jpg</span>
-            <span class="fsize">132.8 KB</span>
+          <article class="card file-card">
+            <span class="ext">jpg</span>
+            <span>
+              <span class="fname">相册测试.jpg</span>
+              <span class="fsize">132.8 KB</span>
+            </span>
             <button class="x" aria-label="移除 相册测试">
               <svg width="12" height="12" viewBox="0 0 12 12" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M2 2l8 8M10 2l-8 8"/></svg>
             </button>
-          </div>
+          </article>
 
-          <div class="file-row">
-            <span class="fname">界面重构-设计稿.pdf</span>
-            <span class="fsize">8.4 MB</span>
+          <article class="card file-card">
+            <span class="ext">pdf</span>
+            <span>
+              <span class="fname">界面重构-设计稿.pdf</span>
+              <span class="fsize">8.4 MB</span>
+            </span>
             <button class="x" aria-label="移除 设计稿">
               <svg width="12" height="12" viewBox="0 0 12 12" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M2 2l8 8M10 2l-8 8"/></svg>
             </button>
-          </div>
+          </article>
 
-          <p class="label" style="margin-top:14px;letter-spacing:.06em;text-transform:none">
+          <p class="label" style="padding:6px 4px 0;letter-spacing:.04em;text-transform:none">
             预计 58 秒 · 平均 7.2 MB/s
           </p>
 
           <div class="send-foot">
             <span class="sum"><b>429.2 MB</b>3 个文件</span>
-            <button class="btn btn-primary" style="min-width:132px">发送</button>
+            <button class="btn btn-primary" style="min-width:120px">发送</button>
           </div>
         </div>
 
@@ -238,7 +260,7 @@
       </div>
     </figure>
 
-    <!-- ============ 03 接收确认（弹层） ============ -->
+    <!-- ============ 03 接收确认 ============ -->
     <figure class="frame reveal">
       <figcaption><b>03</b><span>接收确认 / CONFIRM</span></figcaption>
       <div class="phone">
@@ -258,13 +280,13 @@
 
         <div class="screen-body">
           <div class="rule"><span>01 / LOCAL</span></div>
-          <div class="plaque">
-            <div class="plaque-top">
+          <section class="card me-card">
+            <div class="me-top">
               <span class="label">本机 · <span class="badge">HTTPS</span></span>
             </div>
             <h3>Mate 70 Pro 优享版</h3>
             <div class="addr">192.168.3.133:53317</div>
-          </div>
+          </section>
         </div>
 
         <div class="scrim" aria-hidden="true"></div>
@@ -275,21 +297,30 @@
           <h3 style="margin-top:6px">XIAOXIAO-PC</h3>
           <p class="sheet-sub">192.168.3.190 · 3 个文件 · 429.2 MB</p>
 
-          <div class="file-row" style="min-height:44px">
-            <span class="fname">WorkBuddy-win32-x64-user.exe</span>
-            <span class="fsize">420.7 MB</span>
+          <article class="card file-card">
+            <span class="ext">exe</span>
+            <span>
+              <span class="fname">WorkBuddy-win32-x64-user.exe</span>
+              <span class="fsize">420.7 MB</span>
+            </span>
             <span></span>
-          </div>
-          <div class="file-row" style="min-height:44px">
-            <span class="fname">相册测试.jpg</span>
-            <span class="fsize">132.8 KB</span>
+          </article>
+          <article class="card file-card">
+            <span class="ext">jpg</span>
+            <span>
+              <span class="fname">相册测试.jpg</span>
+              <span class="fsize">132.8 KB</span>
+            </span>
             <span></span>
-          </div>
-          <div class="file-row" style="min-height:44px">
-            <span class="fname">界面重构-设计稿.pdf</span>
-            <span class="fsize">8.4 MB</span>
+          </article>
+          <article class="card file-card">
+            <span class="ext">pdf</span>
+            <span>
+              <span class="fname">界面重构-设计稿.pdf</span>
+              <span class="fsize">8.4 MB</span>
+            </span>
             <span></span>
-          </div>
+          </article>
 
           <div class="sheet-actions">
             <button class="btn">拒绝</button>
@@ -302,7 +333,7 @@
       </div>
     </figure>
 
-    <!-- ============ 04 接收中 ============ -->
+    <!-- ============ 04 传输中 ============ -->
     <figure class="frame reveal">
       <figcaption><b>04</b><span>传输中 / IN FLIGHT</span></figcaption>
       <div class="phone">
@@ -323,29 +354,28 @@
 
           <div class="beam" aria-hidden="true">
             <i></i><i></i><i></i>
-            <div style="text-align:center">
+            <div>
               <div class="speed">12.8</div>
               <div class="unit">MB / S</div>
             </div>
           </div>
 
-          <div class="transfer-info">
+          <section class="card transfer-info">
             <div class="tname">相册测试.jpg</div>
             <div class="tmeta">
               <span>9.3 / 20.0 MB</span>
               <span>46%</span>
             </div>
             <div class="bar"><span></span></div>
-            <div class="tmeta" style="margin-top:10px">
+            <div class="tmeta" style="margin:10px 0 0">
               <span>剩余约 1 秒</span>
               <span>1 / 3 个文件</span>
             </div>
-
-            <p class="label" style="margin-top:28px;line-height:1.8;letter-spacing:.02em;text-transform:none">
-              完成后自动保存到<br />
-              <span class="mono" style="color:var(--text-dim);font-size:10px">Download / 快传</span>
-            </p>
-          </div>
+            <div class="dest">
+              <span>保存到</span>
+              <b>Download / 快传</b>
+            </div>
+          </section>
         </div>
       </div>
     </figure>
@@ -371,44 +401,54 @@
         <div class="screen-body">
           <div class="rule"><span>05 / LOG</span></div>
 
-          <div class="timeline">
-            <div class="tl-item">
-              <div class="tl-time"><b>接 收</b> 今天 09:41</div>
-              <div class="tl-name">相册测试.jpg</div>
-              <div class="tl-meta">XIAOXIAO-PC · 132.8 KB</div>
-              <div class="tl-actions">
-                <button class="btn btn-sm btn-ghost">打开</button>
-                <button class="btn btn-sm">另存</button>
-                <button class="btn btn-sm">相册</button>
-              </div>
+          <article class="card log-card">
+            <div class="lc-head">
+              <span class="tag">接收</span>
+              <span class="lc-time">今天 09:41</span>
             </div>
+            <div class="lc-name">相册测试.jpg</div>
+            <div class="lc-meta">XIAOXIAO-PC · 132.8 KB</div>
+            <div class="lc-actions">
+              <button class="btn btn-sm btn-ghost">打开</button>
+              <button class="btn btn-sm">另存</button>
+              <button class="btn btn-sm">相册</button>
+            </div>
+          </article>
 
-            <div class="tl-item send">
-              <div class="tl-time"><b>发 送</b> 昨天 18:20</div>
-              <div class="tl-name">界面重构-设计稿.pdf</div>
-              <div class="tl-meta">MacBook-Air · 8.4 MB</div>
+          <article class="card log-card send">
+            <div class="lc-head">
+              <span class="tag">发送</span>
+              <span class="lc-time">昨天 18:20</span>
             </div>
+            <div class="lc-name">界面重构-设计稿.pdf</div>
+            <div class="lc-meta">MacBook-Air · 8.4 MB</div>
+          </article>
 
-            <div class="tl-item">
-              <div class="tl-time"><b>接 收</b> 昨天 10:38</div>
-              <div class="tl-name">限速20M.bin</div>
-              <div class="tl-meta">XIAOXIAO-PC · 20.0 MB</div>
-              <div class="tl-actions">
-                <button class="btn btn-sm btn-ghost">打开</button>
-                <button class="btn btn-sm">另存</button>
-              </div>
+          <article class="card log-card">
+            <div class="lc-head">
+              <span class="tag">接收</span>
+              <span class="lc-time">昨天 10:38</span>
             </div>
+            <div class="lc-name">限速20M.bin</div>
+            <div class="lc-meta">XIAOXIAO-PC · 20.0 MB</div>
+            <div class="lc-actions">
+              <button class="btn btn-sm btn-ghost">打开</button>
+              <button class="btn btn-sm">另存</button>
+            </div>
+          </article>
 
-            <div class="tl-item">
-              <div class="tl-time"><b>接 收</b> 10-18 20:33</div>
-              <div class="tl-name">历史验证.txt</div>
-              <div class="tl-meta">XIAOXIAO-PC · 17 B</div>
-              <div class="tl-actions">
-                <button class="btn btn-sm btn-ghost">打开</button>
-                <button class="btn btn-sm">另存</button>
-              </div>
+          <article class="card log-card">
+            <div class="lc-head">
+              <span class="tag">接收</span>
+              <span class="lc-time">10-18 20:33</span>
             </div>
-          </div>
+            <div class="lc-name">历史验证.txt</div>
+            <div class="lc-meta">XIAOXIAO-PC · 17 B</div>
+            <div class="lc-actions">
+              <button class="btn btn-sm btn-ghost">打开</button>
+              <button class="btn btn-sm">另存</button>
+            </div>
+          </article>
         </div>
 
         <nav class="tabbar" aria-label="主导航">
@@ -455,46 +495,54 @@
 
           <div class="set-group">
             <span class="label">设备身份</span>
-            <div class="set-row">
-              <span class="k">本机显示名</span>
-              <span class="v">Mate 70 Pro 优享版</span>
-            </div>
-            <div class="set-row">
-              <span class="k">监听端口<small>LocalSend 默认 53317</small></span>
-              <span class="v">53317</span>
+            <div class="card set-card">
+              <div class="set-row">
+                <span class="k">本机显示名</span>
+                <span class="v">Mate 70 Pro 优享版</span>
+              </div>
+              <div class="set-row">
+                <span class="k">监听端口<small>LocalSend 默认 53317</small></span>
+                <span class="v">53317</span>
+              </div>
             </div>
           </div>
 
           <div class="set-group">
             <span class="label">接收目录</span>
-            <div class="path-box">/storage/Users/currentUser/Download/快传</div>
-            <div class="path-actions">
-              <button class="btn btn-sm btn-ghost">更换目录</button>
-              <button class="btn btn-sm">打开文件夹</button>
+            <div class="card set-card" style="padding:12px 14px">
+              <div class="path-box">/storage/Users/currentUser/Download/快传</div>
+              <div class="path-actions">
+                <button class="btn btn-sm btn-ghost">更换目录</button>
+                <button class="btn btn-sm">打开文件夹</button>
+              </div>
             </div>
           </div>
 
           <div class="set-group">
             <span class="label">相册与通知</span>
-            <div class="set-row">
-              <span class="k">图片/视频提示存入相册</span>
-              <span class="toggle" role="switch" aria-checked="true" tabindex="0"></span>
+            <div class="card set-card">
+              <div class="set-row">
+                <span class="k">图片/视频提示存入相册</span>
+                <span class="toggle" role="switch" aria-checked="true" tabindex="0"></span>
+              </div>
             </div>
           </div>
 
           <div class="set-group">
             <span class="label">连接与安全</span>
-            <div class="set-row">
-              <span class="k">使用 HTTPS<small>原生 TLS，自签证书</small></span>
-              <span class="toggle" role="switch" aria-checked="true" tabindex="0"></span>
-            </div>
-            <div class="set-row">
-              <span class="k">自动接收</span>
-              <span class="toggle" role="switch" aria-checked="false" tabindex="0"></span>
-            </div>
-            <div class="set-row">
-              <span class="k">接收 PIN 码</span>
-              <span class="v">未设置</span>
+            <div class="card set-card">
+              <div class="set-row">
+                <span class="k">使用 HTTPS<small>原生 TLS，自签证书</small></span>
+                <span class="toggle" role="switch" aria-checked="true" tabindex="0"></span>
+              </div>
+              <div class="set-row">
+                <span class="k">自动接收</span>
+                <span class="toggle" role="switch" aria-checked="false" tabindex="0"></span>
+              </div>
+              <div class="set-row">
+                <span class="k">接收 PIN 码</span>
+                <span class="v">未设置</span>
+              </div>
             </div>
           </div>
         </div>
@@ -527,42 +575,42 @@
     <div>
       <h3>色板 / Palette</h3>
       <div class="swatches">
-        <div class="swatch" style="background:#0a0d0c"><span>#0A0D0C</span></div>
-        <div class="swatch" style="background:#101614"><span>#101614</span></div>
-        <div class="swatch" style="background:#3be49a"><span>#3BE49A</span></div>
+        <div class="swatch" style="background:var(--bg)"><span style="color:var(--text)">BG</span></div>
+        <div class="swatch" style="background:var(--surface)"><span style="color:var(--text)">CARD</span></div>
+        <div class="swatch" style="background:var(--accent)"><span style="color:var(--on-accent)">ACCENT</span></div>
       </div>
       <ul>
-        <li>底 / 面板 <b>60 / 30</b></li>
-        <li>强调绿 <b>≤ 10</b></li>
-        <li>正文对比度 <b>15 : 1</b></li>
+        <li>卡片层级 <b>3 级</b></li>
+        <li>强调面积 <b>≤ 10</b></li>
+        <li>正文对比度 <b>15 : 1 / 16 : 1</b></li>
       </ul>
     </div>
 
     <div>
-      <h3>字阶 / Type</h3>
+      <h3>双主题差异</h3>
       <ul>
-        <li>速度读数 <b>48 / 700 mono</b></li>
-        <li>设备名 <b>30 / 900 / -0.035em</b></li>
-        <li>正文 <b>14 / 400 / 1.65</b></li>
-        <li>等宽标签 <b>10 / 400 / 0.18em</b></li>
+        <li>底部亮度 <b>#0A0E0C / #F5F7F6</b></li>
+        <li>卡片 <b>#131A18 / #FFFFFF</b></li>
+        <li>强调 <b>#3BE49A / #0B8F5B</b></li>
+        <li>层级手段 <b>内高光 / 柔和投影</b></li>
       </ul>
     </div>
 
     <div>
       <h3>节奏 / Rhythm</h3>
       <ul>
-        <li>间距梯度 <b>4 · 8 · 12 · 16 · 24 · 32 · 48</b></li>
-        <li>圆角 <b>2 · 8 · 14</b></li>
+        <li>卡片圆角 <b>18 px</b></li>
+        <li>卡片内距 <b>13 · 14 · 16</b></li>
+        <li>卡间距 <b>8 · 10 · 14</b></li>
         <li>触摸目标 <b>≥ 44 px</b></li>
-        <li>行高 <b>48 / 52 / 60</b></li>
       </ul>
     </div>
 
     <div>
       <h3>动效 / Motion</h3>
       <ul>
-        <li>入场错峰 <b>80 ms × 6</b></li>
-        <li>常规过渡 <b>320 ms</b></li>
+        <li>入场错峰 <b>80 ms × 3</b></li>
+        <li>卡片悬停 <b>−2 px / 160 ms</b></li>
         <li>缓动 <b>0.16, 1, 0.3, 1</b></li>
         <li>降级 <b>reduced-motion 全关</b></li>
       </ul>
@@ -570,8 +618,8 @@
   </section>
 
   <footer class="page-foot">
-    <span>KUAI / UI REBUILD 02</span>
-    <span>INDUSTRIAL · SINGLE ACCENT · MONO READOUTS</span>
+    <span>KUAI / UI REBUILD 03 · CARD LAYER</span>
+    <span>DUAL THEME · SINGLE ACCENT · MONO READOUTS</span>
   </footer>
 </main>
 
