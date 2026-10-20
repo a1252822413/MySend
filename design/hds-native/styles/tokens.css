@@ -1,0 +1,109 @@
+/* ============================================================
+   快传 · HDS 原生方向令牌
+   对齐 HarmonyOS 6.1+ 的 HDS 组件规范：
+   · 卡片 24 圆角、无描边、靠阴影浮起
+   · 底部是「悬浮胶囊」（barFloatingStyle），半透明 + 系统材质
+   · 标题 28–32，右对齐圆形图标按钮
+   强调色只保留品牌绿一处，其余全部走灰阶。
+   ============================================================ */
+
+:root,
+[data-theme="light"] {
+  /* 表面 */
+  --bg: #f1f3f5;
+  --card: #ffffff;
+  --card-2: #f4f6f5;      /* 卡内嵌块 */
+  --card-3: #e9edeb;
+
+  /* 文字 */
+  --text: #0b0f0e;
+  --dim: #5f6b66;
+  --mute: #8a9691;
+
+  /* 强调（亮底压深，保证 4.5:1） */
+  --accent: #0b8f5b;
+  --accent-ink: #07714a;
+  --on-accent: #ffffff;
+  --accent-soft: rgba(11, 143, 91, 0.1);
+
+  /* 线（只用在卡内分隔） */
+  --line: rgba(11, 15, 14, 0.06);
+  --line-2: rgba(11, 15, 14, 0.1);
+
+  /* 卡片阴影：HDS 是「浅、散、几乎看不见」 */
+  --card-shadow: 0 1px 2px rgba(11, 15, 14, 0.04), 0 6px 18px rgba(11, 15, 14, 0.05);
+  --card-shadow-hi: 0 2px 6px rgba(11, 15, 14, 0.06), 0 14px 32px rgba(11, 15, 14, 0.09);
+
+  /* 悬浮胶囊 */
+  --tab-bg: rgba(255, 255, 255, 0.82);
+  --tab-border: rgba(255, 255, 255, 0.72);
+  --tab-shadow: 0 10px 30px rgba(11, 15, 14, 0.1), 0 2px 6px rgba(11, 15, 14, 0.05);
+  --tab-idle: #97a19d;
+
+  /* 遮罩 */
+  --scrim: rgba(20, 26, 24, 0.32);
+}
+
+[data-theme="dark"] {
+  --bg: #0b0f0e;
+  --card: #171d1b;
+  --card-2: #1e2624;
+  --card-3: #262f2c;
+
+  --text: #f2f5f4;
+  --dim: #a3b0ab;
+  --mute: #7a8782;
+
+  --accent: #3be49a;
+  --accent-ink: #3be49a;
+  --on-accent: #04110b;
+  --accent-soft: rgba(59, 228, 154, 0.12);
+
+  --line: rgba(242, 245, 244, 0.07);
+  --line-2: rgba(242, 245, 244, 0.12);
+
+  --card-shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 6px 18px rgba(0, 0, 0, 0.28);
+  --card-shadow-hi: 0 2px 6px rgba(0, 0, 0, 0.34), 0 14px 32px rgba(0, 0, 0, 0.34);
+
+  --tab-bg: rgba(40, 48, 45, 0.82);
+  --tab-border: rgba(255, 255, 255, 0.1);
+  --tab-shadow: 0 12px 34px rgba(0, 0, 0, 0.55);
+  --tab-idle: #7a8782;
+
+  --scrim: rgba(4, 8, 7, 0.55);
+}
+
+/* 与主题无关 */
+:root {
+  /* HDS 用系统字族；数字靠 tabular-nums 对齐，不用等宽字体 */
+  --font: "Noto Sans SC", "HarmonyOS Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
+
+  --fs-title: 32px;
+  --fs-h1: 22px;
+  --fs-h2: 17px;
+  --fs-body: 15px;
+  --fs-sm: 13px;
+  --fs-xs: 12px;
+  --fs-mini: 11px;
+
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 20px;
+  --sp-6: 28px;
+  --sp-7: 40px;
+
+  --r-card: 24px;
+  --r-inner: 16px;
+  --r-btn: 14px;
+  --r-pill: 999px;
+  --r-phone: 46px;
+
+  --ease: cubic-bezier(0.16, 1, 0.3, 1);
+  --dur-fast: 160ms;
+  --dur-base: 300ms;
+
+  --phone-w: 390px;
+  --phone-h: 844px;
+}

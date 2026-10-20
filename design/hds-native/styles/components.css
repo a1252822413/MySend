@@ -1,0 +1,660 @@
+/* ============================================================
+   组件层：手机屏内
+   核心是「悬浮胶囊 Tab」——对应 HDS 的 barFloatingStyle，
+   半透明 + backdrop blur + 大圆角 + 悬浮 10vp。
+   ============================================================ */
+
+/* ---------------- 骨架 ---------------- */
+
+.status-bar {
+  height: 44px;
+  flex: 0 0 44px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 22px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: var(--text);
+  position: relative;
+  z-index: 6;
+}
+
+.status-bar .glyphs {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--dim);
+}
+
+.screen-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 0 16px 106px;  /* 106 = 胶囊 64 + 底距 20 + 余量 */
+  position: relative;
+  z-index: 2;
+  overflow: hidden;
+}
+
+/* ---------------- 页面头：大标题 + 圆形按钮 ---------------- */
+
+.page-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 4px 16px;
+}
+
+.page-head .head-txt { min-width: 0; }
+
+.page-head h1 {
+  margin: 0;
+  font-size: var(--fs-title);
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: -0.025em;
+  color: var(--text);
+}
+
+.page-head .sub {
+  display: block;
+  margin-top: 4px;
+  font-size: var(--fs-xs);
+  color: var(--dim);
+}
+
+.head-actions {
+  display: flex;
+  gap: 8px;
+  padding-top: 4px;
+}
+
+/* 圆形图标按钮：HDS 标题栏右侧那种 */
+.ico-btn {
+  width: 40px;
+  height: 40px;
+  flex: 0 0 40px;
+  border-radius: 50%;
+  border: 0;
+  display: grid;
+  place-items: center;
+  background: var(--card);
+  color: var(--text);
+  box-shadow: var(--card-shadow);
+  cursor: pointer;
+  transition: transform var(--dur-fast) var(--ease), box-shadow var(--dur-fast) ease-out;
+}
+
+.ico-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--card-shadow-hi);
+}
+
+.ico-btn:active {
+  transform: scale(0.96);
+}
+
+.ico-btn svg { width: 19px; height: 19px; }
+
+/* ---------------- 卡片与列表行 ---------------- */
+
+.card {
+  background: var(--card);
+  border-radius: var(--r-card);
+  box-shadow: var(--card-shadow);
+  overflow: hidden;
+  margin-bottom: 12px;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 64px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--line);
+  position: relative;
+}
+
+.row:first-child { border-top: 0; }
+
+.row.clickable { cursor: pointer; transition: background-color var(--dur-fast) ease-out; }
+
+.row.clickable:hover { background: var(--card-2); }
+
+/* 左侧图标块 */
+.row .ico {
+  width: 40px;
+  height: 40px;
+  flex: 0 0 40px;
+  border-radius: 13px;
+  display: grid;
+  place-items: center;
+  background: var(--card-2);
+  color: var(--dim);
+}
+
+.row .ico svg { width: 20px; height: 20px; }
+
+.row .txt {
+  flex: 1;
+  min-width: 0;
+}
+
+.row .t {
+  display: block;
+  font-size: var(--fs-body);
+  color: var(--text);
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.row .s {
+  display: block;
+  margin-top: 1px;
+  font-size: var(--fs-mini);
+  color: var(--mute);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.row .v {
+  flex: 0 0 auto;
+  font-size: var(--fs-sm);
+  color: var(--dim);
+  font-variant-numeric: tabular-nums;
+}
+
+.row .chev {
+  flex: 0 0 auto;
+  color: var(--mute);
+  display: grid;
+  place-items: center;
+}
+
+.row .chev svg { width: 16px; height: 16px; }
+
+/* 在线状态点 */
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+  flex: 0 0 8px;
+}
+
+.dot.idle { background: var(--mute); }
+
+/* 分组小标题 */
+.group-label {
+  padding: 4px 8px 8px;
+  font-size: var(--fs-mini);
+  color: var(--mute);
+  font-weight: 500;
+}
+
+/* ---------------- 本机卡 ---------------- */
+
+.me-card {
+  padding: 18px 18px 16px;
+  position: relative;
+}
+
+.me-card .me-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.me-card .tag-https {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: var(--r-pill);
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+
+.me-card h2 {
+  margin: 0 0 4px;
+  font-size: 21px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--text);
+  line-height: 1.25;
+}
+
+.me-card .addr {
+  font-size: var(--fs-sm);
+  color: var(--dim);
+  font-variant-numeric: tabular-nums;
+}
+
+.me-card .fp {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+  font-size: var(--fs-mini);
+  color: var(--mute);
+  letter-spacing: 0.06em;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------------- 悬浮胶囊 Tab（核心） ---------------- */
+
+.tabbar {
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  bottom: 20px;
+  height: 64px;
+  z-index: 20;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  align-items: center;
+  padding: 0 4px;
+  border-radius: 32px;
+  background: var(--tab-bg);
+  border: 1px solid var(--tab-border);
+  box-shadow: var(--tab-shadow);
+  /* 系统材质：HDS 用沉浸光感，这里用等效的磨砂玻璃 */
+  backdrop-filter: blur(22px) saturate(1.7);
+  -webkit-backdrop-filter: blur(22px) saturate(1.7);
+}
+
+.tab {
+  height: 56px;
+  border: 0;
+  background: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  color: var(--tab-idle);
+  font-family: var(--font);
+  font-size: 10px;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  border-radius: 26px;
+  transition: color var(--dur-fast) ease-out, transform var(--dur-fast) var(--ease);
+}
+
+.tab svg {
+  width: 22px;
+  height: 22px;
+  transition: transform var(--dur-fast) var(--ease);
+}
+
+.tab:hover { color: var(--dim); }
+
+.tab:active svg { transform: scale(0.9); }
+
+.tab[aria-current="page"] {
+  color: var(--accent-ink);
+  font-weight: 600;
+}
+
+.tab[aria-current="page"] svg {
+  stroke-width: 2.1;
+}
+
+/* ---------------- 按钮 ---------------- */
+
+.btn {
+  min-height: 46px;
+  padding: 0 22px;
+  border: 0;
+  border-radius: var(--r-btn);
+  background: var(--card-2);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: var(--fs-body);
+  font-weight: 500;
+  cursor: pointer;
+  transition: transform var(--dur-fast) ease-out, filter var(--dur-fast) ease-out;
+}
+
+.btn:active { transform: scale(0.98); }
+
+.btn-primary {
+  background: var(--accent);
+  color: var(--on-accent);
+  font-weight: 700;
+  box-shadow: 0 6px 18px var(--accent-soft);
+}
+
+.btn-ghost {
+  background: transparent;
+  color: var(--accent-ink);
+  box-shadow: inset 0 0 0 1px var(--accent-soft);
+}
+
+.btn-block { width: 100%; }
+
+.btn-sm {
+  min-height: 32px;
+  padding: 0 12px;
+  font-size: var(--fs-xs);
+  border-radius: 10px;
+  background: var(--card-2);
+  color: var(--dim);
+}
+
+/* ---------------- 底部操作条（浮在胶囊上方） ---------------- */
+
+.action-bar {
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  bottom: 98px;   /* 胶囊 64 + 底距 20 + 间隙 14 */
+  height: 62px;
+  z-index: 18;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 8px 8px 18px;
+  border-radius: 20px;
+  background: var(--card);
+  box-shadow: var(--card-shadow-hi);
+}
+
+.action-bar .sum {
+  flex: 1;
+  min-width: 0;
+}
+
+.action-bar .sum b {
+  display: block;
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+}
+
+.action-bar .sum span {
+  display: block;
+  font-size: var(--fs-mini);
+  color: var(--mute);
+  margin-top: 1px;
+}
+
+.action-bar .btn-primary {
+  min-height: 46px;
+  padding: 0 26px;
+  border-radius: 15px;
+}
+
+/* ---------------- 进度浮卡（胶囊上方） ---------------- */
+
+.progress-card {
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  bottom: 98px;
+  z-index: 22;
+  padding: 16px 18px 15px;
+  border-radius: 22px;
+  background: var(--card);
+  box-shadow: var(--card-shadow-hi);
+}
+
+.progress-card .pc-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.progress-card .pc-head .lbl {
+  font-size: var(--fs-mini);
+  color: var(--dim);
+  font-weight: 500;
+}
+
+.progress-card .speed {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  margin-bottom: 10px;
+}
+
+.progress-card .speed b {
+  font-size: 30px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.progress-card .speed span {
+  font-size: var(--fs-mini);
+  color: var(--accent-ink);
+  font-weight: 600;
+}
+
+.progress-card .fname {
+  font-size: var(--fs-sm);
+  color: var(--text);
+  margin-bottom: 8px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bar {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--card-3);
+  overflow: hidden;
+}
+
+.bar > i {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  background: var(--accent);
+}
+
+.progress-card .meta {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 8px;
+  font-size: var(--fs-mini);
+  color: var(--mute);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------------- 接收确认 sheet（盖住胶囊） ---------------- */
+
+.scrim {
+  position: absolute;
+  inset: 0;
+  z-index: 30;
+  background: var(--scrim);
+  backdrop-filter: blur(2px);
+}
+
+.sheet {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: 8px;
+  z-index: 31;
+  padding: 10px 16px 16px;
+  border-radius: 28px;
+  background: var(--card);
+  box-shadow: 0 -8px 40px rgba(0, 0, 0, 0.18);
+}
+
+.sheet .grabber {
+  width: 36px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--line-2);
+  margin: 0 auto 14px;
+}
+
+.sheet h3 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--text);
+}
+
+.sheet .sub {
+  margin: 3px 0 12px;
+  font-size: var(--fs-xs);
+  color: var(--dim);
+}
+
+.sheet .file-line {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+  border-top: 1px solid var(--line);
+}
+
+.sheet .file-line:last-of-type { border-bottom: 1px solid var(--line); }
+
+.sheet-actions {
+  display: grid;
+  grid-template-columns: 1fr 1.6fr;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+/* ---------------- 文件行（发送 / 确认共用） ---------------- */
+
+.ext {
+  width: 40px;
+  height: 40px;
+  flex: 0 0 40px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  background: var(--card-2);
+  color: var(--dim);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* ---------------- 开关 ---------------- */
+
+.switch {
+  width: 44px;
+  height: 26px;
+  flex: 0 0 44px;
+  border-radius: var(--r-pill);
+  background: var(--card-3);
+  border: 0;
+  position: relative;
+  cursor: pointer;
+  transition: background-color var(--dur-base) var(--ease);
+}
+
+.switch::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  transition: transform var(--dur-base) var(--ease);
+}
+
+.switch[aria-checked="true"] {
+  background: var(--accent);
+}
+
+.switch[aria-checked="true"]::after {
+  transform: translateX(18px);
+}
+
+/* ---------------- 历史卡 ---------------- */
+
+.log-card {
+  padding: 14px 16px;
+  border-radius: 20px;
+  margin-bottom: 10px;
+}
+
+.log-card .lc-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.tag {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  padding: 3px 8px;
+  border-radius: var(--r-pill);
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+}
+
+.tag.send {
+  background: var(--card-2);
+  color: var(--mute);
+}
+
+.log-card .lc-time {
+  font-size: var(--fs-mini);
+  color: var(--mute);
+}
+
+.log-card .lc-name {
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.log-card .lc-meta {
+  font-size: var(--fs-mini);
+  color: var(--mute);
+  margin-top: 2px;
+}
+
+.log-card .lc-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+/* ---------------- 空态 ---------------- */
+
+.empty {
+  padding: 28px 16px;
+  text-align: center;
+}
+
+.empty p {
+  margin: 6px 0 0;
+  font-size: var(--fs-xs);
+  color: var(--mute);
+}
