@@ -16,6 +16,7 @@ import { picker, fileUri, fileShare } from '@kit.CoreFileKit';
 import { fileIo as fs } from '@kit.CoreFileKit';
 import { common, wantConstant } from '@kit.AbilityKit';
 import { connection } from '@kit.NetworkKit';
+import { window } from '@kit.ArkUI';
 import { pasteboard, BusinessError } from '@kit.BasicServicesKit';
 import { photoAccessHelper } from '@kit.MediaLibraryKit';
 import { fileReceiver, ReceiveProgress } from '../service/FileReceiver';
@@ -90,7 +91,7 @@ struct Index {
   private timerId: number = -1;
 
   /** 当前主题令牌；读 themeMode 会自动登记依赖，切换时整页刷新 */
-  private get tk(): ThemeTokens {
+  private tk(): ThemeTokens {
     return tokensOf(this.themeMode);
   }
 
@@ -116,6 +117,7 @@ struct Index {
     }
     this.refreshLocal();
     this.loadLocalIp();
+    this.applyWindowTheme();
     this.devices = deviceRegistry.list();
     this.history = historyService.list();
     // 每 5 秒刷新一次，保证超时设备自动消失
@@ -199,21 +201,21 @@ struct Index {
     Column() {
       Row() {
         Row({ space: 6 }) {
-          Text('接收中').fontSize(10).letterSpacing(2).fontColor(this.tk.textMute)
+          Text('接收中').fontSize(10).letterSpacing(2).fontColor(this.tk().textMute)
           Text(this.rxFrom.length > 0 ? this.rxFrom : '对方设备')
-            .fontSize(10).fontColor(this.tk.textDim).letterSpacing(0.4)
+            .fontSize(10).fontColor(this.tk().textDim).letterSpacing(0.4)
         }
         Blank()
         Text(`${this.rxDoneFiles}/${this.rxTotalFiles}`)
-          .fontSize(10).fontColor(this.tk.textMute)
+          .fontSize(10).fontColor(this.tk().textMute)
       }
       .width('100%')
 
       Row({ space: 14 }) {
         Stack() {
-          Circle({ width: 46, height: 46 }).fill(Color.Transparent).stroke(this.tk.ring).strokeWidth(1).opacity(0.45)
-          Circle({ width: 28, height: 28 }).fill(Color.Transparent).stroke(this.tk.ring).strokeWidth(1).opacity(0.8)
-          Circle({ width: 8, height: 8 }).fill(this.tk.accent)
+          Row().width(46).height(46).borderRadius(23).border({ width: 1, color: this.tk().ring }).opacity(0.45)
+          Row().width(28).height(28).borderRadius(14).border({ width: 1, color: this.tk().ring }).opacity(0.8)
+          Row().width(8).height(8).borderRadius(4).backgroundColor(this.tk().accent)
         }
         .width(46)
         .height(46)
@@ -222,11 +224,11 @@ struct Index {
           Text(this.speedValue())
             .fontSize(30)
             .fontWeight(FontWeight.Bold)
-            .fontColor(this.tk.text)
+            .fontColor(this.tk().text)
             .letterSpacing(-1)
           Text(this.speedUnit())
             .fontSize(11)
-            .fontColor(this.tk.accentInk)
+            .fontColor(this.tk().accentInk)
             .letterSpacing(1.5)
             .margin({ bottom: 4 })
         }
@@ -238,44 +240,44 @@ struct Index {
 
       Text(this.rxName.length > 0 ? this.rxName : '准备写入…')
         .fontSize(13)
-        .fontColor(this.tk.text)
+        .fontColor(this.tk().text)
         .maxLines(1)
         .textOverflow({ overflow: TextOverflow.Ellipsis })
         .width('100%')
         .margin({ bottom: 7 })
 
       Stack({ alignContent: Alignment.Start }) {
-        Row().width('100%').height(4).backgroundColor(this.tk.surface3).borderRadius(2)
-        Row().width(`${this.rxPercent()}%`).height(4).backgroundColor(this.tk.accent).borderRadius(2)
+        Row().width('100%').height(4).backgroundColor(this.tk().surface3).borderRadius(2)
+        Row().width(`${this.rxPercent()}%`).height(4).backgroundColor(this.tk().accent).borderRadius(2)
       }
       .width('100%')
       .height(4)
 
       Row() {
         Text(`${this.humanSize(this.rxReceived)} / ${this.humanSize(this.rxTotal)}`)
-          .fontSize(10).fontColor(this.tk.textMute).letterSpacing(0.4)
+          .fontSize(10).fontColor(this.tk().textMute).letterSpacing(0.4)
         Blank()
         Text(`${this.rxPercent().toFixed(0)}%`)
-          .fontSize(10).fontColor(this.tk.textMute).letterSpacing(0.6)
+          .fontSize(10).fontColor(this.tk().textMute).letterSpacing(0.6)
       }
       .width('100%')
       .margin({ top: 6 })
 
-      Divider().color(this.tk.line).margin({ top: 10, bottom: 8 })
+      Divider().color(this.tk().line).margin({ top: 10, bottom: 8 })
 
       Row() {
-        Text('保存到').fontSize(10).fontColor(this.tk.textMute).letterSpacing(1)
+        Text('保存到').fontSize(10).fontColor(this.tk().textMute).letterSpacing(1)
         Blank()
         Text(fileReceiver.isPublicDir() ? 'Download / 快传' : '应用沙箱')
-          .fontSize(10).fontColor(this.tk.textDim).letterSpacing(0.4)
+          .fontSize(10).fontColor(this.tk().textDim).letterSpacing(0.4)
       }
       .width('100%')
     }
     .padding({ left: 16, right: 16, top: 13, bottom: 14 })
-    .backgroundColor(this.tk.surface)
+    .backgroundColor(this.tk().surface)
     .borderRadius(20)
-    .border({ width: 1, color: this.tk.cardBorder })
-    .shadow({ radius: 6, color: this.tk.cardShadow, offsetX: 0, offsetY: 2 })
+    .border({ width: 1, color: this.tk().cardBorder })
+    .shadow({ radius: 6, color: this.tk().cardShadow, offsetX: 0, offsetY: 2 })
     .margin({ left: 12, right: 12, bottom: 90 })
     .width('calc(100% - 26vp)')
   }
@@ -284,15 +286,15 @@ struct Index {
   ReceiveRequestLayer() {
     Column() {
       Column({ space: 12 }) {
-        Text(`${this.reqAlias} 想发送给你`).fontSize(16).fontWeight(FontWeight.Medium).fontColor(this.tk.text)
+        Text(`${this.reqAlias} 想发送给你`).fontSize(16).fontWeight(FontWeight.Medium).fontColor(this.tk().text)
         Text(`${this.reqFiles.length} 个文件 · ${this.humanSize(this.reqTotal)}`)
-          .fontSize(12).fontColor(this.tk.textDim)
+          .fontSize(12).fontColor(this.tk().textDim)
 
         Row({ space: 16 }) {
-          Text('全选').fontSize(12).fontColor(this.tk.accent).onClick(() => {
+          Text('全选').fontSize(12).fontColor(this.tk().accent).onClick(() => {
             this.selectAll(true);
           })
-          Text('全不选').fontSize(12).fontColor(this.tk.textDim).onClick(() => {
+          Text('全不选').fontSize(12).fontColor(this.tk().textDim).onClick(() => {
             this.selectAll(false);
           })
         }
@@ -303,11 +305,11 @@ struct Index {
             ListItem() {
               Row({ space: 10 }) {
                 Text(this.isChecked(row.id) ? '●' : '○')
-                  .fontSize(14).fontColor(this.isChecked(row.id) ? this.tk.accent : this.tk.textDim)
+                  .fontSize(14).fontColor(this.isChecked(row.id) ? this.tk().accent : this.tk().textDim)
                 Column({ space: 2 }) {
-                  Text(row.name).fontSize(13).fontColor(this.tk.text).maxLines(1)
+                  Text(row.name).fontSize(13).fontColor(this.tk().text).maxLines(1)
                     .textOverflow({ overflow: TextOverflow.Ellipsis })
-                  Text(this.humanSize(row.size)).fontSize(11).fontColor(this.tk.textDim)
+                  Text(this.humanSize(row.size)).fontSize(11).fontColor(this.tk().textDim)
                 }
                 .alignItems(HorizontalAlign.Start)
                 .layoutWeight(1)
@@ -327,8 +329,8 @@ struct Index {
           Button('拒绝')
             .layoutWeight(1)
             .height(38)
-            .backgroundColor('#E9ECEF')
-            .fontColor(this.tk.text)
+            .backgroundColor(this.tk().surface2)
+            .fontColor(this.tk().text)
             .borderRadius(8)
             .onClick(() => {
               receiveRequests.decide([]);
@@ -336,7 +338,7 @@ struct Index {
           Button(`接收 (${this.reqChecked.length})`)
             .layoutWeight(1)
             .height(38)
-            .backgroundColor(this.tk.accent)
+            .backgroundColor(this.tk().accent)
             .borderRadius(8)
             .enabled(this.reqChecked.length > 0)
             .onClick(() => {
@@ -347,7 +349,7 @@ struct Index {
       }
       .padding(20)
       .width('86%')
-      .backgroundColor(this.tk.surface)
+      .backgroundColor(this.tk().surface)
       .borderRadius(16)
     }
     .width('100%')
@@ -884,6 +886,34 @@ struct Index {
     Log.i(`分享文件已填入发送页，共 ${next.length} 个待发`);
   }
 
+  /** 窗口背景与系统栏跟随主题：否则状态栏/导航条会露出系统默认白底 */
+  private async applyWindowTheme(): Promise<void> {
+    try {
+      const ctx = this.getUIContext().getHostContext() as common.UIAbilityContext;
+      const win = await window.getLastWindow(ctx);
+      win.setWindowBackgroundColor(this.tk().bg);
+      win.setWindowSystemBarProperties({
+        statusBarContentColor: this.tk().text,
+        navigationBarContentColor: this.tk().text
+      });
+    } catch (e) {
+      Log.w(`设置窗口主题失败: ${JSON.stringify(e)}`);
+    }
+  }
+
+  /** 指纹按 4 位分组，等宽下更好读 */
+  private fpText(): string {
+    const raw = this.fingerprint;
+    if (raw.length === 0) {
+      return '—';
+    }
+    const parts: string[] = [];
+    for (let i = 0; i < raw.length && i < 16; i += 4) {
+      parts.push(raw.substring(i, Math.min(i + 4, raw.length)));
+    }
+    return parts.join(' ');
+  }
+
   /** 取默认网络的 IPv4（局域网内其他设备看到的就是这个地址） */
   private async loadLocalIp(): Promise<void> {
     try {
@@ -948,14 +978,14 @@ struct Index {
       Text(label)
         .fontSize(10)
         .letterSpacing(0.5)
-        .fontColor(this.currentTab === index ? this.tk.accentInk : this.tk.textMute)
+        .fontColor(this.currentTab === index ? this.tk().accentInk : this.tk().textMute)
     }
     .width('100%')
     .height(46)
     .justifyContent(FlexAlign.Center)
-    .backgroundColor(this.currentTab === index ? this.tk.accentSoft : Color.Transparent)
+    .backgroundColor(this.currentTab === index ? this.tk().accentSoft : Color.Transparent)
     .borderRadius(18)
-    .border({ width: 1, color: this.currentTab === index ? this.tk.lineAccent : Color.Transparent })
+    .border({ width: 1, color: this.currentTab === index ? this.tk().lineAccent : Color.Transparent })
     .margin({ left: 4, right: 4, top: 4 })
   }
 
@@ -968,6 +998,7 @@ struct Index {
     settingsService.save((s: Settings) => {
       s.themeMode = mode;
     });
+    this.applyWindowTheme();
     Log.i(`主题切换为 ${mode}`);
   }
 
@@ -976,9 +1007,9 @@ struct Index {
     Text(label)
       .fontSize(12)
       .letterSpacing(0.5)
-      .fontColor(this.themeMode === mode ? this.tk.accentInk : this.tk.textDim)
-      .backgroundColor(this.themeMode === mode ? this.tk.accentSoft : this.tk.surface2)
-      .border({ width: 1, color: this.themeMode === mode ? this.tk.lineAccent : this.tk.cardBorder })
+      .fontColor(this.themeMode === mode ? this.tk().accentInk : this.tk().textDim)
+      .backgroundColor(this.themeMode === mode ? this.tk().accentSoft : this.tk().surface2)
+      .border({ width: 1, color: this.themeMode === mode ? this.tk().lineAccent : this.tk().cardBorder })
       .borderRadius(10)
       .padding({ left: 18, right: 18, top: 9, bottom: 9 })
       .onClick(() => {
@@ -989,8 +1020,8 @@ struct Index {
   @Builder
   SectionTitle(title: string, desc: string) {
     Column({ space: 4 }) {
-      Text(title).fontSize(15).fontWeight(FontWeight.Medium).fontColor(this.tk.text)
-      Text(desc).fontSize(12).fontColor(this.tk.textDim)
+      Text(title).fontSize(15).fontWeight(FontWeight.Medium).fontColor(this.tk().text)
+      Text(desc).fontSize(12).fontColor(this.tk().textDim)
     }
     .alignItems(HorizontalAlign.Start)
     .width('100%')
@@ -1001,21 +1032,21 @@ struct Index {
     Column() {
       Row() {
         Row({ space: 6 }) {
-          Text('本机').fontSize(10).letterSpacing(2).fontColor(this.tk.textMute)
+          Text('本机').fontSize(10).letterSpacing(2).fontColor(this.tk().textMute)
           Text(this.protocolText === 'https' ? 'HTTPS' : 'HTTP')
             .fontSize(9)
             .letterSpacing(1)
-            .fontColor(this.tk.accentInk)
-            .backgroundColor(this.tk.accentSoft)
-            .border({ width: 1, color: this.tk.lineAccent })
+            .fontColor(this.tk().accentInk)
+            .backgroundColor(this.tk().accentSoft)
+            .border({ width: 1, color: this.tk().lineAccent })
             .borderRadius(4)
             .padding({ left: 6, right: 6, top: 2, bottom: 2 })
         }
         Blank()
         Stack() {
-          Circle({ width: 44, height: 44 }).fill(Color.Transparent).stroke(this.tk.ring).strokeWidth(1).opacity(0.5)
-          Circle({ width: 28, height: 28 }).fill(Color.Transparent).stroke(this.tk.ring).strokeWidth(1).opacity(0.85)
-          Circle({ width: 8, height: 8 }).fill(this.tk.accent)
+          Row().width(44).height(44).borderRadius(22).border({ width: 1, color: this.tk().ring }).opacity(0.5)
+          Row().width(28).height(28).borderRadius(14).border({ width: 1, color: this.tk().ring }).opacity(0.85)
+          Row().width(8).height(8).borderRadius(4).backgroundColor(this.tk().accent)
         }
         .width(44)
         .height(44)
@@ -1023,9 +1054,9 @@ struct Index {
       .width('100%')
 
       Text(this.alias)
-        .fontSize(24)
+        .fontSize(20)
         .fontWeight(FontWeight.Bold)
-        .fontColor(this.tk.text)
+        .fontColor(this.tk().text)
         .letterSpacing(-0.5)
         .maxLines(2)
         .textOverflow({ overflow: TextOverflow.Ellipsis })
@@ -1035,16 +1066,16 @@ struct Index {
 
       Text(`${this.localIp.length > 0 ? this.localIp : '—'}:${this.port}`)
         .fontSize(12)
-        .fontColor(this.tk.textDim)
+        .fontColor(this.tk().textDim)
         .letterSpacing(0.2)
         .margin({ top: 2 })
         .width('100%')
 
-      Divider().color(this.tk.line).margin({ top: 10, bottom: 8 })
+      Divider().color(this.tk().line).margin({ top: 10, bottom: 8 })
 
-      Text(`指纹 ${this.fingerprint.length > 16 ? this.fingerprint.substring(0, 16) + '…' : this.fingerprint}`)
+      Text(`指纹 ${this.fpText()}`)
         .fontSize(10)
-        .fontColor(this.tk.textMute)
+        .fontColor(this.tk().textMute)
         .letterSpacing(0.8)
         .maxLines(1)
         .textOverflow({ overflow: TextOverflow.Ellipsis })
@@ -1052,28 +1083,28 @@ struct Index {
     }
     .alignItems(HorizontalAlign.Start)
     .padding({ left: 16, right: 16, top: 14, bottom: 16 })
-    .backgroundColor(this.tk.surface)
+    .backgroundColor(this.tk().surface)
     .borderRadius(18)
-    .border({ width: 1, color: this.tk.cardBorder })
-    .shadow({ radius: 3, color: this.tk.cardShadow, offsetX: 0, offsetY: 1 })
+    .border({ width: 1, color: this.tk().cardBorder })
+    .shadow({ radius: 3, color: this.tk().cardShadow, offsetX: 0, offsetY: 1 })
     .width('100%')
   }
 
   @Builder
   DeviceRow(item: DeviceItem) {
     Row({ space: 12 }) {
-      Circle({ width: 8, height: 8 }).fill(this.tk.accent)
+      Row().width(8).height(8).borderRadius(4).backgroundColor(this.tk().accent)
 
       Column({ space: 1 }) {
         Text(item.alias.length > 0 ? item.alias : '未知设备')
           .fontSize(15)
           .fontWeight(FontWeight.Bold)
-          .fontColor(this.tk.text)
+          .fontColor(this.tk().text)
           .maxLines(1)
           .textOverflow({ overflow: TextOverflow.Ellipsis })
         Text(`${item.platformLabel()} · ${item.protocol} · ${item.ip}`)
           .fontSize(10)
-          .fontColor(this.tk.textMute)
+          .fontColor(this.tk().textMute)
           .letterSpacing(0.4)
           .maxLines(1)
           .textOverflow({ overflow: TextOverflow.Ellipsis })
@@ -1083,14 +1114,14 @@ struct Index {
 
       Text('在线')
         .fontSize(10)
-        .fontColor(this.tk.accentInk)
+        .fontColor(this.tk().accentInk)
         .letterSpacing(1)
     }
     .padding({ left: 14, right: 14, top: 13, bottom: 13 })
-    .backgroundColor(this.tk.surface)
+    .backgroundColor(this.tk().surface)
     .borderRadius(18)
-    .border({ width: 1, color: this.tk.cardBorder })
-    .shadow({ radius: 2, color: this.tk.cardShadow, offsetX: 0, offsetY: 1 })
+    .border({ width: 1, color: this.tk().cardBorder })
+    .shadow({ radius: 2, color: this.tk().cardShadow, offsetX: 0, offsetY: 1 })
     .width('100%')
   }
 
@@ -1098,23 +1129,23 @@ struct Index {
   EmptyDevices() {
     Column({ space: 8 }) {
       Text('正在搜索附近设备…')
-        .fontSize(14).fontWeight(FontWeight.Medium).fontColor(this.tk.text)
+        .fontSize(14).fontWeight(FontWeight.Medium).fontColor(this.tk().text)
       Text('确保对方设备已打开快传，并连接同一 Wi-Fi')
-        .fontSize(11).fontColor(this.tk.textMute).textAlign(TextAlign.Center)
+        .fontSize(11).fontColor(this.tk().textMute).textAlign(TextAlign.Center)
       if (this.scanning) {
         Text(`正在扫描局域网 ${this.scanText}`)
-          .fontSize(10).fontColor(this.tk.accentInk).letterSpacing(0.4).margin({ top: 2 })
+          .fontSize(10).fontColor(this.tk().accentInk).letterSpacing(0.4).margin({ top: 2 })
       } else {
         Text('一直找不到？点右上角「扫描局域网」')
-          .fontSize(10).fontColor(this.tk.textMute).margin({ top: 2 })
+          .fontSize(10).fontColor(this.tk().textMute).margin({ top: 2 })
       }
     }
     .width('100%')
     .padding({ top: 30, bottom: 30, left: 16, right: 16 })
     .alignItems(HorizontalAlign.Center)
-    .backgroundColor(this.tk.surface)
+    .backgroundColor(this.tk().surface)
     .borderRadius(18)
-    .border({ width: 1, color: this.tk.cardBorder })
+    .border({ width: 1, color: this.tk().cardBorder })
   }
 
   @Builder
@@ -1122,8 +1153,8 @@ struct Index {
     Scroll() {
       Column({ space: 10 }) {
         Row({ space: 10 }) {
-          Divider().layoutWeight(1).color(this.tk.line)
-          Text('01 / LOCAL').fontSize(10).fontColor(this.tk.textMute).letterSpacing(1.5)
+          Divider().layoutWeight(1).color(this.tk().line)
+          Text('01 / LOCAL').fontSize(10).fontColor(this.tk().textMute).letterSpacing(1.5)
         }
         .width('100%')
         .padding({ left: 4, right: 4 })
@@ -1133,10 +1164,10 @@ struct Index {
 
         Row() {
           Text('在线设备')
-            .fontSize(10).letterSpacing(1.5).fontColor(this.tk.textMute)
+            .fontSize(10).letterSpacing(1.5).fontColor(this.tk().textMute)
           Blank()
           Text(`${this.devices.length} 台`)
-            .fontSize(10).letterSpacing(1).fontColor(this.tk.accentInk)
+            .fontSize(10).letterSpacing(1).fontColor(this.tk().accentInk)
         }
         .width('100%')
         .padding({ left: 4, right: 4, top: 6, bottom: 0 })
@@ -1152,9 +1183,10 @@ struct Index {
       .padding({ left: 16, right: 16, top: 6, bottom: 16 })
       .width('100%')
     }
-    .backgroundColor(this.tk.bg)
+    .backgroundColor(this.tk().bg)
     .width('100%')
     .height('100%')
+    .align(Alignment.Top)
     .scrollBar(BarState.Off)
   }
 
@@ -1197,11 +1229,11 @@ struct Index {
           ForEach(this.devices, (item: DeviceItem) => {
             Text(item.alias)
               .fontSize(13)
-              .fontColor(this.isTargetSelected(item) ? Color.White : this.tk.text)
+              .fontColor(this.isTargetSelected(item) ? Color.White : this.tk().text)
               .padding({ left: 12, right: 12, top: 8, bottom: 8 })
-              .backgroundColor(this.isTargetSelected(item) ? this.tk.accent : this.tk.surface)
+              .backgroundColor(this.isTargetSelected(item) ? this.tk().accent : this.tk().surface)
               .borderRadius(16)
-              .border({ width: 1, color: this.isTargetSelected(item) ? this.tk.accent : this.tk.line })
+              .border({ width: 1, color: this.isTargetSelected(item) ? this.tk().accent : this.tk().line })
               .margin({ right: 8, bottom: 8 })
               .onClick(() => {
                 this.toggleTarget(item);
@@ -1215,7 +1247,7 @@ struct Index {
         Button('添加文件')
           .height(36)
           .layoutWeight(1)
-          .backgroundColor(this.tk.accent)
+          .backgroundColor(this.tk().accent)
           .borderRadius(8)
           .enabled(!this.sending)
           .onClick(() => {
@@ -1224,8 +1256,8 @@ struct Index {
         Button('清空')
           .height(36)
           .width(72)
-          .backgroundColor('#E9ECEF')
-          .fontColor(this.tk.text)
+          .backgroundColor(this.tk().surface2)
+          .fontColor(this.tk().text)
           .borderRadius(8)
           .enabled(!this.sending && this.sendFiles.length > 0)
           .onClick(() => {
@@ -1235,21 +1267,21 @@ struct Index {
       .width('100%')
 
       if (this.sendFiles.length === 0) {
-        Text('还没有选择文件').fontSize(12).fontColor(this.tk.textDim).width('100%')
+        Text('还没有选择文件').fontSize(12).fontColor(this.tk().textDim).width('100%')
       } else {
         Column({ space: 8 }) {
           ForEach(this.sendFiles, (f: SendFileItem, idx: number) => {
             Row() {
               Column({ space: 2 }) {
-                Text(f.name).fontSize(13).fontColor(this.tk.text).maxLines(1)
+                Text(f.name).fontSize(13).fontColor(this.tk().text).maxLines(1)
                   .textOverflow({ overflow: TextOverflow.Ellipsis })
-                Text(this.humanSize(f.size)).fontSize(11).fontColor(this.tk.textDim)
+                Text(this.humanSize(f.size)).fontSize(11).fontColor(this.tk().textDim)
               }
               .alignItems(HorizontalAlign.Start)
               .layoutWeight(1)
 
               Text('移除')
-                .fontSize(12).fontColor(this.tk.textDim)
+                .fontSize(12).fontColor(this.tk().textDim)
                 .enabled(!this.sending)
                 .onClick(() => {
                   const next: SendFileItem[] = [];
@@ -1266,18 +1298,20 @@ struct Index {
           }, (f: SendFileItem, idx: number) => `${f.path}_${idx}`)
         }
         .padding(12)
-        .backgroundColor(this.tk.surface)
+        .backgroundColor(this.tk().surface)
         .borderRadius(18)
-        .border({ width: 1, color: this.tk.cardBorder })
+        .border({ width: 1, color: this.tk().cardBorder })
         .width('100%')
       }
 
       Column({ space: 6 }) {
-        Text('接收方 PIN（对方设置了才需要填）').fontSize(12).fontColor(this.tk.textDim)
+        Text('接收方 PIN（对方设置了才需要填）').fontSize(12).fontColor(this.tk().textDim)
         TextInput({ text: this.pinInput, placeholder: '留空表示对方未启用 PIN' })
           .height(36)
-          .backgroundColor('#F7F8FA')
-          .borderRadius(8)
+          .fontColor(this.tk().text)
+          .placeholderColor(this.tk().textMute)
+          .backgroundColor(this.tk().surface2)
+          .borderRadius(10)
           .onChange((v: string) => {
             this.pinInput = v;
           })
@@ -1287,7 +1321,7 @@ struct Index {
 
       if (this.sending) {
         Column({ space: 6 }) {
-          Text(`正在发送：${this.currentFile}`).fontSize(12).fontColor(this.tk.text).width('100%')
+          Text(`正在发送：${this.currentFile}`).fontSize(12).fontColor(this.tk().text).width('100%')
             .maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
           Progress({
             value: this.totalBytes > 0 ? (this.sentBytes / this.totalBytes) * 100 : 0,
@@ -1295,25 +1329,25 @@ struct Index {
             type: ProgressType.Linear
           })
             .width('100%')
-            .color(this.tk.accent)
+            .color(this.tk().accent)
           Text(`${this.humanSize(this.sentBytes)} / ${this.humanSize(this.totalBytes)}`)
-            .fontSize(11).fontColor(this.tk.textDim).width('100%')
+            .fontSize(11).fontColor(this.tk().textDim).width('100%')
         }
         .padding(12)
-        .backgroundColor(this.tk.surface)
+        .backgroundColor(this.tk().surface)
         .borderRadius(18)
-        .border({ width: 1, color: this.tk.cardBorder })
+        .border({ width: 1, color: this.tk().cardBorder })
         .width('100%')
       }
 
       if (this.sendTip.length > 0) {
-        Text(this.sendTip).fontSize(12).fontColor(this.tk.textDim).width('100%')
+        Text(this.sendTip).fontSize(12).fontColor(this.tk().textDim).width('100%')
       }
 
       Button(this.sending ? '发送中…' : '发送')
         .width('100%')
         .height(40)
-        .backgroundColor(this.tk.accent)
+        .backgroundColor(this.tk().accent)
         .borderRadius(10)
         .enabled(!this.sending && this.sendFiles.length > 0 && this.selectedTargets.length > 0)
         .onClick(() => {
@@ -1322,7 +1356,7 @@ struct Index {
     }
     .padding(16)
     .alignItems(HorizontalAlign.Start)
-    .backgroundColor(this.tk.bg)
+    .backgroundColor(this.tk().bg)
     .width('100%')
     .height('100%')
   }
@@ -1456,15 +1490,15 @@ struct Index {
     Column({ space: 12 }) {
       Row() {
         Column({ space: 4 }) {
-          Text('传输历史').fontSize(15).fontWeight(FontWeight.Medium).fontColor(this.tk.text)
-          Text(`${this.history.length} 条记录`).fontSize(12).fontColor(this.tk.textDim)
+          Text('传输历史').fontSize(15).fontWeight(FontWeight.Medium).fontColor(this.tk().text)
+          Text(`${this.history.length} 条记录`).fontSize(12).fontColor(this.tk().textDim)
         }
         .alignItems(HorizontalAlign.Start)
         .layoutWeight(1)
 
         if (this.history.length > 0) {
           Text('清空')
-            .fontSize(12).fontColor(this.tk.textDim)
+            .fontSize(12).fontColor(this.tk().textDim)
             .onClick(() => {
               historyService.clear();
               this.history = historyService.list();
@@ -1475,8 +1509,8 @@ struct Index {
 
       if (this.history.length === 0) {
         Column({ space: 8 }) {
-          Text('暂无传输记录').fontSize(14).fontWeight(FontWeight.Medium).fontColor(this.tk.text)
-          Text('收发文件完成后会自动记录在这里').fontSize(12).fontColor(this.tk.textDim)
+          Text('暂无传输记录').fontSize(14).fontWeight(FontWeight.Medium).fontColor(this.tk().text)
+          Text('收发文件完成后会自动记录在这里').fontSize(12).fontColor(this.tk().textDim)
         }
         .width('100%')
         .layoutWeight(1)
@@ -1490,23 +1524,23 @@ struct Index {
                   Text(rec.direction === 'send' ? '发送' : '接收')
                     .fontSize(11)
                     .fontColor(Color.White)
-                    .backgroundColor(rec.direction === 'send' ? this.tk.accent : '#3B82F6')
+                    .backgroundColor(rec.direction === 'send' ? this.tk().accent : '#3B82F6')
                     .borderRadius(6)
                     .padding({ left: 6, right: 6, top: 2, bottom: 2 })
                   Text(rec.peerAlias.length > 0 ? rec.peerAlias : '未知设备')
-                    .fontSize(13).fontColor(this.tk.text).margin({ left: 8 })
+                    .fontSize(13).fontColor(this.tk().text).margin({ left: 8 })
                   Blank()
-                  Text(this.humanSize(rec.totalSize)).fontSize(12).fontColor(this.tk.textDim)
+                  Text(this.humanSize(rec.totalSize)).fontSize(12).fontColor(this.tk().textDim)
                 }
                 .width('100%')
 
                 Text(this.summaryOf(rec))
-                  .fontSize(11).fontColor(this.tk.textDim).maxLines(1)
+                  .fontSize(11).fontColor(this.tk().textDim).maxLines(1)
                   .textOverflow({ overflow: TextOverflow.Ellipsis })
                   .width('100%')
 
                 Row() {
-                  Text(this.timeOf(rec.timestamp)).fontSize(11).fontColor(this.tk.textDim)
+                  Text(this.timeOf(rec.timestamp)).fontSize(11).fontColor(this.tk().textDim)
                   Blank()
                   if (rec.direction === 'receive' && this.firstPath(rec).length > 0) {
                     if (this.mediaPathsOf(rec).length > 0) {
@@ -1523,28 +1557,28 @@ struct Index {
                     }
                     Text('另存')
                       .fontSize(11)
-                      .fontColor(this.tk.textDim)
+                      .fontColor(this.tk().textDim)
                       .padding({ left: 10, right: 10, top: 4, bottom: 4 })
                       .borderRadius(10)
-                      .border({ width: 1, color: this.tk.line })
+                      .border({ width: 1, color: this.tk().line })
                       .margin({ right: 8 })
                       .onClick(() => {
                         this.saveAs(this.pathsOf(rec));
                       })
                     Text('打开')
                       .fontSize(11)
-                      .fontColor(this.tk.accent)
+                      .fontColor(this.tk().accent)
                       .padding({ left: 10, right: 10, top: 4, bottom: 4 })
                       .borderRadius(10)
-                      .border({ width: 1, color: this.tk.accent })
+                      .border({ width: 1, color: this.tk().accent })
                   }
                 }
                 .width('100%')
               }
               .padding(12)
-              .backgroundColor(this.tk.surface)
+              .backgroundColor(this.tk().surface)
               .borderRadius(18)
-              .border({ width: 1, color: this.tk.line })
+              .border({ width: 1, color: this.tk().line })
               .width('100%')
               .onClick(() => {
                 if (rec.direction === 'receive') {
@@ -1560,7 +1594,7 @@ struct Index {
     }
     .padding(16)
     .alignItems(HorizontalAlign.Start)
-    .backgroundColor(this.tk.bg)
+    .backgroundColor(this.tk().bg)
     .width('100%')
     .height('100%')
   }
@@ -1619,8 +1653,8 @@ struct Index {
   @Builder
   SettingRow(label: string, hint: string) {
     Column({ space: 4 }) {
-      Text(label).fontSize(14).fontColor(this.tk.text)
-      Text(hint).fontSize(11).fontColor(this.tk.textDim)
+      Text(label).fontSize(14).fontColor(this.tk().text)
+      Text(hint).fontSize(11).fontColor(this.tk().textDim)
     }
     .alignItems(HorizontalAlign.Start)
     .layoutWeight(1)
@@ -1638,26 +1672,26 @@ struct Index {
         }
         .width('100%')
         .padding(16)
-        .backgroundColor(this.tk.surface)
+        .backgroundColor(this.tk().surface)
         .borderRadius(18)
-        .border({ width: 1, color: this.tk.cardBorder })
+        .border({ width: 1, color: this.tk().cardBorder })
 
         this.SectionTitle('设备身份', '对方看到的设备名')
 
         Column({ space: 8 }) {
-          Text('本机显示名').fontSize(13).fontColor(this.tk.text)
+          Text('本机显示名').fontSize(13).fontColor(this.tk().text)
           TextInput({ text: this.alias, placeholder: '例如：我的手机' })
             .onChange((v: string) => {
               this.alias = v;
             })
-            .backgroundColor(this.tk.surface2)
+            .backgroundColor(this.tk().surface2)
             .borderRadius(10)
         }
         .alignItems(HorizontalAlign.Start)
         .padding(16)
-        .backgroundColor(this.tk.surface)
+        .backgroundColor(this.tk().surface)
         .borderRadius(18)
-        .border({ width: 1, color: this.tk.cardBorder })
+        .border({ width: 1, color: this.tk().cardBorder })
         .width('100%')
 
         this.SectionTitle('接收目录', this.receivePublic
@@ -1666,7 +1700,7 @@ struct Index {
         Column({ space: 8 }) {
           Text(this.receiveDirPath)
             .fontSize(11)
-            .fontColor(this.tk.textDim)
+            .fontColor(this.tk().textDim)
             .copyOption(CopyOptions.LocalDevice)
             .width('100%')
             .textAlign(TextAlign.Start)
@@ -1674,14 +1708,14 @@ struct Index {
             ? '在文件管理里打开该目录即可看到接收的文件（子目录「快传」不会和你原有文件混在一起）。授权会被记住，重启应用后自动恢复。'
             : '第三方应用默认无权写公共目录，所以未授权前只能存沙箱。授权一次之后接收的文件就直接落到你选的位置。')
             .fontSize(11)
-            .fontColor(this.tk.textDim)
+            .fontColor(this.tk().textDim)
             .width('100%')
           Row({ space: 8 }) {
             Blank()
             Text(this.receivePublic ? '更换目录' : '选择接收目录')
               .fontSize(12)
               .fontColor(Color.White)
-              .backgroundColor(this.tk.accent)
+              .backgroundColor(this.tk().accent)
               .padding({ left: 12, right: 12, top: 6, bottom: 6 })
               .borderRadius(18)
               .onClick(() => {
@@ -1689,19 +1723,19 @@ struct Index {
               })
             Text('打开文件夹')
               .fontSize(12)
-              .fontColor(this.tk.textDim)
+              .fontColor(this.tk().textDim)
               .padding({ left: 12, right: 12, top: 6, bottom: 6 })
               .borderRadius(18)
-              .border({ width: 1, color: this.tk.line })
+              .border({ width: 1, color: this.tk().line })
               .onClick(() => {
                 this.openReceiveFolder();
               })
             Text('复制路径')
               .fontSize(12)
-              .fontColor(this.tk.accent)
+              .fontColor(this.tk().accent)
               .padding({ left: 12, right: 12, top: 6, bottom: 6 })
               .borderRadius(18)
-              .border({ width: 1, color: this.tk.accent })
+              .border({ width: 1, color: this.tk().accent })
               .onClick(() => {
                 this.copyDir();
               })
@@ -1709,9 +1743,9 @@ struct Index {
           .width('100%')
         }
         .padding(16)
-        .backgroundColor(this.tk.surface)
+        .backgroundColor(this.tk().surface)
         .borderRadius(18)
-        .border({ width: 1, color: this.tk.cardBorder })
+        .border({ width: 1, color: this.tk().cardBorder })
         .width('100%')
         .alignItems(HorizontalAlign.Start)
 
@@ -1720,6 +1754,8 @@ struct Index {
           Row() {
             this.SettingRow('接收后提示存入相册', '系统要求由用户点确认，不能全自动；开启后完成时会提示入口，在历史里点「相册」一次入库')
             Toggle({ type: ToggleType.Switch, isOn: this.albumAuto })
+              .selectedColor(this.tk().accent)
+              .switchPointColor(this.tk().onAccent)
               .onChange((on: boolean) => {
                 this.albumAuto = on;
               })
@@ -1727,9 +1763,9 @@ struct Index {
           .width('100%')
         }
         .padding(16)
-        .backgroundColor(this.tk.surface)
+        .backgroundColor(this.tk().surface)
         .borderRadius(18)
-        .border({ width: 1, color: this.tk.cardBorder })
+        .border({ width: 1, color: this.tk().cardBorder })
         .width('100%')
         .alignItems(HorizontalAlign.Start)
 
@@ -1739,6 +1775,8 @@ struct Index {
           Row() {
             this.SettingRow('使用 HTTPS', '默认开启（原生 TLS 实现）。关闭后以明文传输，仅用于与不支持 https 的设备互通')
             Toggle({ type: ToggleType.Switch, isOn: this.httpsOn })
+              .selectedColor(this.tk().accent)
+              .switchPointColor(this.tk().onAccent)
               .onChange((on: boolean) => {
                 this.httpsOn = on;
               })
@@ -1748,6 +1786,8 @@ struct Index {
           Row() {
             this.SettingRow('自动接收', '开启后不再逐次询问，直接接收全部文件')
             Toggle({ type: ToggleType.Switch, isOn: this.autoAccept })
+              .selectedColor(this.tk().accent)
+              .switchPointColor(this.tk().onAccent)
               .onChange((on: boolean) => {
                 this.autoAccept = on;
               })
@@ -1755,7 +1795,7 @@ struct Index {
           .width('100%')
 
           Column({ space: 8 }) {
-            Text('接收 PIN 码').fontSize(13).fontColor(this.tk.text)
+            Text('接收 PIN 码').fontSize(13).fontColor(this.tk().text)
             TextInput({ text: this.pin, placeholder: '留空 = 不启用' })
               .type(InputType.Password)
               .onChange((v: string) => {
@@ -1763,33 +1803,33 @@ struct Index {
               })
               .backgroundColor('#F7F8FA')
               .borderRadius(8)
-            Text('设置后，对方发送前必须输入相同 PIN').fontSize(11).fontColor(this.tk.textDim)
+            Text('设置后，对方发送前必须输入相同 PIN').fontSize(11).fontColor(this.tk().textDim)
           }
           .alignItems(HorizontalAlign.Start)
           .width('100%')
         }
         .padding(16)
-        .backgroundColor(this.tk.surface)
+        .backgroundColor(this.tk().surface)
         .borderRadius(18)
-        .border({ width: 1, color: this.tk.cardBorder })
+        .border({ width: 1, color: this.tk().cardBorder })
         .width('100%')
 
         Button('保存并重启服务')
           .width('100%')
           .height(40)
-          .backgroundColor(this.tk.accent)
+          .backgroundColor(this.tk().accent)
           .borderRadius(10)
           .onClick(() => {
             this.applySettings();
           })
 
-        Text(`当前服务：${this.serverState}`).fontSize(11).fontColor(this.tk.textDim).width('100%')
-        Text('快传鸿蒙版 v1.0.0 · 协议 LocalSend v2.2').fontSize(11).fontColor(this.tk.textDim).width('100%')
+        Text(`当前服务：${this.serverState}`).fontSize(11).fontColor(this.tk().textDim).width('100%')
+        Text('快传鸿蒙版 v1.0.0 · 协议 LocalSend v2.2').fontSize(11).fontColor(this.tk().textDim).width('100%')
       }
       .padding(16)
       .width('100%')
     }
-    .backgroundColor(this.tk.bg)
+    .backgroundColor(this.tk().bg)
     .width('100%')
     .height('100%')
   }
@@ -1821,7 +1861,7 @@ struct Index {
         Text('快传')
           .fontSize(21)
           .fontWeight(FontWeight.Bold)
-          .fontColor(this.tk.text)
+          .fontColor(this.tk().text)
           .letterSpacing(-0.3)
         Blank()
         // 扫描入口放在 Scroll 之外：实测放在 Scroll 内的 Text/Button 点击不响应，
@@ -1829,12 +1869,12 @@ struct Index {
         if (this.currentTab === 0) {
           Button(this.scanning ? '扫描中…' : '扫描局域网')
             .fontSize(11)
-            .fontColor(this.scanning ? this.tk.textDim : this.tk.accent)
+            .fontColor(this.scanning ? this.tk().textDim : this.tk().accent)
             .height(28)
             .padding({ left: 12, right: 12 })
             .backgroundColor(Color.Transparent)
             .borderRadius(14)
-            .border({ width: 1, color: this.scanning ? this.tk.line : this.tk.accent })
+            .border({ width: 1, color: this.scanning ? this.tk().line : this.tk().accent })
             .enabled(!this.scanning)
             .onClick(() => {
               Log.i('点击「扫描局域网」');
@@ -1842,10 +1882,11 @@ struct Index {
             })
         }
         Text(this.devices.length > 0 ? `${this.devices.length} 台在线` : '搜索中…')
-          .fontSize(12).fontColor(this.tk.textDim)
+          .fontSize(12).fontColor(this.tk().textDim)
       }
       .width('100%')
       .padding({ left: 20, right: 20, top: 10, bottom: 6 })
+      .backgroundColor(this.tk().bg)
 
       Tabs({ barPosition: BarPosition.End, index: this.currentTab }) {
         TabContent() {
@@ -1880,15 +1921,15 @@ struct Index {
       })
         .barMode(BarMode.Fixed)
         .barHeight(72)
-        .barBackgroundColor(this.tk.bg)
-        .divider({ strokeWidth: 1, color: this.tk.line })
+        .barBackgroundColor(this.tk().bg)
+        .divider({ strokeWidth: 1, color: this.tk().line })
         .scrollable(false)
         .animationDuration(0)
         .layoutWeight(1)
       }
       .width('100%')
       .height('100%')
-      .backgroundColor(this.tk.bg)
+      .backgroundColor(this.tk().bg)
 
       if (this.rxActive) {
         Column() {
@@ -1906,6 +1947,10 @@ struct Index {
     }
     .width('100%')
     .height('100%')
+    .backgroundColor(this.tk().bg)
+    // 关键：@Builder 里通过方法读 themeMode 不会被依赖收集，
+    // 这里直接读一次，保证切主题时整棵子树重建
+    .id(`theme-${this.themeMode}`)
   }
 }
 
