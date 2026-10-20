@@ -282,40 +282,101 @@ struct Index {
     .width('calc(100% - 26vp)')
   }
 
+  /** 接收确认：底部 sheet（和进度弹窗同一套语言） */
   @Builder
   ReceiveRequestLayer() {
     Column() {
-      Column({ space: 12 }) {
-        Text(`${this.reqAlias} 想发送给你`).fontSize(16).fontWeight(FontWeight.Medium).fontColor(this.tk().text)
-        Text(`${this.reqFiles.length} 个文件 · ${this.humanSize(this.reqTotal)}`)
-          .fontSize(12).fontColor(this.tk().textDim)
+      Column() {
+        // 抓手
+        Row()
+          .width(34)
+          .height(3)
+          .borderRadius(2)
+          .backgroundColor(this.tk().lineStrong)
+          .margin({ bottom: 12 })
 
-        Row({ space: 16 }) {
-          Text('全选').fontSize(12).fontColor(this.tk().accent).onClick(() => {
-            this.selectAll(true);
-          })
-          Text('全不选').fontSize(12).fontColor(this.tk().textDim).onClick(() => {
-            this.selectAll(false);
-          })
+        Row() {
+          Column({ space: 2 }) {
+            Row({ space: 6 }) {
+              Text('来自').fontSize(10).letterSpacing(2).fontColor(this.tk().textMute)
+              Text('HTTPS')
+                .fontSize(9).letterSpacing(1)
+                .fontColor(this.tk().accentInk)
+                .backgroundColor(this.tk().accentSoft)
+                .border({ width: 1, color: this.tk().lineAccent })
+                .borderRadius(4)
+                .padding({ left: 6, right: 6, top: 2, bottom: 2 })
+            }
+            Text(this.reqAlias)
+              .fontSize(20).fontWeight(FontWeight.Bold).fontColor(this.tk().text)
+              .maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
+          }
+          .alignItems(HorizontalAlign.Start)
+          .layoutWeight(1)
+
+          Column({ space: 2 }) {
+            Text(`${this.reqFiles.length} 个文件`)
+              .fontSize(10).fontColor(this.tk().textMute).letterSpacing(0.6)
+            Text(this.humanSize(this.reqTotal))
+              .fontSize(12).fontColor(this.tk().textDim)
+          }
+          .alignItems(HorizontalAlign.End)
         }
         .width('100%')
+        .margin({ bottom: 10 })
 
-        List({ space: 4 }) {
+        Row() {
+          Text('全选')
+            .fontSize(11).fontColor(this.tk().accentInk)
+            .padding({ top: 4, bottom: 4, right: 12 })
+            .onClick(() => {
+              this.selectAll(true);
+            })
+          Text('全不选')
+            .fontSize(11).fontColor(this.tk().textDim)
+            .padding({ top: 4, bottom: 4 })
+            .onClick(() => {
+              this.selectAll(false);
+            })
+          Blank()
+          Text(`已选 ${this.reqChecked.length}`)
+            .fontSize(10).fontColor(this.tk().textMute).letterSpacing(0.4)
+        }
+        .width('100%')
+        .margin({ bottom: 6 })
+
+        List({ space: 6 }) {
           ForEach(this.reqFiles, (row: ReqFileRow) => {
             ListItem() {
               Row({ space: 10 }) {
-                Text(this.isChecked(row.id) ? '●' : '○')
-                  .fontSize(14).fontColor(this.isChecked(row.id) ? this.tk().accent : this.tk().textDim)
+                Stack() {
+                  Row()
+                    .width(18)
+                    .height(18)
+                    .borderRadius(9)
+                    .border({ width: 1, color: this.isChecked(row.id) ? this.tk().accent : this.tk().lineStrong })
+                    .backgroundColor(this.isChecked(row.id) ? this.tk().accentSoft : Color.Transparent)
+                  if (this.isChecked(row.id)) {
+                    Row().width(6).height(6).borderRadius(3).backgroundColor(this.tk().accent)
+                  }
+                }
+                .width(18)
+                .height(18)
+
                 Column({ space: 2 }) {
-                  Text(row.name).fontSize(13).fontColor(this.tk().text).maxLines(1)
-                    .textOverflow({ overflow: TextOverflow.Ellipsis })
-                  Text(this.humanSize(row.size)).fontSize(11).fontColor(this.tk().textDim)
+                  Text(row.name)
+                    .fontSize(13).fontColor(this.tk().text)
+                    .maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
+                  Text(this.humanSize(row.size))
+                    .fontSize(10).fontColor(this.tk().textMute).letterSpacing(0.4)
                 }
                 .alignItems(HorizontalAlign.Start)
                 .layoutWeight(1)
               }
               .width('100%')
-              .padding({ top: 8, bottom: 8 })
+              .padding({ left: 12, right: 12, top: 9, bottom: 9 })
+              .backgroundColor(this.tk().surface2)
+              .borderRadius(12)
               .onClick(() => {
                 this.toggleCheck(row.id);
               })
@@ -324,38 +385,46 @@ struct Index {
         }
         .height(200)
         .width('100%')
+        .margin({ bottom: 12 })
 
-        Row({ space: 12 }) {
+        Row({ space: 10 }) {
           Button('拒绝')
             .layoutWeight(1)
-            .height(38)
+            .height(46)
             .backgroundColor(this.tk().surface2)
             .fontColor(this.tk().text)
-            .borderRadius(8)
+            .borderRadius(12)
             .onClick(() => {
               receiveRequests.decide([]);
             })
-          Button(`接收 (${this.reqChecked.length})`)
-            .layoutWeight(1)
-            .height(38)
+          Button(`接收 ${this.reqChecked.length} 个`)
+            .layoutWeight(1.7)
+            .height(46)
             .backgroundColor(this.tk().accent)
-            .borderRadius(8)
+            .fontColor(this.tk().onAccent)
+            .fontWeight(FontWeight.Bold)
+            .borderRadius(12)
             .enabled(this.reqChecked.length > 0)
+            .opacity(this.reqChecked.length > 0 ? 1 : 0.5)
             .onClick(() => {
               receiveRequests.decide(this.reqChecked);
             })
         }
         .width('100%')
       }
-      .padding(20)
-      .width('86%')
+      .alignItems(HorizontalAlign.Start)
+      .padding({ left: 16, right: 16, top: 10, bottom: 16 })
       .backgroundColor(this.tk().surface)
-      .borderRadius(16)
+      .borderRadius(22)
+      .border({ width: 1, color: this.tk().cardBorder })
+      .shadow({ radius: 18, color: this.tk().cardShadow, offsetX: 0, offsetY: -4 })
+      .margin({ left: 8, right: 8, bottom: 8 })
+      .width('calc(100% - 16vp)')
     }
     .width('100%')
     .height('100%')
-    .justifyContent(FlexAlign.Center)
-    .backgroundColor('rgba(0,0,0,0.45)')
+    .justifyContent(FlexAlign.End)
+    .backgroundColor(this.tk().scrim)
   }
 
   /** 接收进度回调：驱动进度卡片；会话结束时提示 + 发通知 */
@@ -980,13 +1049,13 @@ struct Index {
         .letterSpacing(0.5)
         .fontColor(this.currentTab === index ? this.tk().accentInk : this.tk().textMute)
     }
-    .width('100%')
+    .width('86%')
     .height(46)
     .justifyContent(FlexAlign.Center)
     .backgroundColor(this.currentTab === index ? this.tk().accentSoft : Color.Transparent)
-    .borderRadius(18)
+    .borderRadius(12)
     .border({ width: 1, color: this.currentTab === index ? this.tk().lineAccent : Color.Transparent })
-    .margin({ left: 4, right: 4, top: 4 })
+    .margin({ top: 4 })
   }
 
   /** 切换主题：AppStorage 驱动全局刷新，同时落盘 */
@@ -1019,12 +1088,22 @@ struct Index {
 
   @Builder
   SectionTitle(title: string, desc: string) {
-    Column({ space: 4 }) {
-      Text(title).fontSize(15).fontWeight(FontWeight.Medium).fontColor(this.tk().text)
-      Text(desc).fontSize(12).fontColor(this.tk().textDim)
+    Column({ space: 3 }) {
+      Text(title)
+        .fontSize(10)
+        .letterSpacing(1.5)
+        .fontColor(this.tk().textMute)
+      if (desc.length > 0) {
+        Text(desc)
+          .fontSize(11)
+          .fontColor(this.tk().textDim)
+          .maxLines(2)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+      }
     }
     .alignItems(HorizontalAlign.Start)
     .width('100%')
+    .padding({ left: 4, right: 4 })
   }
 
   @Builder
@@ -1218,147 +1297,284 @@ struct Index {
     this.scanText = '';
   }
 
+  /** 待发文件扩展名（文件卡左侧方块用） */
+  private extOf(name: string): string {
+    const dot = name.lastIndexOf('.');
+    if (dot < 0 || dot === name.length - 1) {
+      return 'file';
+    }
+    const ext = name.substring(dot + 1).toUpperCase();
+    return ext.length > 4 ? ext.substring(0, 4) : ext;
+  }
+
+  /** 待发总字节数 */
+  private sendTotalSize(): number {
+    let total = 0;
+    for (let i = 0; i < this.sendFiles.length; i++) {
+      total += this.sendFiles[i].size;
+    }
+    return total;
+  }
+
   @Builder
   SendTab() {
-    Column({ space: 12 }) {
-      this.SectionTitle('选择目标设备', '点击切换是否勾选（可多选，群发给所有勾选设备）')
-      if (this.devices.length === 0) {
-        this.EmptyDevices()
-      } else {
-        Flex({ wrap: FlexWrap.Wrap }) {
-          ForEach(this.devices, (item: DeviceItem) => {
-            Text(item.alias)
-              .fontSize(13)
-              .fontColor(this.isTargetSelected(item) ? Color.White : this.tk().text)
-              .padding({ left: 12, right: 12, top: 8, bottom: 8 })
-              .backgroundColor(this.isTargetSelected(item) ? this.tk().accent : this.tk().surface)
-              .borderRadius(16)
-              .border({ width: 1, color: this.isTargetSelected(item) ? this.tk().accent : this.tk().line })
-              .margin({ right: 8, bottom: 8 })
+    Stack({ alignContent: Alignment.Bottom }) {
+      Scroll() {
+        Column({ space: 10 }) {
+          Row({ space: 10 }) {
+            Divider().layoutWeight(1).color(this.tk().line)
+            Text('02 / SEND').fontSize(10).fontColor(this.tk().textMute).letterSpacing(1.5)
+          }
+          .width('100%')
+          .padding({ left: 4, right: 4 })
+
+          Row() {
+            Text('发送到').fontSize(10).letterSpacing(1.5).fontColor(this.tk().textMute)
+            Blank()
+            Text(`已选 ${this.selectedTargets.length} 台`)
+              .fontSize(10).letterSpacing(1).fontColor(this.tk().accentInk)
+          }
+          .width('100%')
+          .padding({ left: 4, right: 4, top: 4 })
+
+          if (this.devices.length === 0) {
+            this.EmptyDevices()
+          } else {
+            ForEach(this.devices, (item: DeviceItem) => {
+              Row({ space: 12 }) {
+                Stack() {
+                  Text(item.alias.length > 0 ? item.alias.substring(0, 1) : '?')
+                    .fontSize(15)
+                    .fontWeight(FontWeight.Bold)
+                    .fontColor(this.isTargetSelected(item) ? this.tk().onAccent : this.tk().textDim)
+                }
+                .width(38)
+                .height(38)
+                .borderRadius(11)
+                .backgroundColor(this.isTargetSelected(item) ? this.tk().accent : this.tk().surface2)
+
+                Column({ space: 1 }) {
+                  Text(item.alias.length > 0 ? item.alias : '未知设备')
+                    .fontSize(15).fontWeight(FontWeight.Bold).fontColor(this.tk().text)
+                    .maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
+                  Text(`${item.platformLabel()} · ${item.protocol} · ${item.ip}`)
+                    .fontSize(10).fontColor(this.tk().textMute).letterSpacing(0.4)
+                    .maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
+                }
+                .alignItems(HorizontalAlign.Start)
+                .layoutWeight(1)
+
+                Stack() {
+                  Row()
+                    .width(20).height(20).borderRadius(10)
+                    .border({ width: 1, color: this.isTargetSelected(item) ? this.tk().accent : this.tk().lineStrong })
+                    .backgroundColor(this.isTargetSelected(item) ? this.tk().accentSoft : Color.Transparent)
+                  if (this.isTargetSelected(item)) {
+                    Row().width(8).height(8).borderRadius(4).backgroundColor(this.tk().accent)
+                  }
+                }
+                .width(20)
+                .height(20)
+              }
+              .width('100%')
+              .padding({ left: 14, right: 14, top: 12, bottom: 12 })
+              .backgroundColor(this.isTargetSelected(item) ? this.tk().accentSoft : this.tk().surface)
+              .borderRadius(18)
+              .border({ width: 1, color: this.isTargetSelected(item) ? this.tk().lineAccent : this.tk().cardBorder })
               .onClick(() => {
                 this.toggleTarget(item);
               })
-          }, (item: DeviceItem) => item.fingerprint)
-        }
-        .width('100%')
-      }
+            }, (item: DeviceItem) => item.fingerprint)
+          }
 
-      Row({ space: 8 }) {
-        Button('添加文件')
-          .height(36)
-          .layoutWeight(1)
-          .backgroundColor(this.tk().accent)
-          .borderRadius(8)
-          .enabled(!this.sending)
-          .onClick(() => {
-            this.pickFiles();
-          })
-        Button('清空')
-          .height(36)
-          .width(72)
-          .backgroundColor(this.tk().surface2)
-          .fontColor(this.tk().text)
-          .borderRadius(8)
-          .enabled(!this.sending && this.sendFiles.length > 0)
-          .onClick(() => {
-            this.sendFiles = [];
-          })
-      }
-      .width('100%')
+          Row() {
+            Text('待发文件')
+              .fontSize(10).letterSpacing(1.5).fontColor(this.tk().textMute)
+            Blank()
+            Text(this.sendFiles.length > 0 ? `${this.sendFiles.length} 个` : '未选择')
+              .fontSize(10).letterSpacing(1)
+              .fontColor(this.sendFiles.length > 0 ? this.tk().accentInk : this.tk().textMute)
+          }
+          .width('100%')
+          .padding({ left: 4, right: 4, top: 6 })
 
-      if (this.sendFiles.length === 0) {
-        Text('还没有选择文件').fontSize(12).fontColor(this.tk().textDim).width('100%')
-      } else {
-        Column({ space: 8 }) {
-          ForEach(this.sendFiles, (f: SendFileItem, idx: number) => {
-            Row() {
-              Column({ space: 2 }) {
-                Text(f.name).fontSize(13).fontColor(this.tk().text).maxLines(1)
-                  .textOverflow({ overflow: TextOverflow.Ellipsis })
-                Text(this.humanSize(f.size)).fontSize(11).fontColor(this.tk().textDim)
-              }
-              .alignItems(HorizontalAlign.Start)
-              .layoutWeight(1)
-
-              Text('移除')
-                .fontSize(12).fontColor(this.tk().textDim)
-                .enabled(!this.sending)
-                .onClick(() => {
-                  const next: SendFileItem[] = [];
-                  for (let i = 0; i < this.sendFiles.length; i++) {
-                    if (i !== idx) {
-                      next.push(this.sendFiles[i]);
-                    }
-                  }
-                  this.sendFiles = next;
-                })
+          if (this.sendFiles.length === 0) {
+            Column() {
+              Text('还没有选择文件')
+                .fontSize(12).fontColor(this.tk().textMute)
             }
             .width('100%')
-            .padding({ top: 6, bottom: 6 })
-          }, (f: SendFileItem, idx: number) => `${f.path}_${idx}`)
-        }
-        .padding(12)
-        .backgroundColor(this.tk().surface)
-        .borderRadius(18)
-        .border({ width: 1, color: this.tk().cardBorder })
-        .width('100%')
-      }
+            .padding({ top: 22, bottom: 22 })
+            .backgroundColor(this.tk().surface)
+            .borderRadius(18)
+            .border({ width: 1, color: this.tk().cardBorder })
+          } else {
+            ForEach(this.sendFiles, (f: SendFileItem, idx: number) => {
+              Row({ space: 12 }) {
+                Stack() {
+                  Text(this.extOf(f.name))
+                    .fontSize(9)
+                    .fontWeight(FontWeight.Medium)
+                    .fontColor(this.tk().textDim)
+                    .letterSpacing(0.4)
+                }
+                .width(38)
+                .height(38)
+                .borderRadius(10)
+                .backgroundColor(this.tk().surface2)
+                .border({ width: 1, color: this.tk().line })
 
-      Column({ space: 6 }) {
-        Text('接收方 PIN（对方设置了才需要填）').fontSize(12).fontColor(this.tk().textDim)
-        TextInput({ text: this.pinInput, placeholder: '留空表示对方未启用 PIN' })
-          .height(36)
-          .fontColor(this.tk().text)
-          .placeholderColor(this.tk().textMute)
-          .backgroundColor(this.tk().surface2)
-          .borderRadius(10)
-          .onChange((v: string) => {
-            this.pinInput = v;
-          })
-      }
-      .alignItems(HorizontalAlign.Start)
-      .width('100%')
+                Column({ space: 2 }) {
+                  Text(f.name)
+                    .fontSize(13).fontColor(this.tk().text)
+                    .maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
+                  Text(this.humanSize(f.size))
+                    .fontSize(10).fontColor(this.tk().textMute).letterSpacing(0.4)
+                }
+                .alignItems(HorizontalAlign.Start)
+                .layoutWeight(1)
 
-      if (this.sending) {
-        Column({ space: 6 }) {
-          Text(`正在发送：${this.currentFile}`).fontSize(12).fontColor(this.tk().text).width('100%')
-            .maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
-          Progress({
-            value: this.totalBytes > 0 ? (this.sentBytes / this.totalBytes) * 100 : 0,
-            total: 100,
-            type: ProgressType.Linear
-          })
+                Text('移除')
+                  .fontSize(11)
+                  .fontColor(this.tk().textMute)
+                  .padding({ left: 8, right: 4, top: 6, bottom: 6 })
+                  .enabled(!this.sending)
+                  .onClick(() => {
+                    const next: SendFileItem[] = [];
+                    for (let i = 0; i < this.sendFiles.length; i++) {
+                      if (i !== idx) {
+                        next.push(this.sendFiles[i]);
+                      }
+                    }
+                    this.sendFiles = next;
+                  })
+              }
+              .width('100%')
+              .padding({ left: 12, right: 12, top: 10, bottom: 10 })
+              .backgroundColor(this.tk().surface)
+              .borderRadius(18)
+              .border({ width: 1, color: this.tk().cardBorder })
+            }, (f: SendFileItem, idx: number) => `${f.path}_${idx}`)
+          }
+
+          Row({ space: 8 }) {
+            Button('添加文件')
+              .layoutWeight(1)
+              .height(40)
+              .backgroundColor(this.tk().surface2)
+              .fontColor(this.tk().text)
+              .borderRadius(12)
+              .enabled(!this.sending)
+              .onClick(() => {
+                this.pickFiles();
+              })
+            Button('清空')
+              .height(40)
+              .width(76)
+              .backgroundColor(this.tk().surface2)
+              .fontColor(this.tk().textDim)
+              .borderRadius(12)
+              .enabled(!this.sending && this.sendFiles.length > 0)
+              .onClick(() => {
+                this.sendFiles = [];
+              })
+          }
+          .width('100%')
+          .margin({ top: 2 })
+
+          TextInput({ text: this.pinInput, placeholder: '接收方 PIN（未设置可留空）' })
+            .height(44)
+            .fontSize(13)
+            .fontColor(this.tk().text)
+            .placeholderColor(this.tk().textMute)
+            .backgroundColor(this.tk().surface)
+            .borderRadius(14)
+            .border({ width: 1, color: this.tk().cardBorder })
+            .onChange((v: string) => {
+              this.pinInput = v;
+            })
+
+          if (this.sending) {
+            Column({ space: 8 }) {
+              Row() {
+                Text(`正在发送：${this.currentFile}`)
+                  .fontSize(12).fontColor(this.tk().text)
+                  .maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
+                  .layoutWeight(1)
+                Text(`${this.totalBytes > 0 ? Math.round((this.sentBytes / this.totalBytes) * 100) : 0}%`)
+                  .fontSize(10).fontColor(this.tk().textMute)
+              }
+              .width('100%')
+
+              Stack({ alignContent: Alignment.Start }) {
+                Row().width('100%').height(4).backgroundColor(this.tk().surface3).borderRadius(2)
+                Row()
+                  .width(`${this.totalBytes > 0 ? (this.sentBytes / this.totalBytes) * 100 : 0}%`)
+                  .height(4).backgroundColor(this.tk().accent).borderRadius(2)
+              }
+              .width('100%')
+              .height(4)
+
+              Text(`${this.humanSize(this.sentBytes)} / ${this.humanSize(this.totalBytes)}`)
+                .fontSize(10).fontColor(this.tk().textMute).width('100%')
+            }
             .width('100%')
-            .color(this.tk().accent)
-          Text(`${this.humanSize(this.sentBytes)} / ${this.humanSize(this.totalBytes)}`)
-            .fontSize(11).fontColor(this.tk().textDim).width('100%')
+            .padding(14)
+            .backgroundColor(this.tk().surface)
+            .borderRadius(18)
+            .border({ width: 1, color: this.tk().cardBorder })
+          }
+
+          if (this.sendTip.length > 0) {
+            Text(this.sendTip)
+              .fontSize(11).fontColor(this.tk().textDim)
+              .width('100%')
+              .padding({ left: 4 })
+          }
         }
-        .padding(12)
+        .alignItems(HorizontalAlign.Start)
+        .padding({ left: 16, right: 16, top: 6, bottom: 104 })
+        .width('100%')
+      }
+      .width('100%')
+      .height('100%')
+      .align(Alignment.Top)
+      .scrollBar(BarState.Off)
+
+      // 底部常驻：总量 + 发送
+      Row({ space: 10 }) {
+        Column({ space: 2 }) {
+          Text(this.humanSize(this.sendTotalSize()))
+            .fontSize(17).fontWeight(FontWeight.Bold).fontColor(this.tk().text).letterSpacing(-0.3)
+          Text(`${this.sendFiles.length} 个文件 · ${this.selectedTargets.length} 台`)
+            .fontSize(10).fontColor(this.tk().textMute).letterSpacing(0.3)
+        }
+        .alignItems(HorizontalAlign.Start)
+        .layoutWeight(1)
+        .padding({ left: 14, right: 14, top: 8, bottom: 8 })
         .backgroundColor(this.tk().surface)
-        .borderRadius(18)
+        .borderRadius(16)
         .border({ width: 1, color: this.tk().cardBorder })
-        .width('100%')
-      }
 
-      if (this.sendTip.length > 0) {
-        Text(this.sendTip).fontSize(12).fontColor(this.tk().textDim).width('100%')
+        Button(this.sending ? '发送中…' : '发送')
+          .width(112)
+          .height(48)
+          .backgroundColor(this.tk().accent)
+          .fontColor(this.tk().onAccent)
+          .fontWeight(FontWeight.Bold)
+          .borderRadius(16)
+          .enabled(!this.sending && this.sendFiles.length > 0 && this.selectedTargets.length > 0)
+          .opacity(!this.sending && this.sendFiles.length > 0 && this.selectedTargets.length > 0 ? 1 : 0.45)
+          .onClick(() => {
+            this.doSend();
+          })
       }
-
-      Button(this.sending ? '发送中…' : '发送')
-        .width('100%')
-        .height(40)
-        .backgroundColor(this.tk().accent)
-        .borderRadius(10)
-        .enabled(!this.sending && this.sendFiles.length > 0 && this.selectedTargets.length > 0)
-        .onClick(() => {
-          this.doSend();
-        })
+      .width('100%')
+      .padding({ left: 12, right: 12, bottom: 8 })
     }
-    .padding(16)
-    .alignItems(HorizontalAlign.Start)
-    .backgroundColor(this.tk().bg)
     .width('100%')
     .height('100%')
+    .backgroundColor(this.tk().bg)
   }
 
   private isTargetSelected(item: DeviceItem): boolean {
@@ -1487,18 +1703,21 @@ struct Index {
 
   @Builder
   HistoryTab() {
-    Column({ space: 12 }) {
-      Row() {
-        Column({ space: 4 }) {
-          Text('传输历史').fontSize(15).fontWeight(FontWeight.Medium).fontColor(this.tk().text)
-          Text(`${this.history.length} 条记录`).fontSize(12).fontColor(this.tk().textDim)
-        }
-        .alignItems(HorizontalAlign.Start)
-        .layoutWeight(1)
+    Column({ space: 10 }) {
+      Row({ space: 10 }) {
+        Divider().layoutWeight(1).color(this.tk().line)
+        Text('05 / LOG').fontSize(10).fontColor(this.tk().textMute).letterSpacing(1.5)
+      }
+      .width('100%')
+      .padding({ left: 4, right: 4 })
 
+      Row() {
+        Text('传输历史').fontSize(10).letterSpacing(1.5).fontColor(this.tk().textMute)
+        Blank()
         if (this.history.length > 0) {
-          Text('清空')
-            .fontSize(12).fontColor(this.tk().textDim)
+          Text(`${this.history.length} 条 · 清空`)
+            .fontSize(10).letterSpacing(0.6).fontColor(this.tk().textDim)
+            .padding({ top: 4, bottom: 4, left: 8 })
             .onClick(() => {
               historyService.clear();
               this.history = historyService.list();
@@ -1506,51 +1725,59 @@ struct Index {
         }
       }
       .width('100%')
+      .padding({ left: 4, right: 4 })
 
       if (this.history.length === 0) {
         Column({ space: 8 }) {
-          Text('暂无传输记录').fontSize(14).fontWeight(FontWeight.Medium).fontColor(this.tk().text)
-          Text('收发文件完成后会自动记录在这里').fontSize(12).fontColor(this.tk().textDim)
+          Text('暂无传输记录')
+            .fontSize(14).fontWeight(FontWeight.Medium).fontColor(this.tk().text)
+          Text('收发文件完成后会自动记录在这里')
+            .fontSize(11).fontColor(this.tk().textMute)
         }
         .width('100%')
         .layoutWeight(1)
         .justifyContent(FlexAlign.Center)
       } else {
-        List({ space: 8 }) {
+        List({ space: 10 }) {
           ForEach(this.history, (rec: HistoryRecord) => {
             ListItem() {
-              Column({ space: 6 }) {
+              Column({ space: 3 }) {
                 Row() {
                   Text(rec.direction === 'send' ? '发送' : '接收')
-                    .fontSize(11)
-                    .fontColor(Color.White)
-                    .backgroundColor(rec.direction === 'send' ? this.tk().accent : '#3B82F6')
-                    .borderRadius(6)
+                    .fontSize(9)
+                    .letterSpacing(1.4)
+                    .fontColor(rec.direction === 'send' ? this.tk().textDim : this.tk().accentInk)
+                    .backgroundColor(rec.direction === 'send' ? this.tk().surface2 : this.tk().accentSoft)
+                    .borderRadius(4)
                     .padding({ left: 6, right: 6, top: 2, bottom: 2 })
-                  Text(rec.peerAlias.length > 0 ? rec.peerAlias : '未知设备')
-                    .fontSize(13).fontColor(this.tk().text).margin({ left: 8 })
                   Blank()
-                  Text(this.humanSize(rec.totalSize)).fontSize(12).fontColor(this.tk().textDim)
+                  Text(this.timeOf(rec.timestamp))
+                    .fontSize(10).letterSpacing(0.6).fontColor(this.tk().textMute)
                 }
                 .width('100%')
 
                 Text(this.summaryOf(rec))
-                  .fontSize(11).fontColor(this.tk().textDim).maxLines(1)
+                  .fontSize(13)
+                  .fontWeight(FontWeight.Medium)
+                  .fontColor(this.tk().text)
+                  .maxLines(1)
                   .textOverflow({ overflow: TextOverflow.Ellipsis })
                   .width('100%')
+                  .margin({ top: 2 })
 
-                Row() {
-                  Text(this.timeOf(rec.timestamp)).fontSize(11).fontColor(this.tk().textDim)
-                  Blank()
-                  if (rec.direction === 'receive' && this.firstPath(rec).length > 0) {
+                Text(`${rec.peerAlias.length > 0 ? rec.peerAlias : '未知设备'} · ${this.humanSize(rec.totalSize)}`)
+                  .fontSize(10).letterSpacing(0.3).fontColor(this.tk().textMute)
+
+                if (rec.direction === 'receive' && this.firstPath(rec).length > 0) {
+                  Row({ space: 6 }) {
+                    Blank()
                     if (this.mediaPathsOf(rec).length > 0) {
                       Text('相册')
                         .fontSize(11)
-                        .fontColor('#7C3AED')
+                        .fontColor(this.tk().accentInk)
+                        .backgroundColor(this.tk().accentSoft)
+                        .borderRadius(9)
                         .padding({ left: 10, right: 10, top: 4, bottom: 4 })
-                        .borderRadius(10)
-                        .border({ width: 1, color: '#7C3AED' })
-                        .margin({ right: 8 })
                         .onClick(() => {
                           this.saveMediaToAlbum(this.mediaPathsOf(rec));
                         })
@@ -1558,27 +1785,32 @@ struct Index {
                     Text('另存')
                       .fontSize(11)
                       .fontColor(this.tk().textDim)
+                      .backgroundColor(this.tk().surface2)
+                      .borderRadius(9)
                       .padding({ left: 10, right: 10, top: 4, bottom: 4 })
-                      .borderRadius(10)
-                      .border({ width: 1, color: this.tk().line })
-                      .margin({ right: 8 })
                       .onClick(() => {
                         this.saveAs(this.pathsOf(rec));
                       })
                     Text('打开')
                       .fontSize(11)
-                      .fontColor(this.tk().accent)
-                      .padding({ left: 10, right: 10, top: 4, bottom: 4 })
-                      .borderRadius(10)
-                      .border({ width: 1, color: this.tk().accent })
+                      .fontColor(this.tk().accentInk)
+                      .backgroundColor(Color.Transparent)
+                      .borderRadius(9)
+                      .border({ width: 1, color: this.tk().lineAccent })
+                      .padding({ left: 10, right: 10, top: 3, bottom: 3 })
+                      .onClick(() => {
+                        this.openReceivedFile(this.firstPath(rec));
+                      })
                   }
+                  .width('100%')
+                  .margin({ top: 6 })
                 }
-                .width('100%')
               }
-              .padding(12)
+              .alignItems(HorizontalAlign.Start)
+              .padding({ left: 14, right: 14, top: 12, bottom: 12 })
               .backgroundColor(this.tk().surface)
               .borderRadius(18)
-              .border({ width: 1, color: this.tk().line })
+              .border({ width: 1, color: this.tk().cardBorder })
               .width('100%')
               .onClick(() => {
                 if (rec.direction === 'receive') {
@@ -1590,9 +1822,10 @@ struct Index {
         }
         .layoutWeight(1)
         .width('100%')
+        .scrollBar(BarState.Off)
       }
     }
-    .padding(16)
+    .padding({ left: 16, right: 16, top: 6 })
     .alignItems(HorizontalAlign.Start)
     .backgroundColor(this.tk().bg)
     .width('100%')
@@ -1663,7 +1896,14 @@ struct Index {
   @Builder
   SettingsTab() {
     Scroll() {
-      Column({ space: 16 }) {
+      Column({ space: 14 }) {
+        Row({ space: 10 }) {
+          Divider().layoutWeight(1).color(this.tk().line)
+          Text('06 / CONFIG').fontSize(10).fontColor(this.tk().textMute).letterSpacing(1.5)
+        }
+        .width('100%')
+        .padding({ left: 4, right: 4 })
+
         this.SectionTitle('外观', '即时生效，跟随你的使用场景')
 
         Row({ space: 8 }) {
@@ -1681,6 +1921,9 @@ struct Index {
         Column({ space: 8 }) {
           Text('本机显示名').fontSize(13).fontColor(this.tk().text)
           TextInput({ text: this.alias, placeholder: '例如：我的手机' })
+            .fontSize(13)
+            .fontColor(this.tk().text)
+            .placeholderColor(this.tk().textMute)
             .onChange((v: string) => {
               this.alias = v;
             })
