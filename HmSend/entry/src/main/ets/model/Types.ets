@@ -57,6 +57,8 @@ export class DeviceItem {
   /** 来源 IP，发送时拼 URL 用 */
   ip: string = '';
   lastSeen: number = 0;
+  /** 在线状态：'online' | 'away'，由 DeviceRegistry 的状态机维护 */
+  presence: string = 'online';
 
   constructor(alias: string, fingerprint: string, ip: string, port: number) {
     this.alias = alias;

@@ -78,9 +78,10 @@ class DiscoveryServiceImpl {
     Log.i('组播: 就绪，开始收发公告');
 
     await this.announce();
+    // 状态迁移与超时移除统一交给 DeviceRegistry.startPresence()，
+    // 这里只负责发公告，不再重复 purge
     this.announceTimer = setInterval(() => {
       this.announce();
-      deviceRegistry.purgeOffline();
     }, Const.ANNOUNCE_INTERVAL_MS);
   }
 

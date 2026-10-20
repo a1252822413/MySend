@@ -24,6 +24,7 @@ import { fileReceiver, ReceiveProgress } from '../service/FileReceiver';
 import { notifyService } from '../service/NotifyService';
 import { AppState } from '../common/AppState';
 import { ThemeTokens, tokensOf, setTheme } from '../common/Theme';
+import { PRESENCE_AWAY, PRESENCE_ONLINE } from '../service/DeviceRegistry';
 
 
 /** 另存结果（把失败原因带回界面，避免只显示一句「失败」） */
@@ -37,6 +38,8 @@ class SaveResult {
 struct Index {
   /** 主题：dark | light，由 Theme.setTheme() 切换 */
   @StorageLink('themeMode') themeMode: string = 'dark';
+  /** 设备状态版本号：DeviceRegistry 每次变更 +1，两个页面共用这一份刷新 */
+  @StorageProp('deviceRev') @Watch('onDeviceRev') deviceRev: number = 0;
 
   @State devices: DeviceItem[] = [];
   @State currentTab: number = 0;
@@ -89,7 +92,6 @@ struct Index {
   /** 本机 IPv4（本机卡上显示 ip:port） */
   @State localIp: string = '';
 
-  private timerId: number = -1;
   /** HDS 底部页签控制器（悬浮胶囊 + 沉浸光感） */
   private tabsCtrl: HdsTabsController = new HdsTabsController();
 
@@ -121,23 +123,32 @@ struct Index {
     this.refreshLocal();
     this.loadLocalIp();
     this.applyWindowTheme();
+    // 设备状态机全局只开一份，页面不再自己轮询
+    deviceRegistry.startPresence();
     this.devices = deviceRegistry.list();
     this.history = historyService.list();
-    // 每 5 秒刷新一次，保证超时设备自动消失
-    this.timerId = setInterval(() => {
-      deviceRegistry.purgeOffline();
-      this.devices = deviceRegistry.list();
-      // 已在历史页时也定期刷新：收到文件后用户可能不切页，靠 onChange 不够
-      if (this.currentTab === 2) {
-        this.history = historyService.list();
-      }
-    }, 3000);
   }
 
   aboutToDisappear(): void {
-    if (this.timerId !== -1) {
-      clearInterval(this.timerId);
-      this.timerId = -1;
+    deviceRegistry.stopPresence();
+  }
+
+  /** 只数真正在线的设备（列表里还包含「离开」的） */
+  private onlineCount(): number {
+    let n = 0;
+    for (let i = 0; i < this.devices.length; i++) {
+      if (this.devices[i].presence === PRESENCE_ONLINE) {
+        n++;
+      }
+    }
+    return n;
+  }
+
+  /** 设备状态变化（在线/离开/新增/移除）时统一刷新 */
+  onDeviceRev(): void {
+    this.devices = deviceRegistry.list();
+    if (this.currentTab === 2) {
+      this.history = historyService.list();
     }
   }
 
@@ -1175,7 +1186,9 @@ struct Index {
   @Builder
   DeviceRow(item: DeviceItem) {
     Row({ space: 12 }) {
-      Row().width(8).height(8).borderRadius(4).backgroundColor(this.tk().accent)
+      Row()
+        .width(8).height(8).borderRadius(4)
+        .backgroundColor(item.presence === PRESENCE_AWAY ? this.tk().textMute : this.tk().accent)
 
       Column({ space: 1 }) {
         Text(item.alias.length > 0 ? item.alias : '未知设备')
@@ -1194,11 +1207,12 @@ struct Index {
       .alignItems(HorizontalAlign.Start)
       .layoutWeight(1)
 
-      Text('在线')
+      Text(item.presence === PRESENCE_AWAY ? '离开' : '在线')
         .fontSize(10)
-        .fontColor(this.tk().accentInk)
+        .fontColor(item.presence === PRESENCE_AWAY ? this.tk().textMute : this.tk().accentInk)
         .letterSpacing(1)
     }
+    .opacity(item.presence === PRESENCE_AWAY ? 0.55 : 1)
     .padding({ left: 14, right: 14, top: 13, bottom: 13 })
     .backgroundColor(this.tk().surface)
     .borderRadius(24)
@@ -1248,7 +1262,7 @@ struct Index {
           Text('在线设备')
             .fontSize(10).letterSpacing(1.5).fontColor(this.tk().textMute)
           Blank()
-          Text(`${this.devices.length} 台`)
+          Text(`${this.onlineCount()} 台`)
             .fontSize(10).letterSpacing(1).fontColor(this.tk().accentInk)
         }
         .width('100%')
@@ -1367,24 +1381,38 @@ struct Index {
                 .alignItems(HorizontalAlign.Start)
                 .layoutWeight(1)
 
-                Stack() {
-                  Row()
-                    .width(20).height(20).borderRadius(10)
-                    .border({ width: 1, color: this.isTargetSelected(item) ? this.tk().accent : this.tk().lineStrong })
-                    .backgroundColor(this.isTargetSelected(item) ? this.tk().accentSoft : Color.Transparent)
-                  if (this.isTargetSelected(item)) {
-                    Row().width(8).height(8).borderRadius(4).backgroundColor(this.tk().accent)
+                if (item.presence === PRESENCE_AWAY) {
+                  Text('离开')
+                    .fontSize(10)
+                    .fontColor(this.tk().textMute)
+                    .letterSpacing(1)
+                } else {
+                  Stack() {
+                    Row()
+                      .width(20).height(20).borderRadius(10)
+                      .border({ width: 1, color: this.isTargetSelected(item) ? this.tk().accent : this.tk().lineStrong })
+                      .backgroundColor(this.isTargetSelected(item) ? this.tk().accentSoft : Color.Transparent)
+                    if (this.isTargetSelected(item)) {
+                      Row().width(8).height(8).borderRadius(4).backgroundColor(this.tk().accent)
+                    }
                   }
+                  .width(20)
+                  .height(20)
                 }
-                .width(20)
-                .height(20)
               }
               .width('100%')
               .padding({ left: 14, right: 14, top: 12, bottom: 12 })
               .backgroundColor(this.isTargetSelected(item) ? this.tk().accentSoft : this.tk().surface)
               .borderRadius(24)
               .border({ width: 1, color: this.isTargetSelected(item) ? this.tk().lineAccent : this.tk().cardBorder })
+              .opacity(item.presence === PRESENCE_AWAY ? 0.55 : 1)
               .onClick(() => {
+                if (item.presence === PRESENCE_AWAY) {
+                  this.getUIContext().getPromptAction().showToast({
+                    message: `${item.alias.length > 0 ? item.alias : '设备'} 已离开`
+                  });
+                  return;
+                }
                 this.toggleTarget(item);
               })
             }, (item: DeviceItem) => item.fingerprint)
@@ -1645,10 +1673,25 @@ struct Index {
     this.sending = true;
     this.sendTip = '';
     const targets: DeviceItem[] = [];
+    let awayCount = 0;
     for (let i = 0; i < this.devices.length; i++) {
-      if (this.isTargetSelected(this.devices[i])) {
-        targets.push(this.devices[i]);
+      const d = this.devices[i];
+      if (!this.isTargetSelected(d)) {
+        continue;
       }
+      if (d.presence === PRESENCE_AWAY) {
+        awayCount++;
+        continue;
+      }
+      targets.push(d);
+    }
+    if (targets.length === 0) {
+      this.sending = false;
+      this.sendTip = awayCount > 0 ? `${awayCount} 台设备已离开，没有可发送的目标` : '还没有选择接收设备';
+      return;
+    }
+    if (awayCount > 0) {
+      this.sendTip = `${awayCount} 台设备已离开，已跳过`;
     }
 
     let total = 0;
@@ -2127,7 +2170,7 @@ struct Index {
               this.doScan();
             })
         }
-        Text(this.devices.length > 0 ? `${this.devices.length} 台在线` : '搜索中…')
+        Text(this.onlineCount() > 0 ? `${this.onlineCount()} 台在线` : '搜索中…')
           .fontSize(12).fontColor(this.tk().textDim)
       }
       .width('100%')
@@ -2167,6 +2210,7 @@ struct Index {
         this.currentTab = index;
         if (index === 0 || index === 1) {
           this.refreshLocal();
+          this.devices = deviceRegistry.list();
         }
         if (index === 3) {
           // 授权是异步恢复的，进设置页时重新读一次真实状态
