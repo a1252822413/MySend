@@ -251,9 +251,10 @@ class HttpSession {
       return;
     }
 
-    // 访问控制：黑名单直接拒，白名单只放行名单内的设备
+    // 访问控制：黑名单 = 名单内拒绝；白名单 = 只有名单内放行。空名单即空规则：
+    // 黑名单为空 → 全放行，白名单为空 → 全拒绝（和界面上的说明一一对应）
     const accessMode = settingsService.value.accessMode;
-    if (accessMode !== 'off') {
+    {
       const fp = req.info !== undefined && req.info.fingerprint !== undefined ? req.info.fingerprint : '';
       const raw = accessMode === 'whitelist' ? settingsService.value.whiteList : settingsService.value.blackList;
       const list = raw.split(',');
@@ -267,12 +268,13 @@ class HttpSession {
       const allowed = accessMode === 'whitelist' ? inList : !inList;
       if (!allowed) {
         const alias = req.info !== undefined && req.info.alias !== undefined ? req.info.alias : '未知设备';
-        Log.w(`访问控制拒绝：${alias} (${fp}) 模式=${accessMode}`);
+        Log.w(`访问控制拒绝：${alias} (${fp}) 模式=${accessMode} 名单内=${inList}`);
         this.respond(403, JSON.stringify({
           message: accessMode === 'whitelist' ? 'Not in whitelist' : 'Blocked by blacklist'
         }));
         return;
       }
+      Log.i(`访问控制放行：${fp} 模式=${accessMode} 名单内=${inList}`);
     }
 
     const senderAlias = req.info !== undefined && req.info.alias !== undefined ? req.info.alias : '未知设备';
