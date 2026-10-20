@@ -26,6 +26,12 @@ import { AppState } from '../common/AppState';
 import { ThemeTokens, tokensOf, setTheme } from '../common/Theme';
 import { PRESENCE_AWAY, PRESENCE_ONLINE } from '../service/DeviceRegistry';
 
+@Styles
+function pressFx() {
+  .scale({ x: 0.93, y: 0.93 })
+    .opacity(0.72)
+}
+
 
 /** 另存结果（把失败原因带回界面，避免只显示一句「失败」） */
 class SaveResult {
@@ -69,6 +75,12 @@ struct Index {
   @State textSheetOn: boolean = false;
   /** 键盘高度（vp）：自绘弹窗不会自动避让，要手动抬起来 */
   @State kbHeight: number = 0;
+  /** 本机卡信号环的水波：两个相位错开的扩散环 */
+  @State wave1: number = 1;
+  @State waveOp1: number = 0.5;
+  @State wave2: number = 1;
+  @State waveOp2: number = 0.5;
+  private waveOn: boolean = true;
   @State textDraft: string = '';
 
   // ---- 接收确认弹层状态 ----
@@ -131,6 +143,10 @@ struct Index {
     this.loadLocalIp();
     this.applyWindowTheme();
     this.watchKeyboard();
+    this.waveLoop(1);
+    setTimeout(() => {
+      this.waveLoop(2);
+    }, 950);
     // 设备状态机全局只开一份，页面不再自己轮询
     deviceRegistry.startPresence();
     this.devices = deviceRegistry.list();
@@ -138,6 +154,7 @@ struct Index {
   }
 
   aboutToDisappear(): void {
+    this.waveOn = false;
     deviceRegistry.stopPresence();
   }
 
@@ -977,6 +994,38 @@ struct Index {
     Log.i(`分享文件已填入发送页，共 ${next.length} 个待发`);
   }
 
+  /**
+   * 水波：从中心扩散到外围再消失。
+   * 每轮先在 animateTo 外面重置（无动画），再开始下一段，避免来回倒放。
+   */
+  private waveLoop(id: number): void {
+    if (!this.waveOn) {
+      return;
+    }
+    if (id === 1) {
+      this.wave1 = 1;
+      this.waveOp1 = 0.55;
+    } else {
+      this.wave2 = 1;
+      this.waveOp2 = 0.55;
+    }
+    animateTo({
+      duration: 1900,
+      curve: Curve.EaseOut,
+      onFinish: () => {
+        this.waveLoop(id);
+      }
+    }, () => {
+      if (id === 1) {
+        this.wave1 = 2.1;
+        this.waveOp1 = 0;
+      } else {
+        this.wave2 = 2.1;
+        this.waveOp2 = 0;
+      }
+    });
+  }
+
   /** 监听软键盘高度：自绘的底部弹窗需要自己避让，否则按钮会被键盘压住 */
   private async watchKeyboard(): Promise<void> {
     try {
@@ -1158,6 +1207,18 @@ struct Index {
         }
         Blank()
         Stack() {
+          // 水波：两个相位错开的扩散环，从中心向外扩再淡出
+          Row()
+            .width(44).height(44).borderRadius(22)
+            .border({ width: 1.4, color: this.tk().ring })
+            .scale({ x: this.wave1, y: this.wave1 })
+            .opacity(this.waveOp1)
+          Row()
+            .width(44).height(44).borderRadius(22)
+            .border({ width: 1.4, color: this.tk().ring })
+            .scale({ x: this.wave2, y: this.wave2 })
+            .opacity(this.waveOp2)
+          // 静态环 + 中心点
           Row().width(44).height(44).borderRadius(22).border({ width: 1, color: this.tk().ring }).opacity(0.5)
           Row().width(28).height(28).borderRadius(14).border({ width: 1, color: this.tk().ring }).opacity(0.85)
           Row().width(8).height(8).borderRadius(4).backgroundColor(this.tk().accent)
@@ -1368,8 +1429,9 @@ struct Index {
         .fontWeight(this.currentTab === index ? FontWeight.Medium : FontWeight.Normal)
     }
     .layoutWeight(1)
-    .height(56)
+    .height(46)
     .justifyContent(FlexAlign.Center)
+    .stateStyles({ pressed: pressFx })
     .onClick(() => {
       this.currentTab = index;
       this.tabsController.changeIndex(index);
@@ -1385,7 +1447,7 @@ struct Index {
       this.CapsuleTab($r('app.media.ic_tab_settings'), '设置', 3)
     }
     .width('calc(100% - 32vp)')
-    .height(64)
+    .height(56)
     .padding({ left: 6, right: 6 })
     .backgroundColor(this.themeMode === 'light' ? 'rgba(255,255,255,0.94)' : 'rgba(38,46,43,0.94)')
     .borderRadius(32)
@@ -1410,6 +1472,7 @@ struct Index {
     .backgroundColor(this.tk().surface)
     .shadow({ radius: 8, color: this.tk().cardShadow, offsetX: 0, offsetY: 2 })
     .opacity(disabled ? 0.45 : 1)
+    .stateStyles({ pressed: pressFx })
     .onClick(() => {
       if (!disabled) {
         onTap();
@@ -1799,7 +1862,7 @@ struct Index {
       }
       .width('100%')
       .padding({ left: 12, right: 12, bottom: 8 })
-      .margin({ bottom: 96 })
+      .margin({ bottom: 84 })
     }
     .width('100%')
     .height('100%')
@@ -2164,7 +2227,7 @@ struct Index {
         .scrollBar(BarState.Off)
       }
     }
-    .padding({ left: 16, right: 16, top: 6, bottom: 108 })
+    .padding({ left: 16, right: 16, top: 6, bottom: 96 })
     .alignItems(HorizontalAlign.Start)
     .backgroundColor(this.tk().bg)
     .width('100%')
@@ -2461,13 +2524,22 @@ struct Index {
             this.doScan();
           })
         }
-        this.IconCircle(
-          this.themeMode === 'light' ? $r('app.media.ic_moon') : $r('app.media.ic_sun'),
-          false,
-          () => {
-            this.switchTheme(this.themeMode === 'light' ? 'dark' : 'light');
-          }
-        )
+        Stack() {
+          Image(this.themeMode === 'light' ? $r('app.media.ic_moon') : $r('app.media.ic_sun'))
+            .width(20)
+            .height(20)
+            .fillColor(this.tk().text)
+            .objectFit(ImageFit.Contain)
+        }
+        .width(40)
+        .height(40)
+        .borderRadius(20)
+        .backgroundColor(this.tk().surface)
+        .shadow({ radius: 8, color: this.tk().cardShadow, offsetX: 0, offsetY: 2 })
+        .stateStyles({ pressed: pressFx })
+        .onClick(() => {
+          this.switchTheme(this.themeMode === 'light' ? 'dark' : 'light');
+        })
       }
       .width('100%')
       .padding({ left: 20, right: 20, top: 8, bottom: 8 })
