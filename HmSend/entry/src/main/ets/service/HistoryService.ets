@@ -61,18 +61,35 @@ class HistoryServiceImpl {
       if (text.length === 0) {
         return;
       }
-      this.records = JSON.parse(text) as HistoryRecord[];
+      const parsed = JSON.parse(text) as HistoryRecord[];
+      if (Array.isArray(parsed)) {
+        this.records = parsed;
+      } else {
+        Log.w('历史文件格式不对（不是数组），丢弃');
+        this.records = [];
+      }
     } catch (e) {
+      // 文件损坏时先留一份 .bak 再清空，避免下一次保存把用户唯一的记录覆盖掉
       Log.e(`历史加载失败: ${String(e)}`);
+      try {
+        fs.copyFileSync(this.path, `${this.path}.bak`);
+        Log.w('已备份损坏的历史文件到 history.json.bak');
+      } catch (e2) {
+        Log.w(`备份历史文件失败: ${String(e2)}`);
+      }
       this.records = [];
     }
   }
 
+  /** 原子写：先写临时文件再改名，避免写到一半被打断导致整个历史不可读 */
   private save(): void {
+    const tmp = `${this.path}.tmp`;
     try {
-      const f = fs.openSync(this.path, fs.OpenMode.READ_WRITE | fs.OpenMode.CREATE | fs.OpenMode.TRUNC);
+      const f = fs.openSync(tmp, fs.OpenMode.READ_WRITE | fs.OpenMode.CREATE | fs.OpenMode.TRUNC);
       fs.writeSync(f.fd, JSON.stringify(this.records));
       fs.closeSync(f.fd);
+      // rename 覆盖旧文件是原子的：要么新内容完整，要么还是旧内容
+      fs.renameSync(tmp, this.path);
     } catch (e) {
       Log.e(`历史保存失败: ${String(e)}`);
     }

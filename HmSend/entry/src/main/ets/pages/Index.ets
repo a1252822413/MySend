@@ -16,6 +16,7 @@ import { picker, fileUri } from '@kit.CoreFileKit';
 import { fileIo as fs } from '@kit.CoreFileKit';
 import { common, wantConstant } from '@kit.AbilityKit';
 import { pasteboard, BusinessError } from '@kit.BasicServicesKit';
+import { photoAccessHelper } from '@kit.MediaLibraryKit';
 import { fileReceiver, ReceiveProgress } from '../service/FileReceiver';
 import { notifyService } from '../service/NotifyService';
 import { AppState } from '../common/AppState';
@@ -46,6 +47,7 @@ struct Index {
   @State httpsOn: boolean = true;
   @State pin: string = '';
   @State autoAccept: boolean = false;
+  @State albumAuto: boolean = true;
   @State serverState: string = '';
 
   // ---- 发送页状态 ----
@@ -326,9 +328,11 @@ struct Index {
         ? `已接收 ${this.rxName.length > 0 ? this.rxName : '文件'}（${this.humanSize(total)}）`
         : `已接收 ${totalFiles} 个文件（${this.humanSize(total)}）`;
       Log.i(`接收会话完成：${text}`);
+      // 图片/视频：完成时提示一下入口（系统保存弹窗必须由用户点击触发，不能自动弹）
+      const mediaHint = (this.albumAuto && p.mediaPaths.length > 0) ? '；点历史里的「相册」可存入相册' : '';
       // 应用内：toast（前台才有意义）
       if (AppState.foreground) {
-        this.getUIContext().getPromptAction().showToast({ message: text, duration: 2500 });
+        this.getUIContext().getPromptAction().showToast({ message: text + mediaHint, duration: 3000 });
       }
       // 系统通知：后台/锁屏时靠它提醒
       notifyService.notify(1001, '接收完成',
@@ -482,24 +486,152 @@ struct Index {
     });
   }
 
-  /** 把文件另存到用户选的位置（文件管理/相册等） */
-  private async saveAs(path: string): Promise<void> {
-    if (path.length === 0) {
+  /**
+   * 把接收到的图片/视频存入相册。
+   *
+   * 为什么必须弹一次框：手机端第三方应用既不能直接写公共 Download，也不能免授权写相册
+   * （WRITE_IMAGEVIDEO 是受限权限，申请会被直接拒）。官方给的免受限权限方案就是
+   * showAssetsCreationDialog：弹一次系统确认，返回的 uri 永久可写，且一次能带一批文件。
+   */
+  private async saveMediaToAlbum(paths: string[]): Promise<void> {
+    if (paths.length === 0) {
+      return;
+    }
+    try {
+      const ctx = this.getUIContext().getHostContext() as common.UIAbilityContext;
+      const helper = photoAccessHelper.getPhotoAccessHelper(ctx);
+      const srcUris: string[] = [];
+      const configs: photoAccessHelper.PhotoCreationConfig[] = [];
+      for (let i = 0; i < paths.length; i++) {
+        const p = paths[i];
+        const slash = p.lastIndexOf('/');
+        const name = slash >= 0 ? p.substring(slash + 1) : p;
+        const dot = name.lastIndexOf('.');
+        const title = dot > 0 ? name.substring(0, dot) : name;
+        const ext = dot > 0 ? name.substring(dot + 1) : 'jpg';
+        const cfg: photoAccessHelper.PhotoCreationConfig = {
+          title: title,
+          fileNameExtension: ext,
+          photoType: this.isVideoName(name) ? photoAccessHelper.PhotoType.VIDEO : photoAccessHelper.PhotoType.IMAGE,
+          subtype: photoAccessHelper.PhotoSubtype.DEFAULT
+        };
+        configs.push(cfg);
+        srcUris.push(fileUri.getUriFromPath(p));
+      }
+      Log.i(`存相册：请求 ${paths.length} 个媒体文件`);
+      // 加超时兜底：这个弹窗偶发不返回（系统侧拦截），不能让 Promise 永久悬着
+      const dst = await this.withTimeout(helper.showAssetsCreationDialog(srcUris, configs), 20000);
+      if (dst.length === 0) {
+        Log.i('存相册：用户取消');
+        return;
+      }
+      let ok = 0;
+      for (let i = 0; i < dst.length && i < paths.length; i++) {
+        // 相册返回的是 media uri，不能直接当路径用：必须开句柄后按 fd 拷贝
+        let srcFd = -1;
+        let dstFd = -1;
+        try {
+          srcFd = fs.openSync(paths[i], fs.OpenMode.READ_ONLY).fd;
+          dstFd = fs.openSync(dst[i], fs.OpenMode.WRITE_ONLY).fd;
+          fs.copyFileSync(srcFd, dstFd);
+          ok++;
+        } catch (e) {
+          const err = e as BusinessError;
+          Log.e(`存相册写入失败 ${err.code} ${err.message}`);
+        } finally {
+          if (srcFd >= 0) {
+            try {
+              fs.closeSync(srcFd);
+            } catch (e) {
+            }
+          }
+          if (dstFd >= 0) {
+            try {
+              fs.closeSync(dstFd);
+            } catch (e) {
+            }
+          }
+        }
+      }
+      Log.i(`存相册完成 ${ok}/${paths.length}`);
+      this.getUIContext().getPromptAction().showToast({ message: `已存入相册 ${ok} 个` });
+    } catch (e) {
+      const err = e as BusinessError;
+      Log.e(`存相册失败 ${err.code} ${err.message}`);
+      this.getUIContext().getPromptAction().showToast({ message: `存入相册失败(${err.code})` });
+    }
+  }
+
+  /** 给系统弹窗加超时：不返回时给出明确结果，而不是静默卡住 */
+  private withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
+    return new Promise<T>((resolve: (v: T) => void, reject: (e: Error) => void) => {
+      let settled = false;
+      const timer = setTimeout(() => {
+        if (!settled) {
+          settled = true;
+          reject(new Error('timeout'));
+        }
+      }, ms);
+      p.then((v: T) => {
+        if (!settled) {
+          settled = true;
+          clearTimeout(timer);
+          resolve(v);
+        }
+      }).catch((e: Error) => {
+        if (!settled) {
+          settled = true;
+          clearTimeout(timer);
+          reject(e);
+        }
+      });
+    });
+  }
+
+  private isMediaName(name: string): boolean {
+    const dot = name.lastIndexOf('.');
+    if (dot < 0) {
+      return false;
+    }
+    const ext = name.substring(dot + 1).toLowerCase();
+    return ext === 'jpg' || ext === 'jpeg' || ext === 'png' || ext === 'gif' || ext === 'webp'
+      || ext === 'heic' || ext === 'heif' || ext === 'bmp'
+      || ext === 'mp4' || ext === 'mov' || ext === 'mkv' || ext === 'webm' || ext === 'm4v' || ext === '3gp';
+  }
+
+  private isVideoName(name: string): boolean {
+    const dot = name.lastIndexOf('.');
+    if (dot < 0) {
+      return false;
+    }
+    const ext = name.substring(dot + 1).toLowerCase();
+    return ext === 'mp4' || ext === 'mov' || ext === 'mkv' || ext === 'webm' || ext === 'm4v' || ext === '3gp';
+  }
+
+  /**
+   * 把一条记录里的文件另存到用户选的位置。
+   * 支持整批：picker 的 newFileNames 可以一次给多个名字，用户只确认一次，
+   * 之后逐个写入对应 uri（一批 10 个文件也只弹一次框）。
+   */
+  private async saveAs(paths: string[]): Promise<void> {
+    if (paths.length === 0) {
       this.getUIContext().getPromptAction().showToast({ message: '这条记录来自旧版本，没有保存路径' });
       return;
     }
-    const slash = path.lastIndexOf('/');
-    const name = slash >= 0 ? path.substring(slash + 1) : 'file';
-    let dstUri = '';
+    const names: string[] = [];
+    for (let i = 0; i < paths.length; i++) {
+      const slash = paths[i].lastIndexOf('/');
+      names.push(slash >= 0 ? paths[i].substring(slash + 1) : `file_${i}`);
+    }
+    let uris: string[] = [];
     try {
       const ctx = this.getUIContext().getHostContext() as common.UIAbilityContext;
       const p = new picker.DocumentViewPicker(ctx);
-      const uris = await p.save({ newFileNames: [name] });
+      uris = await p.save({ newFileNames: names });
       if (uris.length === 0) {
         return;
       }
-      dstUri = uris[0];
-      Log.i(`另存目标 uri: ${dstUri}`);
+      Log.i(`另存目标 uri: ${uris.join(' | ')}`);
     } catch (e) {
       const err = e as BusinessError;
       Log.e(`选择保存位置失败 ${err.code} ${err.message}`);
@@ -507,10 +639,22 @@ struct Index {
       return;
     }
 
-    const res = await this.copyToUri(path, dstUri);
-    Log.i(`另存结果 ok=${res.ok} ${res.message}`);
+    let ok = 0;
+    let lastErr = '';
+    const count = Math.min(uris.length, paths.length);
+    for (let i = 0; i < count; i++) {
+      const res = await this.copyToUri(paths[i], uris[i]);
+      Log.i(`另存结果[${i}] ok=${res.ok} ${res.message}`);
+      if (res.ok) {
+        ok++;
+      } else {
+        lastErr = res.message;
+      }
+    }
     this.getUIContext().getPromptAction().showToast({
-      message: res.ok ? '已保存，可在文件管理中查看' : `保存失败(${res.message})`
+      message: ok === paths.length
+        ? (paths.length > 1 ? `已保存 ${ok} 个，可在文件管理中查看` : '已保存，可在文件管理中查看')
+        : `保存 ${ok}/${paths.length} 失败(${lastErr})`
     });
   }
 
@@ -630,6 +774,7 @@ struct Index {
     this.httpsOn = s.https;
     this.pin = s.pin;
     this.autoAccept = s.autoAccept;
+    this.albumAuto = s.albumAuto;
     this.serverState = httpServer.isRunning() ? (s.https ? 'HTTPS 服务运行中' : 'HTTP 服务运行中') : '服务未启动';
   }
 
@@ -1099,6 +1244,18 @@ struct Index {
                   Text(this.timeOf(rec.timestamp)).fontSize(11).fontColor(SUB)
                   Blank()
                   if (rec.direction === 'receive' && this.firstPath(rec).length > 0) {
+                    if (this.mediaPathsOf(rec).length > 0) {
+                      Text('相册')
+                        .fontSize(11)
+                        .fontColor('#7C3AED')
+                        .padding({ left: 10, right: 10, top: 4, bottom: 4 })
+                        .borderRadius(10)
+                        .border({ width: 1, color: '#7C3AED' })
+                        .margin({ right: 8 })
+                        .onClick(() => {
+                          this.saveMediaToAlbum(this.mediaPathsOf(rec));
+                        })
+                    }
                     Text('另存')
                       .fontSize(11)
                       .fontColor(SUB)
@@ -1107,7 +1264,7 @@ struct Index {
                       .border({ width: 1, color: LINE })
                       .margin({ right: 8 })
                       .onClick(() => {
-                        this.saveAs(this.firstPath(rec));
+                        this.saveAs(this.pathsOf(rec));
                       })
                     Text('打开')
                       .fontSize(11)
@@ -1152,6 +1309,30 @@ struct Index {
       }
     }
     return '';
+  }
+
+  /** 记录里的图片/视频路径（仅这些能进相册） */
+  private mediaPathsOf(rec: HistoryRecord): string[] {
+    const out: string[] = [];
+    for (let i = 0; i < rec.files.length; i++) {
+      const f = rec.files[i];
+      if (f.path !== undefined && f.path.length > 0 && this.isMediaName(f.name)) {
+        out.push(f.path);
+      }
+    }
+    return out;
+  }
+
+  /** 记录里所有带路径的文件（旧版本记录没有 path，会被跳过） */
+  private pathsOf(rec: HistoryRecord): string[] {
+    const out: string[] = [];
+    for (let i = 0; i < rec.files.length; i++) {
+      const f = rec.files[i];
+      if (f.path !== undefined && f.path.length > 0) {
+        out.push(f.path);
+      }
+    }
+    return out;
   }
 
   private summaryOf(rec: HistoryRecord): string {
@@ -1204,7 +1385,7 @@ struct Index {
 
         this.SectionTitle('接收目录', fileReceiver.isPublicDir()
           ? '文件直接存到系统「下载」，可在文件管理中查看'
-          : '手机系统不允许第三方应用直接写「下载」，文件先存应用沙箱')
+          : '「下载/文档」是受限权限，系统默认不授权，文件先落应用沙箱')
         Column({ space: 8 }) {
           Text(fileReceiver.receivedDir())
             .fontSize(11)
@@ -1214,7 +1395,7 @@ struct Index {
             .textAlign(TextAlign.Start)
           Text(fileReceiver.isPublicDir()
             ? '在「文件管理 → 我的手机 → Download → 快传」中可以看到这些文件。'
-            : '要放到「下载」：在历史记录里点「另存」，选择器默认就停在 Download，一步确认即可（大文件走原生拷贝，实测 420MB 秒级完成）。')
+            : '要放到「下载」：历史记录里点「另存」（多文件也只弹一次框），选择器默认停在 Download，大文件走原生拷贝。图片/视频建议开启下面的「存入相册」。')
             .fontSize(11)
             .fontColor(SUB)
             .width('100%')
@@ -1237,6 +1418,24 @@ struct Index {
               .border({ width: 1, color: GREEN })
               .onClick(() => {
                 this.copyDir();
+              })
+          }
+          .width('100%')
+        }
+        .padding(16)
+        .backgroundColor(CARD)
+        .borderRadius(12)
+        .border({ width: 1, color: LINE })
+        .width('100%')
+        .alignItems(HorizontalAlign.Start)
+
+        this.SectionTitle('相册', '图片/视频可以存进系统相册，任何应用都能看到')
+        Column({ space: 10 }) {
+          Row() {
+            this.SettingRow('接收后提示存入相册', '系统要求由用户点确认，不能全自动；开启后完成时会提示入口，在历史里点「相册」一次入库')
+            Toggle({ type: ToggleType.Switch, isOn: this.albumAuto })
+              .onChange((on: boolean) => {
+                this.albumAuto = on;
               })
           }
           .width('100%')
@@ -1316,6 +1515,7 @@ struct Index {
       s.https = this.httpsOn;
       s.pin = this.pin;
       s.autoAccept = this.autoAccept;
+      s.albumAuto = this.albumAuto;
     });
     this.refreshLocal();
 

@@ -24,6 +24,8 @@ export class Settings {
   pin: string = '';
   /** 自动接收（收到 prepare-upload 直接同意，对应协议里的 download 字段） */
   autoAccept: boolean = false;
+  /** 接收到的图片/视频自动提示存入相册（相册是手机上唯一用户可见、免受限权限的位置） */
+  albumAuto: boolean = true;
   whitelistOnly: boolean = false;
   /** 'system' | 'light' | 'dark' */
   theme: string = 'system';
@@ -56,6 +58,7 @@ class SettingsServiceImpl {
     s.https = this.readBoolean('https', true);
     s.pin = this.readString('pin', '');
     s.autoAccept = this.readBoolean('autoAccept', false);
+    s.albumAuto = this.readBoolean('albumAuto', true);
     s.whitelistOnly = this.readBoolean('whitelistOnly', false);
     s.theme = this.readString('theme', 'system');
     s.deviceModel = this.readString('deviceModel', SettingsServiceImpl.defaultModel());
@@ -103,6 +106,7 @@ class SettingsServiceImpl {
     this.write('https', s.https);
     this.write('pin', s.pin);
     this.write('autoAccept', s.autoAccept);
+    this.write('albumAuto', s.albumAuto);
     this.write('whitelistOnly', s.whitelistOnly);
     this.write('theme', s.theme);
     this.write('deviceModel', s.deviceModel);

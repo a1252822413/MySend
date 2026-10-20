@@ -11,6 +11,14 @@
     {
       "name": "EntryAbility_label",
       "value": "快传"
+    },
+    {
+      "name": "reason_download_dir",
+      "value": "用于把接收到的文件直接保存到系统下载目录"
+    },
+    {
+      "name": "reason_documents_dir",
+      "value": "用于把接收到的文件直接保存到系统文档目录"
     }
   ]
 }

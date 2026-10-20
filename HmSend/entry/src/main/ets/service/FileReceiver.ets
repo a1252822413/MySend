@@ -53,6 +53,8 @@ export class ReceiveProgress {
   speed: number = 0;
   doneFiles: number = 0;
   totalFiles: number = 0;
+  /** 会话结束时带出本批的图片/视频绝对路径（用于「自动存入相册」） */
+  mediaPaths: string[] = [];
 }
 
 export class OpenFileResult {
@@ -118,7 +120,28 @@ class FileReceiverImpl {
     p.speed = speed > 0 ? speed : 0;
     p.doneFiles = session.doneCount;
     p.totalFiles = session.files.size;
+    if (!active) {
+      const media: string[] = [];
+      session.files.forEach((f: ReceiveFile) => {
+        if (f.absPath.length > 0 && FileReceiverImpl.isMediaName(f.fileName)) {
+          media.push(f.absPath);
+        }
+      });
+      p.mediaPaths = media;
+    }
     cb(p);
+  }
+
+  /** 是否为相册能收的媒体类型（决定要不要提示「存入相册」） */
+  static isMediaName(name: string): boolean {
+    const dot = name.lastIndexOf('.');
+    if (dot < 0) {
+      return false;
+    }
+    const ext = name.substring(dot + 1).toLowerCase();
+    return ext === 'jpg' || ext === 'jpeg' || ext === 'png' || ext === 'gif' || ext === 'webp'
+      || ext === 'heic' || ext === 'heif' || ext === 'bmp'
+      || ext === 'mp4' || ext === 'mov' || ext === 'mkv' || ext === 'webm' || ext === 'm4v' || ext === '3gp';
   }
 
   init(context: common.Context): void {
@@ -147,6 +170,8 @@ class FileReceiverImpl {
     // 公共目录固定挂载路径（手机端文件管理里的「我的手机/Download」）
     candidates.push('/storage/Users/currentUser/Download');
     candidates.push('/storage/media/100/local/files/Download');
+    candidates.push('/storage/Users/currentUser/Documents');
+    candidates.push('/storage/Users/currentUser/Desktop');
 
     for (let i = 0; i < candidates.length; i++) {
       const target = `${candidates[i]}/${Const.PUBLIC_DIR_NAME}`;
