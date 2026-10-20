@@ -39,10 +39,12 @@ export class Settings {
   theme: string = 'system';
   /** 界面主题：'dark' | 'light'，默认暗色（与设计稿一致） */
   themeMode: string = 'dark';
-  /** 访问控制模式：'off' | 'blacklist' | 'whitelist' */
-  accessMode: string = 'off';
-  /** 名单：设备 fingerprint，逗号分隔 */
-  accessList: string = '';
+  /** 访问控制模式：'blacklist' | 'whitelist'（空黑名单 = 全部放行） */
+  accessMode: string = 'blacklist';
+  /** 黑名单：设备 fingerprint，逗号分隔 */
+  blackList: string = '';
+  /** 白名单：设备 fingerprint，逗号分隔 */
+  whiteList: string = '';
   deviceModel: string = 'HarmonyOS';
   deviceType: string = 'mobile';
   /** 明文模式下的随机指纹（https 模式下用证书指纹） */
@@ -78,8 +80,13 @@ class SettingsServiceImpl {
     s.whitelistOnly = this.readBoolean('whitelistOnly', false);
     s.theme = this.readString('theme', 'system');
     s.themeMode = this.readString('themeMode', 'dark');
-    s.accessMode = this.readString('accessMode', 'off');
-    s.accessList = this.readString('accessList', '');
+    s.accessMode = this.readString('accessMode', 'blacklist');
+    if (s.accessMode === 'off') {
+      // 旧版的「关闭」档已废弃，迁移成空黑名单（语义一致）
+      s.accessMode = 'blacklist';
+    }
+    s.blackList = this.readString('blackList', '');
+    s.whiteList = this.readString('whiteList', '');
     s.deviceModel = this.readString('deviceModel', SettingsServiceImpl.defaultModel());
     s.deviceType = this.readString('deviceType', 'mobile');
     s.httpFingerprint = this.readString('httpFingerprint', SettingsServiceImpl.randomFingerprint());
@@ -132,7 +139,8 @@ class SettingsServiceImpl {
     this.write('theme', s.theme);
     this.write('themeMode', s.themeMode);
     this.write('accessMode', s.accessMode);
-    this.write('accessList', s.accessList);
+    this.write('blackList', s.blackList);
+    this.write('whiteList', s.whiteList);
     this.write('deviceModel', s.deviceModel);
     this.write('deviceType', s.deviceType);
     this.write('httpFingerprint', s.httpFingerprint);

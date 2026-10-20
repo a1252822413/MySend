@@ -255,7 +255,8 @@ class HttpSession {
     const accessMode = settingsService.value.accessMode;
     if (accessMode !== 'off') {
       const fp = req.info !== undefined && req.info.fingerprint !== undefined ? req.info.fingerprint : '';
-      const list = settingsService.value.accessList.split(',');
+      const raw = accessMode === 'whitelist' ? settingsService.value.whiteList : settingsService.value.blackList;
+      const list = raw.split(',');
       let inList = false;
       for (let i = 0; i < list.length; i++) {
         if (list[i].length > 0 && list[i] === fp) {
