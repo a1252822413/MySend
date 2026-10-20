@@ -99,6 +99,8 @@ struct Index {
 
   /** HDS 底部页签控制器（悬浮胶囊 + 沉浸光感） */
   private tabsCtrl: HdsTabsController = new HdsTabsController();
+  /** 自绘胶囊切页 */
+  private tabsController: TabsController = new TabsController();
 
   /** 当前主题令牌；读 themeMode 会自动登记依赖，切换时整页刷新 */
   private tk(): ThemeTokens {
@@ -1352,19 +1354,55 @@ struct Index {
     return total;
   }
 
+  /** 自绘胶囊页签：HdsTabs 的选中色由系统控制（改不动），只能自己画 */
+  @Builder
+  CapsuleTab(icon: Resource, label: string, index: number) {
+    Column({ space: 2 }) {
+      Image(icon)
+        .width(21)
+        .height(21)
+        .fillColor(this.currentTab === index ? this.tk().accentInk : this.tk().textMute)
+      Text(label)
+        .fontSize(10)
+        .fontColor(this.currentTab === index ? this.tk().accentInk : this.tk().textMute)
+        .fontWeight(this.currentTab === index ? FontWeight.Medium : FontWeight.Normal)
+    }
+    .layoutWeight(1)
+    .height(56)
+    .justifyContent(FlexAlign.Center)
+    .onClick(() => {
+      this.currentTab = index;
+      this.tabsController.changeIndex(index);
+    })
+  }
+
+  @Builder
+  CapsuleBar() {
+    Row() {
+      this.CapsuleTab($r('app.media.ic_tab_receive'), '接收', 0)
+      this.CapsuleTab($r('app.media.ic_tab_send'), '发送', 1)
+      this.CapsuleTab($r('app.media.ic_tab_history'), '历史', 2)
+      this.CapsuleTab($r('app.media.ic_tab_settings'), '设置', 3)
+    }
+    .width('calc(100% - 32vp)')
+    .height(64)
+    .padding({ left: 6, right: 6 })
+    .backgroundColor(this.themeMode === 'light' ? 'rgba(255,255,255,0.94)' : 'rgba(38,46,43,0.94)')
+    .borderRadius(32)
+    .border({ width: 1, color: this.themeMode === 'light' ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.12)' })
+    .shadow({ radius: 18, color: this.tk().cardShadow, offsetX: 0, offsetY: 6 })
+    .margin({ bottom: 10 })
+  }
+
   /** 标题栏圆形图标按钮（HDS 标题栏做法） */
   @Builder
-  IconCircle(iconPath: string, disabled: boolean, onTap: () => void) {
+  IconCircle(icon: Resource, disabled: boolean, onTap: () => void) {
     Stack() {
-      Path()
-        .commands(iconPath)
-        .width(19)
-        .height(19)
-        .fill(Color.Transparent)
-        .stroke(this.tk().text)
-        .strokeWidth(1.8)
-        .strokeLineCap(LineCapStyle.Round)
-        .strokeLineJoin(LineJoinStyle.Round)
+      Image(icon)
+        .width(20)
+        .height(20)
+        .fillColor(this.tk().text)
+        .objectFit(ImageFit.Contain)
     }
     .width(40)
     .height(40)
@@ -1761,6 +1799,7 @@ struct Index {
       }
       .width('100%')
       .padding({ left: 12, right: 12, bottom: 8 })
+      .margin({ bottom: 96 })
     }
     .width('100%')
     .height('100%')
@@ -2398,7 +2437,7 @@ struct Index {
   }
 
   build() {
-    Stack() {
+    Stack({ alignContent: Alignment.Bottom }) {
       Column() {
       Row({ space: 10 }) {
         Column({ space: 2 }) {
@@ -2417,15 +2456,13 @@ struct Index {
 
         // 扫描入口固定在这里：实测放进 Scroll 内点击不响应
         if (this.currentTab === 0) {
-          this.IconCircle('M18 11a7 7 0 1 1-14 0 7 7 0 0 1 14 0 M16.2 16.2L21 21', this.scanning, () => {
+          this.IconCircle($r('app.media.ic_search'), this.scanning, () => {
             Log.i('点击「扫描局域网」');
             this.doScan();
           })
         }
         this.IconCircle(
-          this.themeMode === 'light'
-            ? 'M20.5 14.5A8.5 8.5 0 1 1 9.5 3.5a6.6 6.6 0 0 0 11 11Z'
-            : 'M16 12a4 4 0 1 1-8 0 4 4 0 0 1 8 0 M12 5v1.6m0 10.8V19M5 12h1.6m10.8 0H19',
+          this.themeMode === 'light' ? $r('app.media.ic_moon') : $r('app.media.ic_sun'),
           false,
           () => {
             this.switchTheme(this.themeMode === 'light' ? 'dark' : 'light');
@@ -2436,7 +2473,7 @@ struct Index {
       .padding({ left: 20, right: 20, top: 8, bottom: 8 })
       .backgroundColor(this.tk().bg)
 
-      HdsTabs({ controller: this.tabsCtrl }) {
+      Tabs({ barPosition: BarPosition.End, index: this.currentTab, controller: this.tabsController }) {
         TabContent() {
           this.ReceiveTab()
         }.tabBar(new BottomTabBarStyle({
@@ -2480,29 +2517,19 @@ struct Index {
           this.history = historyService.list();
         }
       })
-        .vertical(false)
-        .barPosition(BarPosition.End)
-        .barOverlap(true)
+        .barHeight(0)
         .scrollable(false)
         .animationDuration(0)
-        .barFloatingStyle({
-          barWidth: { smallWidth: 358, mediumWidth: 358, largeWidth: 358 },
-          barSideMargin: 16,
-          barBottomMargin: 10,
-          gradientMask: {
-            maskColor: this.themeMode === 'light' ? '#66F0F3F1' : '#660A0E0C',
-            maskHeight: 96
-          },
-          systemMaterialEffect: {
-            materialType: hdsMaterial.MaterialType.ADAPTIVE,
-            materialLevel: hdsMaterial.MaterialLevel.ADAPTIVE
-          }
-        })
         .layoutWeight(1)
       }
       .width('100%')
       .height('100%')
       .backgroundColor(this.tk().bg)
+
+      Column() {
+        this.CapsuleBar()
+      }
+      .width('100%')
 
       if (this.rxActive) {
         Column() {
