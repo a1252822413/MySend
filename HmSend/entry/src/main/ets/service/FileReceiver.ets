@@ -5,13 +5,14 @@
 //   1) 路径穿越防护：绝对路径 / ".." / 盘符 一律拒绝
 //   2) 文件名冲突自动加 _1/_2 后缀
 //   3) 大文件流式写入，绝不整包进内存
-import { fileIo as fs, Environment } from '@kit.CoreFileKit';
+import { fileIo as fs, Environment, fileShare } from '@kit.CoreFileKit';
 import { common } from '@kit.AbilityKit';
 import { BusinessError } from '@kit.BasicServicesKit';
 import { Log } from '../common/Logger';
 import { Const } from '../common/Constants';
 import { FileDto, PrepareUploadResponseDto } from '../model/Types';
 import { historyService, HistoryRecord, HistoryFile } from './HistoryService';
+import { settingsService } from './SettingsService';
 
 /** 单个接收文件的状态 */
 export class ReceiveFile {
@@ -156,6 +157,20 @@ class FileReceiverImpl {
     this.baseDir = sandboxDir;
     this.publicDir = false;
 
+    // 0) 用户通过系统目录选择器授权过的位置优先。
+    //    picker 的 authMode 授权后该真实路径可以被直接读写（实测可 mkdir + 写文件），
+    //    这就是「像别家一样在 Download 下建自己的文件夹」的正规做法。
+    const authorized = settingsService.value.receiveDir;
+    if (authorized.length > 0) {
+      if (FileReceiverImpl.probeWritable(authorized)) {
+        this.baseDir = authorized;
+        this.publicDir = true;
+        Log.i(`接收目录使用用户授权目录: ${authorized}`);
+        return;
+      }
+      Log.w(`授权目录已不可写（授权可能失效）: ${authorized}`);
+    }
+
     const candidates: string[] = [];
     try {
       const d = Environment.getUserDownloadDir();
@@ -196,6 +211,47 @@ class FileReceiverImpl {
     return this.publicDir;
   }
 
+  /**
+   * 启动时恢复上次持久化的目录授权。
+   * picker 给的授权只在本次进程有效；persistPermission 之后还必须
+   * 每次启动调 activatePermission 才真正生效（否则路径依旧 13900001）。
+   */
+  async restoreAuthorizedDir(): Promise<void> {
+    const s = settingsService.value;
+    if (s.receiveDir.length === 0 || s.receiveDirUri.length === 0) {
+      return;
+    }
+    try {
+      await fileShare.activatePermission([{
+        uri: s.receiveDirUri,
+        operationMode: fileShare.OperationMode.READ_MODE | fileShare.OperationMode.WRITE_MODE
+      }]);
+      Log.i(`已激活持久化授权: ${s.receiveDirUri}`);
+    } catch (e) {
+      const err = e as BusinessError;
+      Log.w(`激活持久化授权失败 ${err.code} ${err.message}`);
+      return;
+    }
+    if (this.useCustomDir(s.receiveDir)) {
+      Log.i(`启动后已恢复接收目录: ${s.receiveDir}`);
+    }
+  }
+
+  /**
+   * 切换到用户刚授权的目录（picker 返回 uri 后转成的真实路径）。
+   * 探测可写才切，避免授权其实没生效却把文件写到不可见的地方。
+   */
+  useCustomDir(path: string): boolean {
+    if (path.length === 0 || !FileReceiverImpl.probeWritable(path)) {
+      Log.w(`切换接收目录失败（不可写）: ${path}`);
+      return false;
+    }
+    this.baseDir = path;
+    this.publicDir = true;
+    Log.i(`接收目录已切换到: ${path}`);
+    return true;
+  }
+
   private ensureDir(dir: string): void {
     try {
       if (!fs.accessSync(dir)) {
@@ -209,7 +265,10 @@ class FileReceiverImpl {
   /** 探测目录可写：能建目录 + 能写一个临时文件，才算可用 */
   private static probeWritable(dir: string): boolean {
     try {
-      fs.mkdirSync(dir, true);
+      // 已存在时不能再 mkdir（鸿蒙上会抛 File exists），先判断
+      if (!fs.accessSync(dir)) {
+        fs.mkdirSync(dir, true);
+      }
       const probe = `${dir}/.kc_write_probe`;
       const f = fs.openSync(probe, fs.OpenMode.READ_WRITE | fs.OpenMode.CREATE | fs.OpenMode.TRUNC);
       fs.writeSync(f.fd, 'ok');

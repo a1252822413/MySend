@@ -26,6 +26,14 @@ export class Settings {
   autoAccept: boolean = false;
   /** 接收到的图片/视频自动提示存入相册（相册是手机上唯一用户可见、免受限权限的位置） */
   albumAuto: boolean = true;
+  /**
+   * 用户通过系统目录选择器授权的接收目录（真实路径，如
+   * /storage/Users/currentUser/Download/快传）。
+   * 空串 = 没授权过，接收目录回退到应用沙箱。
+   */
+  receiveDir: string = '';
+  /** 同一个目录的 uri（activatePermission 恢复授权时要用 uri，不能用路径） */
+  receiveDirUri: string = '';
   whitelistOnly: boolean = false;
   /** 'system' | 'light' | 'dark' */
   theme: string = 'system';
@@ -59,6 +67,8 @@ class SettingsServiceImpl {
     s.pin = this.readString('pin', '');
     s.autoAccept = this.readBoolean('autoAccept', false);
     s.albumAuto = this.readBoolean('albumAuto', true);
+    s.receiveDir = this.readString('receiveDir', '');
+    s.receiveDirUri = this.readString('receiveDirUri', '');
     s.whitelistOnly = this.readBoolean('whitelistOnly', false);
     s.theme = this.readString('theme', 'system');
     s.deviceModel = this.readString('deviceModel', SettingsServiceImpl.defaultModel());
@@ -107,6 +117,8 @@ class SettingsServiceImpl {
     this.write('pin', s.pin);
     this.write('autoAccept', s.autoAccept);
     this.write('albumAuto', s.albumAuto);
+    this.write('receiveDir', s.receiveDir);
+    this.write('receiveDirUri', s.receiveDirUri);
     this.write('whitelistOnly', s.whitelistOnly);
     this.write('theme', s.theme);
     this.write('deviceModel', s.deviceModel);

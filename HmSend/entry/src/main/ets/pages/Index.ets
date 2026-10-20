@@ -12,7 +12,7 @@ import { receiveRequests, ReceiveRequest } from '../service/ReceiveRequestServic
 import { historyService, HistoryRecord } from '../service/HistoryService';
 import { subnetScanner } from '../service/SubnetScanner';
 import { shareInbox, ShareFile } from '../service/ShareInbox';
-import { picker, fileUri } from '@kit.CoreFileKit';
+import { picker, fileUri, fileShare } from '@kit.CoreFileKit';
 import { fileIo as fs } from '@kit.CoreFileKit';
 import { common, wantConstant } from '@kit.AbilityKit';
 import { pasteboard, BusinessError } from '@kit.BasicServicesKit';
@@ -48,6 +48,8 @@ struct Index {
   @State pin: string = '';
   @State autoAccept: boolean = false;
   @State albumAuto: boolean = true;
+  @State receiveDirPath: string = '';
+  @State receivePublic: boolean = false;
   @State serverState: string = '';
 
   // ---- 发送页状态 ----
@@ -448,6 +450,71 @@ struct Index {
     });
   }
 
+  /**
+   * 让用户授权一个「接收目录」。
+   *
+   * 关键点：picker 的 authMode=true + defaultFilePathUri 不会打开文件浏览页，
+   * 而是直接对指定目录授权；返回的 uri 用 FileUri 转成真实路径后，
+   * 该路径下的 mkdir / 读写全部放行（实测成功）。这就是别家软件
+   * 「在 Download 下建自己的文件夹」的做法，不需要受限权限。
+   */
+  private async pickReceiveDir(): Promise<void> {
+    const ctx = this.getUIContext().getHostContext() as common.UIAbilityContext;
+    const target = 'file://docs/storage/Users/currentUser/Download';
+    let uris: string[] = [];
+    try {
+      const p = new picker.DocumentViewPicker(ctx);
+      uris = await p.select({
+        authMode: true,
+        defaultFilePathUri: target,
+        selectMode: picker.DocumentSelectMode.FOLDER,
+        maxSelectNumber: 1
+      });
+      Log.i(`目录授权返回(${uris.length}): ${JSON.stringify(uris)}`);
+    } catch (e) {
+      const err = e as BusinessError;
+      Log.e(`目录授权失败 ${err.code} ${err.message}`);
+      this.getUIContext().getPromptAction().showToast({ message: `授权失败(${err.code})` });
+      return;
+    }
+    if (uris.length === 0) {
+      return;
+    }
+    // 持久化授权：picker 的授权默认只在本次进程有效，重启后路径会被拒绝（实测 13900001）
+    try {
+      await fileShare.persistPermission([{
+        uri: uris[0],
+        operationMode: fileShare.OperationMode.READ_MODE | fileShare.OperationMode.WRITE_MODE
+      }]);
+      Log.i('目录授权已持久化（重启后仍可写）');
+    } catch (e) {
+      const err = e as BusinessError;
+      Log.w(`持久化授权失败 ${err.code} ${err.message}`);
+    }
+    let realPath = '';
+    try {
+      realPath = new fileUri.FileUri(uris[0]).path;
+    } catch (e) {
+      Log.w(`uri 转路径失败: ${String(e)}`);
+    }
+    if (realPath.length === 0) {
+      this.getUIContext().getPromptAction().showToast({ message: '无法解析所选目录' });
+      return;
+    }
+    // 在用户选的目录下建「快传」子目录，不污染对方已有文件
+    const dir = `${realPath}/${Const.PUBLIC_DIR_NAME}`;
+    if (fileReceiver.useCustomDir(dir)) {
+      settingsService.save((s: Settings) => {
+        s.receiveDir = dir;
+        s.receiveDirUri = uris[0];
+      });
+      this.getUIContext().getPromptAction().showToast({ message: `接收目录已设为 ${Const.PUBLIC_DIR_NAME}` });
+      Log.i(`接收目录已授权并保存: ${dir}`);
+    } else {
+      this.getUIContext().getPromptAction().showToast({ message: '该目录不可写，请换一个' });
+    }
+  }
+
   /** 打开接收目录（优先让文件管理直达目录，失败则至少把文件管理拉起来） */
   private openReceiveFolder(): void {
     const dir = fileReceiver.receivedDir();
@@ -775,6 +842,8 @@ struct Index {
     this.pin = s.pin;
     this.autoAccept = s.autoAccept;
     this.albumAuto = s.albumAuto;
+    this.receiveDirPath = fileReceiver.receivedDir();
+    this.receivePublic = fileReceiver.isPublicDir();
     this.serverState = httpServer.isRunning() ? (s.https ? 'HTTPS 服务运行中' : 'HTTP 服务运行中') : '服务未启动';
   }
 
@@ -1383,24 +1452,33 @@ struct Index {
         .border({ width: 1, color: LINE })
         .width('100%')
 
-        this.SectionTitle('接收目录', fileReceiver.isPublicDir()
-          ? '文件直接存到系统「下载」，可在文件管理中查看'
-          : '「下载/文档」是受限权限，系统默认不授权，文件先落应用沙箱')
+        this.SectionTitle('接收目录', this.receivePublic
+          ? '已授权：文件直接存到这里，文件管理里就能看到'
+          : '点「选择接收目录」授权一个可见位置（如 Download），只需一次')
         Column({ space: 8 }) {
-          Text(fileReceiver.receivedDir())
+          Text(this.receiveDirPath)
             .fontSize(11)
             .fontColor(SUB)
             .copyOption(CopyOptions.LocalDevice)
             .width('100%')
             .textAlign(TextAlign.Start)
-          Text(fileReceiver.isPublicDir()
-            ? '在「文件管理 → 我的手机 → Download → 快传」中可以看到这些文件。'
-            : '要放到「下载」：历史记录里点「另存」（多文件也只弹一次框），选择器默认停在 Download，大文件走原生拷贝。图片/视频建议开启下面的「存入相册」。')
+          Text(this.receivePublic
+            ? '在文件管理里打开该目录即可看到接收的文件（子目录「快传」不会和你原有文件混在一起）。授权会被记住，重启应用后自动恢复。'
+            : '第三方应用默认无权写公共目录，所以未授权前只能存沙箱。授权一次之后接收的文件就直接落到你选的位置。')
             .fontSize(11)
             .fontColor(SUB)
             .width('100%')
           Row({ space: 8 }) {
             Blank()
+            Text(this.receivePublic ? '更换目录' : '选择接收目录')
+              .fontSize(12)
+              .fontColor(Color.White)
+              .backgroundColor(GREEN)
+              .padding({ left: 12, right: 12, top: 6, bottom: 6 })
+              .borderRadius(12)
+              .onClick(() => {
+                this.pickReceiveDir();
+              })
             Text('打开文件夹')
               .fontSize(12)
               .fontColor(SUB)
@@ -1578,6 +1656,11 @@ struct Index {
         this.currentTab = index;
         if (index === 0 || index === 1) {
           this.refreshLocal();
+        }
+        if (index === 3) {
+          // 授权是异步恢复的，进设置页时重新读一次真实状态
+          this.receiveDirPath = fileReceiver.receivedDir();
+          this.receivePublic = fileReceiver.isPublicDir();
         }
         if (index === 2) {
           this.history = historyService.list();

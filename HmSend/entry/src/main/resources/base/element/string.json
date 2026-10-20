@@ -13,12 +13,8 @@
       "value": "快传"
     },
     {
-      "name": "reason_download_dir",
-      "value": "用于把接收到的文件直接保存到系统下载目录"
-    },
-    {
-      "name": "reason_documents_dir",
-      "value": "用于把接收到的文件直接保存到系统文档目录"
+      "name": "reason_persist_dir",
+      "value": "记住用户选择的接收目录，避免每次启动都重新授权"
     }
   ]
 }

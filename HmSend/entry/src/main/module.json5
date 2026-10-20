@@ -22,19 +22,9 @@
         "name": "ohos.permission.KEEP_BACKGROUND_RUNNING"
       },
       {
-        // 实验：受限权限，用于直接读写公共 Download 目录（需 ACL，验证是否可用）
-        "name": "ohos.permission.READ_WRITE_DOWNLOAD_DIRECTORY",
-        "reason": "$string:reason_download_dir",
-        "usedScene": {
-          "abilities": [
-            "EntryAbility"
-          ],
-          "when": "inuse"
-        }
-      },
-      {
-        "name": "ohos.permission.READ_WRITE_DOCUMENTS_DIRECTORY",
-        "reason": "$string:reason_documents_dir",
+        // 把用户通过目录选择器授予的 uri 权限持久化（重启后仍然可写）
+        "name": "ohos.permission.FILE_ACCESS_PERSIST",
+        "reason": "$string:reason_persist_dir",
         "usedScene": {
           "abilities": [
             "EntryAbility"

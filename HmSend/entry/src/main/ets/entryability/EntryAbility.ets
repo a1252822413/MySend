@@ -27,6 +27,8 @@ export default class EntryAbility extends UIAbility {
     // 注意：这一步必须在 UI 之前，否则首页读不到本机信息。
     settingsService.init(this.context);
     fileReceiver.init(this.context);
+    // 异步恢复上次授权的接收目录（持久化授权必须每次启动激活）
+    fileReceiver.restoreAuthorizedDir();
     historyService.init(this.context);
     notifyService.init(this.context);
 
