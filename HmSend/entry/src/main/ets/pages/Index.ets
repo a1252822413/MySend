@@ -1813,7 +1813,7 @@ struct Index {
               .padding({ left: 14, right: 14, top: 12, bottom: 12 })
               .backgroundColor(this.tk().surface)
               .borderRadius(24)
-              .border({ width: 1, color: this.tk().cardBorder })
+              .shadow({ radius: 8, color: this.tk().cardShadow, offsetX: 0, offsetY: 2 })
               .width('100%')
               .onClick(() => {
                 if (rec.direction === 'receive') {

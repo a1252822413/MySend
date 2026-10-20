@@ -74,8 +74,8 @@ function createDark(): ThemeTokens {
   t.warn = '#FFB64D';
   t.danger = '#FF6B5A';
 
-  t.cardBorder = 'rgba(233, 241, 238, 0.10)';
-  t.cardShadow = 'rgba(0, 0, 0, 0.28)';
+  t.cardBorder = 'rgba(0, 0, 0, 0)';
+  t.cardShadow = 'rgba(0, 0, 0, 0.30)';
 
   t.ring = 'rgba(59, 228, 154, 0.55)';
   t.scrim = 'rgba(4, 7, 6, 0.62)';
@@ -111,8 +111,8 @@ function createLight(): ThemeTokens {
   t.warn = '#B06F00';
   t.danger = '#C0392B';
 
-  t.cardBorder = 'rgba(16, 22, 19, 0.07)';
-  t.cardShadow = 'rgba(16, 22, 19, 0.10)';
+  t.cardBorder = 'rgba(0, 0, 0, 0)';
+  t.cardShadow = 'rgba(16, 22, 19, 0.12)';
 
   t.ring = 'rgba(10, 130, 85, 0.48)';
   t.scrim = 'rgba(15, 22, 19, 0.3)';
