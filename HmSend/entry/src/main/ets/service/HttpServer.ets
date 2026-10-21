@@ -251,33 +251,21 @@ class HttpSession {
       return;
     }
 
-    // 访问控制：黑名单 = 名单内拒绝；白名单 = 只有名单内放行。空名单即空规则：
-    // 黑名单为空 → 全放行，白名单为空 → 全拒绝（和界面上的说明一一对应）
-    const accessMode = settingsService.value.accessMode;
-    {
-      const fp = req.info !== undefined && req.info.fingerprint !== undefined ? req.info.fingerprint : '';
-      const raw = accessMode === 'whitelist' ? settingsService.value.whiteList : settingsService.value.blackList;
-      const list = raw.split(',');
-      let inList = false;
-      for (let i = 0; i < list.length; i++) {
-        if (list[i].length > 0 && list[i] === fp) {
-          inList = true;
-          break;
-        }
-      }
-      const allowed = accessMode === 'whitelist' ? inList : !inList;
-      if (!allowed) {
-        const alias = req.info !== undefined && req.info.alias !== undefined ? req.info.alias : '未知设备';
-        Log.w(`访问控制拒绝：${alias} (${fp}) 模式=${accessMode} 名单内=${inList}`);
-        this.respond(403, JSON.stringify({
-          message: accessMode === 'whitelist' ? 'Not in whitelist' : 'Blocked by blacklist'
-        }));
-        return;
-      }
-      Log.i(`访问控制放行：${fp} 模式=${accessMode} 名单内=${inList}`);
-    }
-
+    // 访问控制三层，同时生效：
+    //   黑名单      → 直接 403（界面侧同时禁止我主动发给它，收发双向断开）
+    //   白名单+自动 → 免确认直接放行
+    //   白名单/其他 → 挂起等用户确认（不加入白名单不代表被拒绝）
+    const fp = req.info !== undefined && req.info.fingerprint !== undefined ? req.info.fingerprint : '';
     const senderAlias = req.info !== undefined && req.info.alias !== undefined ? req.info.alias : '未知设备';
+    if (HttpSession.fpInList(settingsService.value.blackList, fp)) {
+      Log.w(`访问控制拒绝：${senderAlias} (${fp}) 命中黑名单`);
+      this.respond(403, JSON.stringify({ message: 'Blocked by blacklist' }));
+      return;
+    }
+    const autoAccept = HttpSession.fpInList(settingsService.value.whiteList, fp) &&
+      HttpSession.fpInList(settingsService.value.autoAcceptList, fp);
+    Log.i(`访问控制放行：${fp} 自动接收=${autoAccept} 白名单=${HttpSession.fpInList(settingsService.value.whiteList, fp)}`);
+
     // 发送方信息顺带入表，便于界面立刻显示
     if (req.info !== undefined) {
       deviceRegistry.upsert(req.info, '');
@@ -285,7 +273,7 @@ class HttpSession {
 
     const allIds = Object.keys(req.files);
     let accepted: string[] = allIds;
-    if (!settingsService.value.autoAccept) {
+    if (!autoAccept) {
       // 挂住连接，等用户在界面上点接收/拒绝（最多 120 秒）
       Log.i(`等待用户确认接收：${senderAlias} 发来 ${allIds.length} 个文件`);
       accepted = await receiveRequests.ask(senderAlias, '', req.files, 120000);
@@ -314,6 +302,20 @@ class HttpSession {
   private senderIpHint(dto: DeviceInfoDto): string {
     // register 的 body 不带 IP，真实 IP 由连接对端提供；这里拿不到就用空串占位
     return '';
+  }
+
+  /** 逗号分隔的指纹串里是否包含某个指纹 */
+  static fpInList(list: string, fp: string): boolean {
+    if (fp.length === 0 || list.length === 0) {
+      return false;
+    }
+    const parts = list.split(',');
+    for (let i = 0; i < parts.length; i++) {
+      if (parts[i] === fp) {
+        return true;
+      }
+    }
+    return false;
   }
 
   private param(key: string): string {

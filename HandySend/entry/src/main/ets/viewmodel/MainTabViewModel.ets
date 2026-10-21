@@ -1,0 +1,103 @@
+import {
+  getPendingCount,
+  getUnfinishedCount,
+  querySessions,
+  subscribeSessions,
+  unsubscribeSessions
+} from '../service/transfer/TransferSessionRegistry';
+import { SessionFilter, SessionStage, TransferSession } from '../model/transfer/TransferSession';
+import { getLogger } from '../utils/Logger';
+import { LogDomains } from '../common/LogDomains';
+
+const logger = getLogger(LogDomains.DISCOVERY, 'HandySend:MainTab', '主页');
+
+/**
+ * 主页视图模型：维护一级入口（发送 / 任务 / 设置）的活跃角标，
+ * 并感知新到达的待确认会话。
+ *
+ * 角标与任务列表同源同时机：两者都订阅同一变更总线（注册表会话变化即通知），
+ * 每次会话变化都从注册表重算，不存在「角标有数字而列表无/0%」的不同步来源。
+ *
+ * 待确认请求由协议适配器登记为注册表中的待确认会话，主页不再经 TransferPage
+ * 做接收路由，也不再消费一次性事件队列；收到新的接收请求（新的待确认会话）时，
+ * 经 `autoOpenSessionId` 通知主页面在应用前台任意页面之上弹出新传输提示弹窗，供用户「查看」或「拒绝」。
+ *
+ * 接收完成不触发任何自动跳转（尤其不得以会话标识进入详情页）：
+ * 接收结果由任务与会话详情页按需展示，避免以未就绪/已回收的会话进入空白详情页。
+ */
+@ObservedV2
+export class MainTabViewModel {
+  /** 非终态（进行中 + 待确认）会话数（任务入口角标） */
+  @Trace public activeTransferCount: number = 0
+  /** 待确认会话数 */
+  @Trace public pendingCount: number = 0
+  /** 待提示的新待确认会话标识（空串表示无）；页面消费后置空 */
+  @Trace public autoOpenSessionId: string = ''
+  /** 已感知的待确认会话标识（同一会话不重复提示） */
+  private knownPendingIds: Array<string> = []
+  // 上次输出的待确认计数：变更总线为全局通知，无关变更（发现/设置等）也会触发本 VM，
+  // 计数未变时不再重复输出同一行
+  private lastLoggedPendingCount: number = 0
+  private subscribed: boolean = false
+  // 变更总线回调需保持同一引用以便退订
+  private changeCallback: () => void = (): void => {
+  }
+
+  /** 订阅变更总线并首次刷新角标（与任务列表同源同时机）。 */
+  start(): void {
+    if (!this.subscribed) {
+      this.changeCallback = (): void => {
+        this.refreshBadges();
+      };
+      subscribeSessions(this.changeCallback);
+      this.subscribed = true;
+    }
+    this.refreshBadges();
+  }
+
+  stop(): void {
+    if (this.subscribed) {
+      unsubscribeSessions(this.changeCallback);
+      this.subscribed = false;
+    }
+  }
+
+  /** 从统一注册表刷新入口角标（会话变化时调用），并感知新到达的待确认会话。 */
+  refreshBadges(): void {
+    // 任务入口数量统一为「非终态（进行中 + 待确认）」口径
+    this.activeTransferCount = getUnfinishedCount();
+    this.pendingCount = getPendingCount();
+    this.detectNewPendingSession();
+    // 仅在待确认计数实际变化时输出，与行序列转储同策（见注释 lastLoggedPendingCount）
+    if (this.pendingCount > 0 && this.pendingCount !== this.lastLoggedPendingCount) {
+      logger.debug('待确认会话数: ' + this.pendingCount);
+    }
+    this.lastLoggedPendingCount = this.pendingCount;
+  }
+
+  /**
+   * 感知新到达的待确认会话：与已感知集合比较，出现新标识时置位「待提示会话」信号。
+   * 页面（MainTabFloating）消费该信号弹出新传输提示弹窗；同一会话在提示后被确认/拒绝而消失时
+   * 不会再误触发。
+   */
+  private detectNewPendingSession(): void {
+    let filter: SessionFilter = { stage: SessionStage.awaitingConfirmation };
+    let pending: Array<TransferSession> = querySessions(filter);
+    let currentIds: Array<string> = [];
+    let newSessionId: string = '';
+    for (let i = 0; i < pending.length; i++) {
+      let id: string = pending[i].id;
+      currentIds.push(id);
+      if (this.knownPendingIds.indexOf(id) < 0) {
+        newSessionId = id;
+      }
+    }
+    this.knownPendingIds = currentIds;
+    // 取舍声明：多个新待确认会话同帧并发到达时只提示最后一个
+    // （提示仅为便捷引导，任务列表可见全部待确认会话）
+    if (newSessionId.length > 0 && newSessionId !== this.autoOpenSessionId) {
+      logger.info('新的待确认会话: ' + newSessionId.substring(0, 8));
+      this.autoOpenSessionId = newSessionId;
+    }
+  }
+}

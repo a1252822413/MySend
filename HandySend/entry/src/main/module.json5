@@ -1,0 +1,133 @@
+{
+  "module": {
+    "name": "entry",
+    "type": "entry",
+    "description": "$string:module_desc",
+    "mainElement": "EntryAbility",
+    "deviceTypes": [
+      "phone",
+      "tablet",
+      "2in1"
+    ],
+    "deliveryWithInstall": true,
+    "installationFree": false,
+    "requestPermissions": [
+      {
+        "name": "ohos.permission.INTERNET"
+      },
+      {
+        "name": "ohos.permission.GET_NETWORK_INFO"
+      },
+      {
+        "name": "ohos.permission.GET_WIFI_INFO"
+      },
+      {
+        // 长时任务（dataTransfer 后台续传）所需权限，normal 级，无需用户授权弹窗
+        "name": "ohos.permission.KEEP_BACKGROUND_RUNNING"
+      },
+      {
+        "name": "ohos.permission.ACCESS_BLUETOOTH",
+        // user_grant 权限，reason 与 usedScene 为必填
+        "reason": "$string:permission_bluetooth_reason",
+        "usedScene": {
+          "abilities": [
+            "EntryAbility"
+          ],
+          "when": "inuse"
+        }
+      }
+    ],
+    "pages": "$profile:main_pages",
+    "routerMap": "$profile:router_map",
+    "abilities": [
+      {
+        "name": "EntryAbility",
+        "srcEntry": "./ets/entryability/EntryAbility.ets",
+        "description": "$string:EntryAbility_desc",
+        "icon": "$media:layered_image",
+        "label": "$string:EntryAbility_label",
+        "startWindowIcon": "$media:start_window_icon",
+        "startWindowBackground": "$color:start_window_background",
+        "exported": true,
+        // 后台数据传输长时任务类型声明（传输后台续传）
+        "backgroundModes": [
+          "dataTransfer"
+        ],
+        // follow_desktop 针对桌面/2in1，会干扰折叠屏（三折叠/双折叠/阔折叠）窗口随折叠形态自动缩放
+        // （半展开态本应只占主显示区域）；改回 auto_rotation_restricted（手机/平板/折叠屏安全，
+        // 2in1 自由窗口下 orientation 无实际作用，窗口方向不依赖此配置）
+        "orientation": "auto_rotation_restricted",
+        "skills": [
+          {
+            "entities": [
+              "entity.system.home"
+            ],
+            "actions": [
+              "ohos.want.action.home"
+            ]
+          },
+          {
+            "entities": [
+              "entity.system.share"
+            ],
+            "actions": [
+              "ohos.want.action.sendData",
+              "ohos.want.action.sendMultipleData"
+            ],
+            "uris": [
+              {
+                "scheme": "file",
+                "utd": "general.image",
+                "maxFileSupported": 50
+              },
+              {
+                "scheme": "file",
+                "utd": "general.video",
+                "maxFileSupported": 50
+              },
+              {
+                "scheme": "file",
+                "utd": "general.audio",
+                "maxFileSupported": 50
+              },
+              {
+                "scheme": "file",
+                "utd": "general.composite-object",
+                "maxFileSupported": 50
+              },
+              {
+                "scheme": "file",
+                "utd": "general.text",
+                "maxFileSupported": 50
+              },
+              {
+                "scheme": "file",
+                "utd": "general.archive",
+                "maxFileSupported": 50
+              },
+              {
+                "scheme": "file",
+                "utd": "general.file",
+                "maxFileSupported": 50
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "extensionAbilities": [
+      {
+        "name": "EntryBackupAbility",
+        "srcEntry": "./ets/entrybackupability/EntryBackupAbility.ets",
+        "type": "backup",
+        "exported": false,
+        "metadata": [
+          {
+            "name": "ohos.extension.backup",
+            "resource": "$profile:backup_config"
+          }
+        ]
+      }
+    ]
+  }
+}

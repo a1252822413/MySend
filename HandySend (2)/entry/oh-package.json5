@@ -1,0 +1,14 @@
+{
+  "name": "entry",
+  "version": "0.1.0",
+  "description": "LocalSend HarmonyOS NEXT entry HAP: UI, lifecycle, settings, save targets.",
+  "main": "",
+  "author": "localsendnext",
+  "license": "Apache-2.0",
+  "dependencies": {
+    "@lsnext/protocol": "file:../protocol"
+  },
+  "devDependencies": {
+    "@ohos/hypium": "1.0.21"
+  }
+}

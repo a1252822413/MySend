@@ -22,8 +22,17 @@ export class Settings {
    */
   https: boolean = true;
   pin: string = '';
-  /** 自动接收（收到 prepare-upload 直接同意，对应协议里的 download 字段） */
+  /**
+   * 全局自动接收（旧字段，已废弃）。
+   * 现在自动接收按设备授权，落在 autoAcceptList 里；这个字段只保留读写兼容，
+   * 界面不再提供开关，对外公告的 download 恒为 false。
+   */
   autoAccept: boolean = false;
+  /**
+   * 自动接收名单：白名单的子集（fingerprint，逗号分隔）。
+   * 命中这里 + 在白名单里 → prepare-upload 直接 200，不弹确认。
+   */
+  autoAcceptList: string = '';
   /** 接收到的图片/视频自动提示存入相册（相册是手机上唯一用户可见、免受限权限的位置） */
   albumAuto: boolean = true;
   /**
@@ -73,7 +82,9 @@ class SettingsServiceImpl {
     s.multicastGroup = this.readString('multicastGroup', Const.DEFAULT_MULTICAST_GROUP);
     s.https = this.readBoolean('https', true);
     s.pin = this.readString('pin', '');
-    s.autoAccept = this.readBoolean('autoAccept', false);
+    // 全局自动接收已废弃（改为白名单逐台授权），老库里的 true 一律收敛为 false
+    s.autoAccept = false;
+    s.autoAcceptList = this.readString('autoAcceptList', '');
     s.albumAuto = this.readBoolean('albumAuto', true);
     s.receiveDir = this.readString('receiveDir', '');
     s.receiveDirUri = this.readString('receiveDirUri', '');
@@ -87,6 +98,8 @@ class SettingsServiceImpl {
     }
     s.blackList = this.readString('blackList', '');
     s.whiteList = this.readString('whiteList', '');
+    // 自动接收名单必须是白名单子集：老数据或外部改动导致越界时收敛掉
+    s.autoAcceptList = SettingsServiceImpl.intersect(s.autoAcceptList, s.whiteList);
     s.deviceModel = this.readString('deviceModel', SettingsServiceImpl.defaultModel());
     s.deviceType = this.readString('deviceType', 'mobile');
     s.httpFingerprint = this.readString('httpFingerprint', SettingsServiceImpl.randomFingerprint());
@@ -112,7 +125,9 @@ class SettingsServiceImpl {
       fingerprint: this.effectiveFingerprint(),
       port: s.port,
       protocol: s.https ? 'https' : 'http',
-      download: s.autoAccept,
+      // 不再公告「我可自动接收」：自动接收是逐设备白名单授权，
+      // 对外一律保守声明 false，真实放行由服务端按名单判定
+      download: false,
       announcement: announcement
     };
     return dto;
@@ -132,6 +147,7 @@ class SettingsServiceImpl {
     this.write('https', s.https);
     this.write('pin', s.pin);
     this.write('autoAccept', s.autoAccept);
+    this.write('autoAcceptList', s.autoAcceptList);
     this.write('albumAuto', s.albumAuto);
     this.write('receiveDir', s.receiveDir);
     this.write('receiveDirUri', s.receiveDirUri);
@@ -211,6 +227,23 @@ class SettingsServiceImpl {
     } catch (e) {
       return 'HarmonyOS';
     }
+  }
+
+  /** 取交集（保留 a 中同时也出现在 b 里的指纹），顺带去重 */
+  private static intersect(a: string, b: string): string {
+    if (a.length === 0 || b.length === 0) {
+      return '';
+    }
+    const allow: string[] = b.split(',');
+    const out: string[] = [];
+    const parts: string[] = a.split(',');
+    for (let i = 0; i < parts.length; i++) {
+      const fp = parts[i];
+      if (fp.length > 0 && allow.indexOf(fp) >= 0 && out.indexOf(fp) < 0) {
+        out.push(fp);
+      }
+    }
+    return out.join(',');
   }
 
   private static randomFingerprint(): string {

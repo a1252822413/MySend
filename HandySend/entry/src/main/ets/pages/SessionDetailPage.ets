@@ -1,0 +1,864 @@
+/**
+ * SessionDetailPage.ets — 唯一通用会话详情页
+ *
+ * 一套协议无关的页面外壳：方向说明 → 设备卡（独立）→ 总进度（独立）→
+ * 「文件」区块（文件清单卡片）→「详情」区块（信息卡片）→「时间线」区块（时间线卡片），
+ * 底部固定操作按钮。协议差异仅经适配器展示描述符、能力声明与可选插槽表达。
+ * 返回操作不取消会话；取消是独立显式操作。
+ */
+
+import { common } from '@kit.AbilityKit';
+import { promptAction, CustomContentDialogV2, AdvancedDialogV2Button, uiObserver } from '@kit.ArkUI';
+import { deviceInfo } from '@kit.BasicServicesKit';
+import {
+  HdsNavDestination,
+  HdsNavDestinationTitleMode,
+  HdsNavigationMenuContentOptions,
+  HdsNavigationMenuItemOptions
+} from '@kit.UIDesignKit';
+import { buildImmersiveTitleBar } from '../common/ImmersiveTitleBar';
+import { DesignTokens } from '../common/DesignTokens';
+import { getPageContentMaxWidth, getPageMargin } from '../common/Breakpoints';
+import { SessionDetailParams, SessionDetailViewModel } from '../viewmodel/SessionDetailViewModel';
+import { SessionHeader } from '../views/transfer/SessionHeader';
+import { SessionFileList } from '../views/transfer/SessionFileList';
+import { SessionActions } from '../views/transfer/SessionActions';
+import { SessionMetaSection } from '../views/transfer/SessionMetaSection';
+import { SessionTimeline } from '../views/transfer/SessionTimeline';
+import { VerifyPageParams } from '../model/Types';
+import { SessionFile } from '../model/transfer/TransferSession';
+import { hasDisplayText } from '../service/transfer/adapters/SessionAdapter';
+import { getServerFingerprint } from '../service/AppService';
+import { formatSizeDetailed, formatSpeed, formatDuration } from '../utils/FormatUtil';
+import { resolveSingleLineTextAlign } from '../utils/TextAlignUtil';
+import { isUrl } from '../utils/IPValidator';
+import { copyText } from '../utils/ClipboardUtil';
+import { readTextOfLocation, TEXT_READ_MAX_BYTES } from '../utils/FileTextUtil';
+import { getStringSync } from '../utils/ResourceUtil';
+import {
+  FileOpenResult,
+  normalizeFileLocation,
+  openContainingFolder,
+  openWithOtherApp
+} from '../utils/FileLocationUtil';
+import { needsOverLimitHint } from '../utils/FilePreviewPolicy';
+import { getLogger } from '../utils/Logger';
+import { LogDomains } from '../common/LogDomains';
+
+const logger = getLogger(LogDomains.TRANSFER, 'HandySend:SessionDetail', '会话详情');
+
+// 自动完成（自动返回）延迟：会话进入终态后约 2s 返回（与旧传输页一致）
+const AUTO_FINISH_DELAY_MS: number = 2000;
+
+// 悬浮底部操作区的滚动预留高度（按钮 + 上下内边距 + 与末条的间距）：
+// 操作区悬浮于内容之上，内容需预留该高度以保证末张卡片可完整滚出操作区之上
+const ACTION_AREA_CLEARANCE: number = 96;
+
+@ComponentV2
+export struct SessionDetailPage {
+  // 系统宽度断点（随窗口尺寸变化自动刷新，宽屏限宽用）
+  @Env(SystemProperties.BREAK_POINT) breakpointInfo: uiObserver.WindowSizeLayoutBreakpointInfo
+  @Param pageParam: Object = new Object()
+  @Local viewModel: SessionDetailViewModel = new SessionDetailViewModel()
+  private pathStack: NavPathStack = new NavPathStack()
+  // 内容滚动控制器：绑定到子页面容器以驱动标题栏滚动模糊
+  private scroller: Scroller = new Scroller()
+  private context: common.UIAbilityContext | undefined = undefined
+  private autoFinishTimer: number = -1
+  private autoFinishDone: boolean = false
+  // 多文件时的「点击预览」弹窗：预读到的文本内容、不可用标记与截断标记
+  @Local filePreviewText: string = ''
+  @Local filePreviewUnavailable: boolean = false
+  @Local filePreviewTruncated: boolean = false
+  // 预览弹窗内容区可用宽度（vp，由内容文本 onAreaChange 获取，用于判定单行/多行对齐）
+  @Local filePreviewContentWidth: number = 0
+  private filePreviewDialogId: number = -1
+
+  aboutToAppear(): void {
+    this.context = this.getUIContext().getHostContext() as common.UIAbilityContext;
+    let params: SessionDetailParams = this.pageParam as SessionDetailParams;
+    this.viewModel.load(params.sessionId);
+  }
+
+  aboutToDisappear(): void {
+    this.viewModel.unload();
+    this.clearAutoFinishTimer();
+  }
+
+  private clearAutoFinishTimer(): void {
+    if (this.autoFinishTimer >= 0) {
+      clearTimeout(this.autoFinishTimer);
+      this.autoFinishTimer = -1;
+    }
+  }
+
+  /** 请求自动返回：已返回过则忽略。 */
+  private requestAutoFinish(): void {
+    if (this.autoFinishDone) {
+      return;
+    }
+    this.clearAutoFinishTimer();
+    this.autoFinishTimer = setTimeout(() => {
+      this.autoFinishTimer = -1;
+      if (this.autoFinishDone) {
+        return;
+      }
+      this.autoFinishDone = true;
+      logger.debug('自动完成：退出详情页');
+      this.goBack();
+    }, AUTO_FINISH_DELAY_MS);
+  }
+
+  /** 会话进入终态且「自动完成」开启时自动返回（文本消息阅读时不返回）。 */
+  @Monitor('viewModel.autoFinishRequested')
+  onAutoFinishRequested(): void {
+    if (!this.viewModel.autoFinishRequested) {
+      return;
+    }
+    // 消费信号，避免重复触发
+    this.viewModel.autoFinishRequested = false;
+    this.requestAutoFinish();
+  }
+
+  // ── 多文件条目操作菜单的三项执行与提示 ──
+
+  /** 统一提示文案 toast（展示失败不影响流程）。 */
+  private showToast(message: ResourceStr): void {
+    try {
+      this.getUIContext().getPromptAction().showToast({ message: message, duration: 2000 });
+    } catch (_e) {
+      // toast 展示失败不影响流程
+    }
+  }
+
+  /** 打开类结果态 → 明确提示文案（成功不提示）。 */
+  private openResultMessage(result: FileOpenResult): ResourceStr {
+    if (result === FileOpenResult.fileMissing) {
+      return $r('app.string.history_open_file_missing');
+    }
+    if (result === FileOpenResult.noApp) {
+      return $r('app.string.session_file_open_no_app');
+    }
+    return $r('app.string.session_file_open_failed');
+  }
+
+  /** 打开所在位置：经系统文件管理器定位目录（图库来源条目已在菜单层置灰，不进入本方法）；失败或缺失时提示。 */
+  private handleOpenLocation(file: SessionFile): void {
+    let context = this.context;
+    if (context === undefined) {
+      return;
+    }
+    let location = normalizeFileLocation(file.path);
+    openContainingFolder(context, location).then((result: FileOpenResult): void => {
+      if (result !== FileOpenResult.success) {
+        this.showToast(this.openResultMessage(result));
+      }
+    }).catch((_e: Object): void => {
+      this.showToast($r('app.string.history_open_dir_failed'));
+    });
+  }
+
+  /** 用其他应用打开：由系统给出可选应用列表，用户选定后以其打开该文件。 */
+  private handleOpenWithApp(file: SessionFile): void {
+    let context = this.context;
+    if (context === undefined) {
+      return;
+    }
+    let location = normalizeFileLocation(file.path);
+    openWithOtherApp(context, location, file.fileType, file.fileName)
+      .then((result: FileOpenResult): void => {
+        if (result !== FileOpenResult.success) {
+          this.showToast(this.openResultMessage(result));
+        }
+      })
+      .catch((_e: Object): void => {
+        this.showToast($r('app.string.session_file_open_failed'));
+      });
+  }
+
+  /** 复制多文件条目的文本内容：读取文件本身（缺省上限截断，超限明确提示截断）。 */
+  private copyFileText(file: SessionFile): void {
+    let content = readTextOfLocation(file.path);
+    if (content === undefined) {
+      this.showToast($r('app.string.session_file_preview_unavailable'));
+      return;
+    }
+    if (!copyText(content)) {
+      this.showToast($r('app.string.copy_failed'));
+      return;
+    }
+    if (file.totalBytes > TEXT_READ_MAX_BYTES) {
+      let hint: string = getStringSync(this.getUIContext(), $r('app.string.copy_truncated_message'))
+        .replace('%s', formatSizeDetailed(TEXT_READ_MAX_BYTES));
+      this.showToast(hint);
+      return;
+    }
+    this.showToast($r('app.string.copy_success'));
+  }
+
+  /** 点击文本类条目：按需读取该文件内容并弹出全文弹窗；超限时截断预览并挂截断说明，读取失败明确提示不可用。 */
+  private openFilePreview(file: SessionFile): void {
+    // 超阈值截断预览（读取量与渲染量均不超过阈值）；失败仍明确提示不可用
+    let truncated: boolean =
+      needsOverLimitHint(this.viewModel.isTextFileEntry(file), file.path, file.totalBytes);
+    let content = this.viewModel.readFileText(file);
+    this.filePreviewUnavailable = content === undefined;
+    this.filePreviewText = content !== undefined ? content : '';
+    this.filePreviewTruncated = content !== undefined && truncated;
+    let dialogOptions: promptAction.CustomDialogOptions = {
+      builder: () => {
+        this.filePreviewDialog();
+      },
+      onDidDisappear: () => {
+        this.filePreviewText = '';
+        this.filePreviewUnavailable = false;
+        this.filePreviewTruncated = false;
+        this.filePreviewContentWidth = 0;
+      }
+    };
+    this.getUIContext()
+      .getPromptAction()
+      .openCustomDialog(dialogOptions)
+      .then((id: number) => {
+        this.filePreviewDialogId = id;
+      })
+      .catch(() => {
+      });
+  }
+
+  private closeFilePreviewDialog(): void {
+    if (this.filePreviewDialogId >= 0) {
+      this.getUIContext().getPromptAction().closeCustomDialog(this.filePreviewDialogId);
+      this.filePreviewDialogId = -1;
+    }
+    this.filePreviewText = '';
+    this.filePreviewUnavailable = false;
+    this.filePreviewTruncated = false;
+    this.filePreviewContentWidth = 0;
+  }
+
+  @Builder
+  filePreviewDialog() {
+    CustomContentDialogV2({
+      primaryTitle: $r('app.string.session_file_preview'),
+      contentBuilder: () => {
+        this.filePreviewContent();
+      },
+      buttons: [
+        new AdvancedDialogV2Button({
+          content: $r('app.string.close'),
+          action: () => {
+            this.closeFilePreviewDialog();
+          }
+        })
+      ]
+    })
+      .constraintSize({ maxWidth: 480 })
+  }
+
+  @Builder
+  filePreviewContent() {
+    if (this.filePreviewUnavailable) {
+      Text($r('app.string.session_file_preview_unavailable'))
+        .width('100%')
+        .fontSize(DesignTokens.font.bodyM)
+        .fontColor($r('app.color.text_secondary'))
+        .textAlign(TextAlign.Center)
+    } else {
+      Column({ space: DesignTokens.space.xxs }) {
+        // 截断预览时明确说明，避免误当全文
+        if (this.filePreviewTruncated) {
+          Text($r('app.string.session_file_preview_over_limit'))
+            .width('100%')
+            .fontSize(DesignTokens.font.bodyS)
+            .fontColor($r('app.color.warning_orange'))
+        }
+        Scroll() {
+          Text(this.filePreviewText)
+            .width('100%')
+            .fontSize(DesignTokens.font.bodyM)
+            .fontColor($r('app.color.text_primary'))
+            .textAlign(this.filePreviewTextAlign())
+            .wordBreak(WordBreak.BREAK_ALL)
+            .copyOption(CopyOptions.LocalDevice)
+            .onAreaChange((_oldValue: Area, newValue: Area) => {
+              // 记录内容区可用宽度（vp），供单行/多行对齐判定
+              if (typeof newValue.width === 'number') {
+                this.filePreviewContentWidth = newValue.width;
+              }
+            })
+        }
+        .width('100%')
+        .constraintSize({ maxHeight: 320 })
+        .scrollBar(BarState.Auto)
+      }
+      .width('100%')
+    }
+  }
+
+  /** 预览弹窗文本对齐：单行居中、多行左对齐（按单行测量宽度与内容区可用宽度比较判定）。 */
+  private filePreviewTextAlign(): TextAlign {
+    return resolveSingleLineTextAlign(this.getUIContext(), this.filePreviewText,
+      DesignTokens.font.bodyM, this.filePreviewContentWidth);
+  }
+
+  /** 内联预览但内容不可用：明确提示（不空白无响应）。 */
+  @Builder
+  previewUnavailableCard() {
+    Column() {
+      Text($r('app.string.session_file_preview_unavailable'))
+        .fontSize(DesignTokens.font.bodyM)
+        .fontColor($r('app.color.text_secondary'))
+        .textAlign(TextAlign.Center)
+        .width('100%')
+        .id('session_detail_preview_unavailable')
+    }
+    .width('100%')
+    .padding(DesignTokens.space.md)
+    .backgroundColor($r('app.color.card_background'))
+    .borderRadius(DesignTokens.radius.lg)
+    .border({ width: DesignTokens.component.borderSlim, color: $r('app.color.border_light') })
+    .alignItems(HorizontalAlign.Center)
+  }
+
+  /** 内联预览文件（会话仅一个文本类文件时用于两条出口）。 */
+  private inlinePreviewFile(): SessionFile | undefined {
+    let files = this.viewModel.detailFiles();
+    return files.length > 0 ? files[0] : undefined;
+  }
+
+  private openInlineFileLocation(): void {
+    let file = this.inlinePreviewFile();
+    if (file !== undefined) {
+      this.handleOpenLocation(file);
+    }
+  }
+
+  private openInlineFileWithApp(): void {
+    let file = this.inlinePreviewFile();
+    if (file !== undefined) {
+      this.handleOpenWithApp(file);
+    }
+  }
+
+  /**
+   * 内联预览文件超过预览阈值：截断预览前 128KB 并挂截断说明（避免误当全文）；
+   * 沙箱文本仅「打开所在位置」无意义（私有目录无可导航位置），「用其他应用打开」走应用文件分享机制保留。
+   */
+  @Builder
+  previewOverLimitCard() {
+    Column({ space: DesignTokens.space.md }) {
+      Text($r('app.string.session_file_preview_over_limit'))
+        .fontSize(DesignTokens.font.bodyS)
+        .fontColor($r('app.color.warning_orange'))
+        .width('100%')
+        .id('session_detail_preview_over_limit')
+
+      this.previewScrollableText()
+
+      Row({ space: DesignTokens.space.sm }) {
+        // 沙箱私有目录无文件管理器可导航位置，该出口不渲染
+        if (!this.isInlineFileSandboxText()) {
+          Button($r('app.string.history_open_directory'))
+            .layoutWeight(1)
+            .height(DesignTokens.size.thumbSm)
+            .backgroundColor($r('app.color.page_background'))
+            .fontColor($r('app.color.text_primary'))
+            .borderRadius(DesignTokens.radius.max)
+            .onClick(() => {
+              this.openInlineFileLocation();
+            })
+        }
+        Button($r('app.string.session_file_open_with_app'))
+          .layoutWeight(1)
+          .height(DesignTokens.size.thumbSm)
+          .backgroundColor($r('app.color.accent_blue'))
+          .fontColor($r('app.color.text_on_color'))
+          .borderRadius(DesignTokens.radius.max)
+          .onClick(() => {
+            this.openInlineFileWithApp();
+          })
+      }
+      .width('100%')
+    }
+    .width('100%')
+    .padding(DesignTokens.space.md)
+    .backgroundColor($r('app.color.card_background'))
+    .borderRadius(DesignTokens.radius.lg)
+    .border({ width: DesignTokens.component.borderSlim, color: $r('app.color.border_light') })
+    .alignItems(HorizontalAlign.Center)
+  }
+
+  /** 内联预览文件是否为应用私有文本（沙箱落盘，仅目录出口无意义）。 */
+  private isInlineFileSandboxText(): boolean {
+    let file = this.inlinePreviewFile();
+    return file !== undefined && this.viewModel.isSandboxTextFile(file);
+  }
+
+  /** 复制文本消息内容：写剪贴板成功后由协议适配器完成收尾（对照原 MTA 文本接收流程）。 */
+  private copyTextMessage(): void {
+    // 复制口径与多文件清单/接收历史一致：文件优先（200KB 上限截断）、描述符兜底
+    let result = this.viewModel.copyableTextMessage();
+    if (result.text.length === 0) {
+      return;
+    }
+    if (!copyText(result.text)) {
+      this.getUIContext()
+        .getPromptAction()
+        .showToast({ message: $r('app.string.copy_failed'), duration: 2000 });
+      return;
+    }
+    // 协议收尾：文本消息会话经适配器 confirm 回接受 ack，不进入下载流程
+    this.viewModel.confirm();
+    if (result.truncated) {
+      let hint: string = getStringSync(this.getUIContext(), $r('app.string.copy_truncated_message'))
+        .replace('%s', formatSizeDetailed(TEXT_READ_MAX_BYTES));
+      this.showToast(hint);
+      return;
+    }
+    this.getUIContext()
+      .getPromptAction()
+      .showToast({ message: $r('app.string.copy_success'), duration: 2000 });
+  }
+
+  /** 指纹验证：跳转验证页（本地指纹 ↔ 对端指纹）。 */
+  private openVerify(): void {
+    let params: VerifyPageParams = {
+      localFingerprint: getServerFingerprint(),
+      remoteFingerprint: this.viewModel.peerFingerprint()
+    };
+    this.pathStack.pushPathByName('VerifyPage', params);
+  }
+
+  private stageTextOf(): ResourceStr {
+    let session = this.viewModel.session;
+    if (session === undefined) {
+      return '';
+    }
+    return session.stageText;
+  }
+
+  /** 离散阶段文案是否非空（资源对象视为非空）。 */
+  private hasStageText(): boolean {
+    let text = this.stageTextOf();
+    return typeof text === 'string' ? text.length > 0 : true;
+  }
+
+  /** 对端标题解析为可拼接字符串：字符串直出，资源经当前 UI 上下文解析。 */
+  private peerTitleText(): string {
+    let title = this.viewModel.display.peerTitle;
+    if (typeof title === 'string') {
+      return title;
+    }
+    return getStringSync(this.getUIContext(), title);
+  }
+
+  /**
+   * 是否存在可展示的底部动作：无动作时不占位（终态返回由系统手势/标题栏承担）。
+   * 文本消息会话仅在待确认（canConfirm）时占用底部操作区，其余阶段不占位。
+   */
+  private hasActions(): boolean {
+    if (this.viewModel.hasTextPreview()) {
+      return this.viewModel.canConfirm();
+    }
+    return this.viewModel.canConfirm() || this.viewModel.canDecline() || this.viewModel.canCancel();
+  }
+
+  /**
+   * 标题栏菜单：指纹验证（次级入口，不占用底部动作区）。
+   * 「保存到相册」由设置项驱动、在接收成功后自动提示，不在本页保留入口。
+   * 图标以资源引用传入、档位留空（组件默认档位），尺寸与返回箭头相当；
+   * 返回箭头由组件承载，保持系统默认尺寸。
+   */
+  private buildTitleMenu(): HdsNavigationMenuContentOptions {
+    let items: Array<HdsNavigationMenuItemOptions> = [];
+    if (this.viewModel.canVerify()) {
+      items.push({
+        content: {
+          icon: $r('sys.symbol.checkmark_shield_fill'),
+          label: $r('app.string.verify_button'),
+          action: () => {
+            this.openVerify();
+          }
+        }
+      });
+    }
+    return { value: items };
+  }
+
+  /** 取消为独立显式操作：先确认再执行（对齐旧传输页的中止确认）。 */
+  private confirmCancel(): void {
+    this.getUIContext().showAlertDialog({
+      title: $r('app.string.session_detail_cancel_confirm_title'),
+      message: $r('app.string.session_detail_cancel_confirm_message'),
+      primaryButton: {
+        value: $r('app.string.dialog_cancel'),
+        action: () => {
+        }
+      },
+      secondaryButton: {
+        value: $r('app.string.dialog_confirm'),
+        action: () => {
+          this.viewModel.cancelTransfer();
+        }
+      }
+    });
+  }
+
+  /** 终态返回：仅退出详情页，不改变会话状态（返回不取消会话）。 */
+  private goBack(): void {
+    this.pathStack.pop();
+  }
+
+  /** 打开文本消息内容中的链接（仅内容为 URL 时可达）。 */
+  private openTextLink(): void {
+    let url: string = this.viewModel.textPreview().trim();
+    let context = this.context;
+    if (context === undefined || url.length === 0) {
+      return;
+    }
+    context.openLink(url).catch((e: Object): void => {
+      logger.error('打开文本链接失败: ' + String(e));
+    });
+  }
+
+  private speedText(): string {
+    if (this.viewModel.speed <= 0) {
+      return getStringSync(this.getUIContext(), $r('app.string.session_detail_placeholder'));
+    }
+    return formatSpeed(this.viewModel.speed);
+  }
+
+  private etaText(): string {
+    if (this.viewModel.etaSeconds < 0) {
+      return getStringSync(this.getUIContext(), $r('app.string.session_detail_placeholder'));
+    }
+    return formatDuration(this.viewModel.etaSeconds);
+  }
+
+  /** 总进度与速度/剩余时间（字节口径；无字节进度协议回退离散阶段文案）。 */
+  @Builder
+  progressBlock() {
+    if (this.viewModel.hasByteProgress()) {
+      Column({ space: DesignTokens.space.tiny }) {
+        // 汇总行：文件数 + 总大小（左）与整体进度（右）
+        Row({ space: DesignTokens.space.sm }) {
+          Text($r('app.string.send_file_count_total', this.viewModel.files.length,
+            formatSizeDetailed(this.viewModel.session?.totalBytes ?? 0)))
+            .fontSize(DesignTokens.font.subtitleM)
+            .fontWeight(FontWeight.Medium)
+            .fontColor($r('app.color.text_primary'))
+            .layoutWeight(1)
+          Text(Math.round(this.viewModel.percent()) + '%')
+            .fontSize(DesignTokens.font.subtitleM)
+            .fontWeight(FontWeight.Bold)
+            .fontColor($r('app.color.accent_blue'))
+            .id('session_detail_overall_percent')
+        }
+        .width('100%')
+        .alignItems(VerticalAlign.Center)
+
+        // 准备态（校验和计算中）：追加阶段文案行，不渲染传输速度/剩余时间（此时口径无意义）；
+        // 其余进行中会话展示实时速度 + 预计剩余时间（不可用时占位符）
+        if (this.viewModel.isPreparingState()) {
+          Text(this.stageTextOf())
+            .fontSize(DesignTokens.font.bodyS)
+            .fontColor($r('app.color.text_secondary'))
+            .width('100%')
+        } else {
+          Row({ space: DesignTokens.space.md }) {
+            Text(getStringSync(this.getUIContext(), $r('app.string.session_detail_speed')) + ' ' + this.speedText())
+              .fontSize(DesignTokens.font.bodyS)
+              .fontColor($r('app.color.text_secondary'))
+            Text(getStringSync(this.getUIContext(), $r('app.string.session_detail_eta')) + ' ' + this.etaText())
+              .fontSize(DesignTokens.font.bodyS)
+              .fontColor($r('app.color.text_secondary'))
+          }
+          .width('100%')
+          .justifyContent(FlexAlign.End)
+        }
+      }
+      .width('100%')
+    } else if (this.hasStageText()) {
+      Text(this.stageTextOf())
+        .fontSize(DesignTokens.font.bodyS)
+        .fontColor($r('app.color.text_secondary'))
+        .width('100%')
+    }
+  }
+
+  /** 分区标题（三区块共用样式：沿用既有 subtitleS 灰色标题风格）。 */
+  @Builder
+  sectionTitle(title: ResourceStr) {
+    Text(title)
+      .fontSize(DesignTokens.font.subtitleS)
+      .fontWeight(FontWeight.Medium)
+      .fontColor($r('app.color.text_secondary'))
+      .width('100%')
+  }
+
+  /**
+   * 内联文本内容块（文本预览卡与超限截断卡共用）：内容超出时可滚动查看（不再限制显示行数）。
+   * 两卡互斥渲染，同一时刻只挂载一份节点。
+   */
+  @Builder
+  previewScrollableText() {
+    Column() {
+      Scroll() {
+        Text(this.viewModel.textPreview())
+          .fontSize(DesignTokens.font.bodyM)
+          .fontColor($r('app.color.text_primary'))
+          .lineHeight(20)
+          .width('100%')
+          // 内联文本预览支持长按自由选择复制（排版与不可用降级不变）
+          .copyOption(CopyOptions.LocalDevice)
+          .id('session_detail_text_content')
+      }
+      .scrollable(ScrollDirection.Vertical)
+      .scrollBar(BarState.Auto)
+      .edgeEffect(EdgeEffect.Spring)
+      .align(Alignment.Top)
+      .width('100%')
+      .constraintSize({ maxHeight: 240 })
+    }
+    .width('100%')
+    .padding(DesignTokens.space.md)
+    .backgroundColor($r('app.color.card_background'))
+    .borderRadius(DesignTokens.radius.lg)
+    .border({ width: DesignTokens.component.borderSlim, color: $r('app.color.border_light') })
+  }
+
+  /**
+   * 文本消息预览卡片（文本会话不展示文件清单与字节进度）：
+   * 可滚动文本区 + 内容为 URL 时的「打开链接」入口。
+   */
+  @Builder
+  textPreviewCard() {
+    Column({ space: DesignTokens.space.md }) {
+      Text(this.viewModel.isOutbound() ?
+        $r('app.string.session_detail_text_to_device', this.peerTitleText()) :
+        $r('app.string.session_detail_text_from_device', this.peerTitleText()))
+        .fontSize(DesignTokens.font.subtitleM)
+        .fontColor($r('app.color.clipboard_text'))
+        .width('100%')
+        .id('session_detail_text_title')
+
+      // 文本卡片：内容超出时可滚动查看（不再限制显示行数）
+      this.previewScrollableText()
+
+      if (isUrl(this.viewModel.textPreview())) {
+        Button($r('app.string.open_link'))
+          .width('100%')
+          .height(DesignTokens.size.thumbSm)
+          .backgroundColor($r('app.color.accent_blue'))
+          .fontColor($r('app.color.text_on_color'))
+          .borderRadius(DesignTokens.radius.max)
+          .onClick(() => {
+            this.openTextLink();
+          })
+          .id('session_detail_text_open_link')
+      }
+    }
+    .width('100%')
+    .alignItems(HorizontalAlign.Start)
+  }
+
+  // 内容最大宽度：按断点取值；平板竖屏收紧至 800；窄屏返回 '100%' 全宽
+  private getContentMaxWidth(): Length {
+    return getPageContentMaxWidth(this.breakpointInfo.widthBreakpoint,
+      this.breakpointInfo.heightBreakpoint, deviceInfo.deviceType);
+  }
+
+  // 页面左右页边距：按断点取值（窄屏 16vp，与改造前一致）
+  private getContentSideMargin(): number {
+    return getPageMargin(this.breakpointInfo.widthBreakpoint);
+  }
+
+  build() {
+    HdsNavDestination() {
+      // 悬浮式底部操作区：内容占满全高（可滚到操作区背后），操作区叠加于底部；
+      // 滚动内容与底部操作区同宽（均按断点限宽），由 Stack 的水平居中语义居中
+      Stack({ alignContent: Alignment.Bottom }) {
+        Scroll(this.scroller) {
+          Column({ space: DesignTokens.space.md }) {
+            // ── 方向说明（实时会话与历史只读摘要共用；由展示描述符驱动，风格与分区标题一致） ──
+            if (this.viewModel.isLoaded() && hasDisplayText(this.viewModel.display.directionLabel)) {
+              Text(this.viewModel.display.directionLabel)
+                .fontSize(DesignTokens.font.subtitleS)
+                .fontWeight(FontWeight.Medium)
+                .fontColor($r('app.color.text_secondary'))
+                .width('100%')
+                .id('session_detail_direction')
+            }
+
+            if (this.viewModel.isLoaded()) {
+              // ── 设备卡：位于文件区块上方独立展示（实时会话与历史条目统一取数） ──
+              SessionHeader({
+                display: this.viewModel.display,
+                stage: this.viewModel.currentStage(),
+                stageText: this.stageTextOf(),
+                sourceLabel: this.viewModel.sourceLabel,
+                peerFingerprint: this.viewModel.meta.peerFingerprint
+              })
+
+              // ── 大文件提示：待确认且达到阈值时展示风险提示（纯展示，不拦截确认） ──
+              if (this.viewModel.needsLargeFileHint()) {
+                Text($r('app.string.large_file_receive_hint'))
+                  .fontSize(DesignTokens.font.bodyS)
+                  .fontColor($r('app.color.warning_orange'))
+                  .width('100%')
+                  .padding(DesignTokens.space.sm)
+                  .backgroundColor($r('app.color.warning_bg'))
+                  .borderRadius(DesignTokens.radius.md)
+                  .id('session_detail_large_file_hint')
+              }
+
+              if (this.viewModel.isInlinePreview()) {
+                // ── 会话仅一个文本类文件：内联预览卡片（不渲染文件清单与字节进度）；
+                //    内容不可用时明确提示 ──
+                this.sectionTitle($r('app.string.session_detail_files'))
+                if (this.viewModel.previewOverLimit) {
+                  this.previewOverLimitCard()
+                } else if (this.viewModel.previewUnavailable) {
+                  this.previewUnavailableCard()
+                } else {
+                  this.textPreviewCard()
+                }
+              } else {
+                // ── 总进度与速度/剩余时间：独立平铺于文件区块上方（历史条目无实时进度时不渲染） ──
+                this.progressBlock()
+
+                // ── 文件区块：分区标题 + 文件清单卡片（文本类条目提供点击预览入口） ──
+                this.sectionTitle($r('app.string.session_detail_files'))
+                Column() {
+                  SessionFileList({
+                    viewModel: this.viewModel,
+                    onPreviewFile: (file: SessionFile) => {
+                      this.openFilePreview(file);
+                    },
+                    onOpenLocation: (file: SessionFile) => {
+                      this.handleOpenLocation(file);
+                    },
+                    onOpenWithApp: (file: SessionFile) => {
+                      this.handleOpenWithApp(file);
+                    },
+                    onCopyText: (file: SessionFile) => {
+                      this.copyFileText(file);
+                    }
+                  })
+                }
+                .width('100%')
+                .padding(DesignTokens.space.md)
+                .backgroundColor($r('app.color.card_background'))
+                .borderRadius(DesignTokens.radius.lg)
+                .border({ width: DesignTokens.component.borderSlim, color: $r('app.color.border_light') })
+                .alignItems(HorizontalAlign.Start)
+              }
+
+              // ── 详情区块：分区标题 + 完整信息卡片（时间 / 性能 / 结果与错误 / 本机与标识） ──
+              this.sectionTitle($r('app.string.session_detail_section_details'))
+              SessionMetaSection({ viewModel: this.viewModel })
+
+              // ── 时间线区块：分区标题 + 时间线卡片（实时会话与历史条目均有） ──
+              this.sectionTitle($r('app.string.session_detail_timeline'))
+              Column() {
+                SessionTimeline({ events: this.viewModel.detailTimeline() })
+              }
+              .width('100%')
+              .padding(DesignTokens.space.md)
+              .backgroundColor($r('app.color.card_background'))
+              .borderRadius(DesignTokens.radius.lg)
+              .border({ width: DesignTokens.component.borderSlim, color: $r('app.color.border_light') })
+              .alignItems(HorizontalAlign.Start)
+            } else {
+              // 会话不存在（无效会话标识）：展示明确提示而非空白占位
+              Text($r('app.string.session_detail_unavailable'))
+                .fontSize(DesignTokens.font.bodyM)
+                .fontColor($r('app.color.text_secondary'))
+                .margin({ top: DesignTokens.space.xl })
+                .width('100%')
+                .textAlign(TextAlign.Center)
+            }
+          }
+          .width('100%')
+          // 底部预留：悬浮操作区高度，保证末张卡片可完整滚出操作区之上
+          .padding({
+            left: this.getContentSideMargin(),
+            right: this.getContentSideMargin(),
+            top: DesignTokens.space.md,
+            bottom: ACTION_AREA_CLEARANCE
+          })
+          .alignItems(HorizontalAlign.Start)
+        }
+        .width('100%')
+        .height('100%')
+        // 宽屏限宽：内容限制在断点最大宽度内，由外层 Stack 的水平居中语义居中（页面背景仍铺满窗口）
+        .constraintSize({ maxWidth: this.getContentMaxWidth() })
+        .align(Alignment.Top)
+        .scrollBar(BarState.Off)
+        .edgeEffect(EdgeEffect.Spring)
+        // 滚动容器不裁剪：滚动中的内容可绘制到标题栏区域内，使毛玻璃背板有内容可透出
+        .clip(false)
+        .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
+
+        // ── 底部固定操作区（按状态与能力渲染；同一时刻只呈现一组动作） ──
+        if (this.hasActions()) {
+          SessionActions({
+            canConfirm: this.viewModel.canConfirm(),
+            canDecline: this.viewModel.canDecline(),
+            canCancel: this.viewModel.canCancel(),
+            // 是否为文本消息会话（与阶段无关）；动作为「关闭」+「复制」，关闭＝直接接受，复制＝写剪贴板成功后接受
+            isTextSession: this.viewModel.hasTextPreview(),
+            onConfirm: () => {
+              this.viewModel.confirm();
+            },
+            onDecline: () => {
+              this.viewModel.decline();
+            },
+            onCancel: () => {
+              this.confirmCancel();
+            },
+            onCopyText: () => {
+              this.copyTextMessage();
+            }
+          })
+            .width('100%')
+            // 与滚动内容同宽限宽：按钮与卡片左右边缘对齐，不在宽屏下横向拉伸
+            .constraintSize({ maxWidth: this.getContentMaxWidth() })
+            // 悬浮操作区自身完全透明（不设渐隐遮罩或半透明蒙板），按钮直接悬浮于内容之上；
+            // 末条内容的可读性由滚动内容列的底部预留（ACTION_AREA_CLEARANCE）保证，不依赖遮罩遮挡
+            .padding({
+              left: this.getContentSideMargin(),
+              right: this.getContentSideMargin(),
+              top: DesignTokens.space.lg,
+              bottom: DesignTokens.space.md
+            })
+        }
+      }
+      .width('100%')
+      .height('100%')
+      .backgroundColor($r('app.color.page_background'))
+      // 延伸安全区至屏幕最底：全面屏手势导航下系统导航条处不留白色小条（与验证/设备详情页一致）
+      .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
+    }
+    // 子页面容器背景覆盖至标题栏区域：无内容经过时标题栏底色与页面背景一致，不露出系统默认底色
+    .backgroundColor($r('app.color.page_background'))
+    .titleBar(buildImmersiveTitleBar({
+      title: $r('app.string.session_detail_title'),
+      // 指纹验证与保存到相册移入标题栏菜单（次级入口，不占用底部动作区）
+      menu: this.buildTitleMenu()
+    }))
+    .titleMode(HdsNavDestinationTitleMode.MINI)
+    .bindToScrollable([this.scroller])
+    .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
+    .onReady((ctx: NavDestinationContext) => {
+      this.pathStack = ctx.pathStack;
+    })
+  }
+}
+
+// 路由表引用：SessionDetailPageBuilder(name, param)
+@Builder
+export function SessionDetailPageBuilder(name: string, param: Object) {
+  SessionDetailPage({ pageParam: param })
+}

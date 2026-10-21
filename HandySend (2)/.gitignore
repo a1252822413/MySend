@@ -1,0 +1,31 @@
+# HarmonyOS / build outputs
+build/
+**/build/
+.hvigor/
+oh_modules/
+**/.cxx/
+*.har
+*.hap
+*.hsp
+*.app
+BuildProfile.ets
+**/BuildProfile.ets
+
+# Signing material and secrets — never commit
+*.p12
+*.cer
+*.csr
+*.p7b
+*.jks
+*.keystore
+local.signing.json5
+local.properties
+
+# Tooling noise
+.DS_Store
+.idea/
+*.log
+
+# Cross-agent status mirror and python caches from the UI drivers
+.agent_status.json
+__pycache__/

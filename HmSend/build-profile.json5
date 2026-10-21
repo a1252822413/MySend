@@ -1,6 +1,20 @@
 {
   "app": {
-    "signingConfigs": [],
+    "signingConfigs": [
+      {
+        "name": "default",
+        "type": "HarmonyOS",
+        "material": {
+          "certpath": "C:\\Users\\xiaoxiao\\.ohos\\config\\default_HmSend_MAdxqzdBIWly3wY0Y_OJzTphtvXy2W6Nsu4bWxWJYIo=.cer",
+          "keyAlias": "debugKey",
+          "keyPassword": "0000001B57EFFB912F01A291912B0F55096207A7C3A6370AE45CD8A140CECEA6D63DD66A1DF2B39564E5D8",
+          "profile": "C:\\Users\\xiaoxiao\\.ohos\\config\\default_HmSend_MAdxqzdBIWly3wY0Y_OJzTphtvXy2W6Nsu4bWxWJYIo=.p7b",
+          "signAlg": "SHA256withECDSA",
+          "storeFile": "C:\\Users\\xiaoxiao\\.ohos\\config\\default_HmSend_MAdxqzdBIWly3wY0Y_OJzTphtvXy2W6Nsu4bWxWJYIo=.p12",
+          "storePassword": "0000001BAA2F40DDA4C8660BDFC4B920668B6389556D72514AB744B7B50465603661E4620A585A4082E001"
+        }
+      }
+    ],
     "products": [
       {
         "name": "default",

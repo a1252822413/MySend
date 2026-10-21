@@ -1,0 +1,16 @@
+{
+  "string": [
+    {
+      "name": "module_desc",
+      "value": "LocalSend module"
+    },
+    {
+      "name": "EntryAbility_desc",
+      "value": "Send and receive files over the local network"
+    },
+    {
+      "name": "EntryAbility_label",
+      "value": "LocalSend"
+    }
+  ]
+}

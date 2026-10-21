@@ -1,0 +1,63 @@
+#!/bin/sh
+':' //; for cand in "${NODE_PATH:-}" "${DEVECO_NODE:-}" "${DEVECO_HOME:-}/tools/node/bin/node" "${DEVECO_HOME:-}/Contents/tools/node/bin/node" /Applications/DevEco-Studio.app/Contents/tools/node/bin/node "$HOME/Applications/DevEco-Studio.app/Contents/tools/node/bin/node"; do [ -n "$cand" ] && [ -x "$cand" ] && exec "$cand" "$0" "$@"; done; echo "hvigorw: DevEco node not found" >&2; exit 1
+/*
+ * Headless build wrapper.
+ *
+ * hvigor must run on the Node bundled with DevEco Studio; the system Node is
+ * usually too new and breaks the ArkTS toolchain. DevEco's SDK scanner also
+ * wants DEVECO_SDK_HOME to be the PARENT of the SDK instance directory,
+ * because it scans <DEVECO_SDK_HOME>/<subdir>/sdk-pkg.json.
+ */
+'use strict';
+
+const { spawnSync } = require('child_process');
+const fs = require('fs');
+const path = require('path');
+
+function findDevecoHome() {
+  if (process.env.DEVECO_HOME) {
+    const p = path.resolve(process.env.DEVECO_HOME);
+    return fs.existsSync(path.join(p, 'Contents')) ? path.join(p, 'Contents') : p;
+  }
+  const candidates = [
+    '/Applications/DevEco-Studio.app/Contents',
+    path.join(process.env.HOME || '', 'Applications/DevEco-Studio.app/Contents'),
+    '/opt/deveco-studio'
+  ];
+  for (const c of candidates) {
+    if (c && fs.existsSync(c)) {
+      return fs.existsSync(path.join(c, 'Contents')) ? path.join(c, 'Contents') : c;
+    }
+  }
+  return '/Applications/DevEco-Studio.app/Contents';
+}
+
+const DEVECO_HOME = findDevecoHome();
+const NODE = process.env.NODE_PATH || process.env.DEVECO_NODE || path.join(DEVECO_HOME, 'tools/node/bin/node');
+const WRAPPER_JS = process.env.HVIGORW_JS || path.join(DEVECO_HOME, 'tools/hvigor/bin/hvigorw.js');
+
+function die(msg) {
+  console.error('hvigorw: ERROR: ' + msg);
+  process.exit(1);
+}
+
+if (!fs.existsSync(NODE)) {
+  die('DevEco build node not found at ' + NODE + ' (set DEVECO_HOME)');
+}
+if (!fs.existsSync(WRAPPER_JS)) {
+  die('bundled hvigor wrapper not found at ' + WRAPPER_JS);
+}
+if (!process.env.DEVECO_SDK_HOME) {
+  process.env.DEVECO_SDK_HOME = DEVECO_HOME + '/sdk';
+}
+
+const result = spawnSync(NODE, [WRAPPER_JS].concat(process.argv.slice(2)), {
+  stdio: 'inherit',
+  env: process.env,
+  cwd: process.cwd()
+});
+
+if (result.error) {
+  die('failed to launch hvigor: ' + result.error.message);
+}
+process.exit(result.status === null ? 0 : result.status);

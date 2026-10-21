@@ -1,0 +1,68 @@
+{
+  "color": [
+    {
+      "name": "start_window_background",
+      "value": "#101413"
+    },
+    {
+      "name": "bg",
+      "value": "#101413"
+    },
+    {
+      "name": "card",
+      "value": "#1B2222"
+    },
+    {
+      "name": "nav_bar",
+      "value": "#161C1C"
+    },
+    {
+      "name": "primary",
+      "value": "#7FD5D4"
+    },
+    {
+      "name": "on_primary",
+      "value": "#003737"
+    },
+    {
+      "name": "primary_soft",
+      "value": "#12403F"
+    },
+    {
+      "name": "on_soft",
+      "value": "#C6EDEC"
+    },
+    {
+      "name": "input_fill",
+      "value": "#202A29"
+    },
+    {
+      "name": "text",
+      "value": "#E2E6E5"
+    },
+    {
+      "name": "text_dim",
+      "value": "#9AA5A4"
+    },
+    {
+      "name": "text_faint",
+      "value": "#6D7877"
+    },
+    {
+      "name": "outline",
+      "value": "#3F4A49"
+    },
+    {
+      "name": "warning_text",
+      "value": "#FFB877"
+    },
+    {
+      "name": "danger",
+      "value": "#FFB4AB"
+    },
+    {
+      "name": "sheet_dim",
+      "value": "#99000000"
+    }
+  ]
+}

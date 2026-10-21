@@ -1,0 +1,10 @@
+{
+  "module": {
+    "name": "protocol",
+    "type": "har",
+    "description": "$string:protocol_desc",
+    "deviceTypes": [
+      "phone"
+    ]
+  }
+}

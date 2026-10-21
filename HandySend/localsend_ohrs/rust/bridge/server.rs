@@ -1,0 +1,1227 @@
+//! 服务器生命周期 + 传输决策。
+//!
+//! Web 分享/网页上传相关能力见 `web_share` 模块。
+//!
+//! 核心函数接收 `Arc<Mutex<BridgeState>>` 参数，事件通过
+//! `state.event_tx`（mpsc::Sender<BridgeEvent>）输出。
+//! runtime 由调用方提供（NAPI 层 NapiEnv 或测试的 tokio runtime），本模块不创建。
+//!
+//! 事件循环：spawn 后 JoinHandle 存入 `state.server_event_task`，
+//! `stop_server` 时 abort，确保快速 stop→start 无 task 泄漏。
+
+use crate::bridge::config;
+use crate::bridge::lock;
+use std::os::fd::FromRawFd;
+use std::sync::{Arc, Mutex};
+use std::time::Duration;
+
+use serde_json::{json, Value};
+use tokio::sync::{mpsc, oneshot};
+
+use localsend::http::server::internal::{InternalConfig, InternalEvent};
+use localsend::http::server::v2::ServerEventV2;
+use localsend::http::server::web::WebConfig;
+use localsend::http::server::{self, ServerConfigV2, TlsConfig};
+use localsend::http::state::ClientInfo;
+use localsend::model::discovery::PROTOCOL_VERSION_V2;
+
+use crate::bridge::adapter::server::adapt_server_event;
+use crate::bridge::engine::apply_actions;
+use crate::bridge::event::{send_event, BridgeError, BridgeEvent};
+use crate::bridge::identity;
+use crate::bridge::state::{BridgeState, PendingRequest};
+use crate::bridge::throttle::ProgressThrottle;
+use crate::bridge::web_share::clear_web_send_files;
+
+/// 从 BridgeState 克隆 event_tx（注入 spawned task；web_share 模块复用）。
+pub(crate) fn clone_event_tx(state: &Mutex<BridgeState>) -> Option<mpsc::Sender<BridgeEvent>> {
+    lock(state).event_tx.clone()
+}
+
+// ── 服务器生命周期 ────────────────────────────────────────────────────
+
+/// 启动服务器。
+///
+/// - 重复调用返回 `BridgeError::AlreadyRunning`
+/// - 返回实际绑定端口
+/// - 注入 event_tx，spawn 事件循环并存储 JoinHandle
+pub async fn start_server(
+    state: Arc<Mutex<BridgeState>>,
+    port: u16,
+    use_https: bool,
+    verify_checksums: bool,
+    pin: Option<String>,
+    mut web_config: Option<WebConfig>,
+    external_show_token: Option<String>,
+) -> Result<u16, BridgeError> {
+    {
+        let mut s = lock(&state);
+        // handle 空窗期（入口到注册完成）用 starting 标志互斥，
+        // 防止并发 start_server 双启动（检查与写回之间存在 TOCTOU 窗口）
+        if s.server_handle.is_some() || s.server_starting {
+            // 守卫命中说明存在并发注册（调用方时序问题），warn 级便于暴露
+            log::warn!("start_server: 已在运行（守卫命中）");
+            return Err(BridgeError::AlreadyRunning);
+        }
+        s.server_starting = true;
+    }
+
+    let event_tx = clone_event_tx(&state);
+    let (event_tx_server, mut event_rx) = mpsc::channel::<ServerEventV2>(64);
+    let (stop_tx, stop_rx) = oneshot::channel::<()>();
+
+    // 为 InternalConfig 展示令牌（重试间保持稳定）
+    let show_token = external_show_token.unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
+
+    let (alias, device_type, device_model, fingerprint, cert_pem, key_pem) = {
+        let s = lock(&state);
+        (
+            s.local_alias.clone(),
+            s.device_type.clone(),
+            s.device_model.clone(),
+            s.fingerprint.clone(),
+            s.cert_pem.clone(),
+            s.key_pem.clone(),
+        )
+    };
+
+    // 尝试启动服务器，若端口仍被占用则重试一次。
+    // web_config 不可 Clone（包含 mpsc::Sender），因此仅无 web_config 时重试。
+    let mut current_stop_tx = stop_tx;
+    let mut current_stop_rx = stop_rx;
+    let mut handle: Option<server::ServerHandle> = None;
+    let mut internal_event_rx_option: Option<mpsc::Receiver<InternalEvent>> = None;
+
+    let max_attempts = if web_config.is_some() { 1 } else { 2 };
+
+    for attempt in 0..max_attempts {
+        let cfg = ServerConfigV2 {
+            pin: pin.clone(),
+            verify_checksums,
+            event_tx: event_tx_server.clone(),
+        };
+
+        let (internal_event_tx, internal_event_rx) = mpsc::channel::<InternalEvent>(16);
+        let internal_config = InternalConfig {
+            show_token: show_token.clone(),
+            event_tx: internal_event_tx,
+        };
+
+        let tls = if use_https {
+            Some(TlsConfig {
+                cert: cert_pem.clone(),
+                private_key: key_pem.clone(),
+            })
+        } else {
+            None
+        };
+        let info = ClientInfo {
+            alias: alias.clone(),
+            version: PROTOCOL_VERSION_V2.to_string(),
+            device_model: Some(device_model.clone()),
+            device_type: Some(device_type.clone()),
+            token: fingerprint.clone(),
+        };
+
+        match server::start_with_port(
+            port,
+            tls,
+            info,
+            Some(internal_config),
+            Some(cfg),
+            web_config.take(),
+            current_stop_rx,
+        )
+        .await
+        {
+            Ok(h) => {
+                handle = Some(h);
+                // 仅保存成功 attempt 的 rx：失败 attempt 的 tx 已随
+                // start_with_port 报错被 drop，对应 rx 只会立即结束
+                internal_event_rx_option = Some(internal_event_rx);
+                break;
+            }
+            Err(e) => {
+                let err_msg = format!("{e:#}");
+                if attempt == 0
+                    && (err_msg.contains("in use")
+                        || err_msg.contains("Address already")
+                        || err_msg.contains("EADDRINUSE"))
+                {
+                    log::warn!(
+                        "端口 {} 仍被占用（err: {}），等待 500ms 后重试……",
+                        port,
+                        err_msg
+                    );
+                    tokio::time::sleep(Duration::from_millis(500)).await;
+                    let (retry_tx, retry_rx) = oneshot::channel::<()>();
+                    current_stop_tx = retry_tx;
+                    current_stop_rx = retry_rx;
+                } else {
+                    // 非 in-use 失败直接返回错误，无重试无降级，按操作失败记录
+                    log::error!(
+                        "start_server: 第 {} 次尝试在端口 {} 上失败: {}",
+                        attempt,
+                        port,
+                        err_msg
+                    );
+                    lock(&state).server_starting = false;
+                    return Err(BridgeError::Upstream(anyhow::anyhow!("{e:#}")));
+                }
+            }
+        }
+    }
+
+    let handle = match handle {
+        Some(h) => h,
+        None => {
+            lock(&state).server_starting = false;
+            return Err(BridgeError::Upstream(anyhow::anyhow!(
+                "Server failed to start after retry"
+            )));
+        }
+    };
+
+    let local_port = handle
+        .local_addresses()
+        .first()
+        .map(|a| a.port())
+        .unwrap_or(port);
+
+    let save_dir = lock(&state).save_dir.clone();
+
+    // 服务器事件循环：收 ServerEventV2 → 适配 → apply 状态变更 → 发送桥接事件
+    let state_for_spawn = state.clone();
+    let event_loop = {
+        let event_tx = event_tx.clone();
+        tokio::spawn(async move {
+            while let Some(event) = event_rx.recv().await {
+                let (bridge_event, actions) = adapt_server_event(event);
+                {
+                    let mut s = lock(&state_for_spawn);
+                    apply_actions(&mut s, actions);
+                }
+
+                // 会话终态（结束/中止/对方取消）后关闭该会话未消费的预注册 fd，
+                // 避免已注册但从未开始上传的文件描述符泄漏
+                if let Some(ev) = &bridge_event {
+                    let terminal_sid: Option<String> = match ev {
+                        BridgeEvent::SessionEnd { session_id, .. }
+                        | BridgeEvent::PrepareUploadAborted { session_id }
+                        | BridgeEvent::CancelReceived { session_id, .. } => {
+                            Some(session_id.clone())
+                        }
+                        _ => None,
+                    };
+                    if let Some(sid) = terminal_sid {
+                        close_unconsumed_recv_fds(&state_for_spawn, &sid);
+                    }
+                }
+
+                // FileUpload 自动保存应答（使用 state 中存储的 target_tx）
+                if let Some(BridgeEvent::FileUpload {
+                    session_id,
+                    file_id,
+                    file_name,
+                    size,
+                }) = &bridge_event
+                {
+                    handle_file_upload(
+                        &state_for_spawn,
+                        session_id,
+                        file_id,
+                        file_name,
+                        *size,
+                        &save_dir,
+                        &event_tx,
+                    )
+                    .await;
+                }
+
+                if let Some(ev) = bridge_event {
+                    send_event(&event_tx, ev).await;
+                }
+            }
+            log::debug!("服务事件循环任务已结束");
+        })
+    };
+
+    // InternalEvent 监听（show 端点）
+    if let Some(mut internal_event_rx) = internal_event_rx_option {
+        tokio::spawn(async move {
+            while let Some(event) = internal_event_rx.recv().await {
+                match event {
+                    InternalEvent::Show { args } => {
+                        log::debug!("收到展示请求，参数: {:?}", args);
+                    }
+                }
+            }
+        });
+    }
+
+    {
+        let mut s = lock(&state);
+        s.server_handle = Some(handle);
+        s.server_starting = false;
+        s.server_stop_tx = Some(current_stop_tx);
+        s.server_event_task = Some(event_loop);
+        s.local_port = local_port;
+        s.use_https = use_https;
+        s.verify_checksums = verify_checksums;
+        s.receive_pin = pin.clone();
+        // 注册成功打点：排查端口占用/意外注册类问题的关键线索
+        log::info!("服务已注册端口 {}", local_port);
+    }
+
+    // 推送 ServerStarted 事件（关键事件）
+    send_event(&event_tx, BridgeEvent::ServerStarted { port: local_port }).await;
+
+    Ok(local_port)
+}
+
+/// 处理 FileUpload：取回存储的 target_tx，应答直写目标（预注册 fd 优先），跟踪进度。
+///
+/// 目标选择规则（无沙箱回退）：
+/// - ArkTS 已在 respondTransfer 前经 register_recv_file_fd 预注册该文件 → `Fd` 直写最终位置；
+/// - 未预注册（异常时序/目标准备失败被拒绝的会话残留）→ 丢弃 target_tx 使上传失败，不落沙箱。
+async fn handle_file_upload(
+    state: &Mutex<BridgeState>,
+    session_id: &str,
+    file_id: &str,
+    file_name: &str,
+    size: u64,
+    save_dir: &str,
+    event_tx: &Option<mpsc::Sender<BridgeEvent>>,
+) {
+    let target_tx = {
+        let mut s = lock(state);
+        s.pending_file_uploads
+            .remove(&(session_id.to_string(), file_id.to_string()))
+    };
+    let Some(target_tx) = target_tx else {
+        log::warn!(
+            "FileUpload: 会话无待处理目标 session={} file={}",
+            session_id,
+            file_id
+        );
+        return;
+    };
+
+    let (progress_tx, mut progress_rx) = mpsc::channel::<u64>(16);
+    let (result_tx, result_rx) = oneshot::channel();
+
+    // ohos/android 生产路径：只消费预注册 fd 直写目标，无沙箱回退；
+    // 其他宿主（如桌面测试构建）不存在 Fd 变体，保留原沙箱 Path 行为以便编译与单测。
+    #[cfg(any(target_os = "android", all(target_os = "linux", target_env = "ohos")))]
+    let target = {
+        // 消费预注册的直写目标（若存在）；未注册则丢弃 target_tx 让本次上传失败
+        let registered = lock(state)
+            .recv_target_fds
+            .remove(&(session_id.to_string(), file_id.to_string()));
+        match registered {
+            Some(recv_fd) => {
+                log::debug!(
+                    "recv: fd 直接保存 session={} file={} path={}",
+                    session_id,
+                    file_id,
+                    recv_fd.path
+                );
+                // fd 所有权随 from_raw_fd 移交，写入完成后关闭
+                localsend::http::server::common::save::FileUploadTarget::Fd {
+                    fd: recv_fd.fd,
+                    result_tx,
+                    progress_tx: Some(progress_tx),
+                }
+            }
+            None => {
+                log::warn!(
+                    "FileUpload: 会话无已注册目标 fd session={} file={}，上传失败（无沙箱回退）",
+                    session_id,
+                    file_id
+                );
+                drop(target_tx);
+                return;
+            }
+        }
+    };
+    #[cfg(not(any(target_os = "android", all(target_os = "linux", target_env = "ohos"))))]
+    let target = {
+        // 非 ohos/android 宿主：fallback 到沙箱路径写入（仅测试/桌面构建使用）；
+        // 文件名先消毒，避免路径穿越写出到保存目录之外
+        let safe_name = crate::bridge::identity::sanitize_file_name(file_name.to_string());
+        let save_path = format!("{}{}", save_dir, safe_name);
+        log::debug!("recv: save_path={}", save_path);
+        localsend::http::server::common::save::FileUploadTarget::Path {
+            path: std::path::PathBuf::from(&save_path),
+            result_tx,
+            progress_tx: Some(progress_tx),
+        }
+    };
+    if let Err(_returned) = target_tx.send(target) {
+        // 接收端已丢弃时关闭随目标退回的句柄，避免泄漏
+        #[cfg(any(target_os = "android", all(target_os = "linux", target_env = "ohos")))]
+        if let localsend::http::server::common::save::FileUploadTarget::Fd { fd, .. } = _returned {
+            let _ = unsafe { std::fs::File::from_raw_fd(fd) };
+        }
+    }
+
+    let sid = session_id.to_string();
+    let fid = file_id.to_string();
+    let total = size;
+    // ohos 生产路径不使用 file_name/save_dir（非 ohos 宿主回退分支使用），
+    // 此处兜底避免未使用警告
+    let _ = file_name;
+    let _ = save_dir;
+
+    // 流式进度：钳制上报不超过 total-1，100% 仅由结果跟踪任务上报
+    let event_tx_progress = event_tx.clone();
+    let sid_progress = sid.clone();
+    let fid_progress = fid.clone();
+    tokio::spawn(async move {
+        let mut last_reported: u64 = 0;
+        // 20ms 时间节流：距上次推送不足 20ms 的消息跳过；
+        // 100% 完成事件由下方结果跟踪任务发送，不受此节流限制
+        let mut throttle = ProgressThrottle::new();
+        while let Some(bytes_written) = progress_rx.recv().await {
+            let reported = if total > 0 {
+                bytes_written.min(total - 1)
+            } else {
+                0
+            };
+            last_reported = reported;
+            if !throttle.allow(std::time::Instant::now()) {
+                continue;
+            }
+            let progress = if total > 0 {
+                reported as f64 / total as f64
+            } else {
+                0.0
+            };
+            send_event(
+                &event_tx_progress,
+                BridgeEvent::UploadProgress {
+                    session_id: sid_progress.clone(),
+                    file_id: fid_progress.clone(),
+                    direction: "recv".to_string(),
+                    progress,
+                    speed: 0.0,
+                },
+            )
+            .await;
+        }
+        log::debug!(
+            "recv-progress: 流已结束 session={} file={} last={}/{}",
+            sid_progress,
+            fid_progress,
+            last_reported,
+            total
+        );
+    });
+
+    // 结果跟踪：写入成功才上报 100%
+    let event_tx_result = event_tx.clone();
+    tokio::spawn(async move {
+        match result_rx.await {
+            Ok(Ok(())) => {
+                send_event(
+                    &event_tx_result,
+                    BridgeEvent::UploadProgress {
+                        session_id: sid.clone(),
+                        file_id: fid.clone(),
+                        direction: "recv".to_string(),
+                        progress: 1.0,
+                        speed: 0.0,
+                    },
+                )
+                .await;
+                log::debug!("recv-progress: 文件保存成功 session={} file={}", sid, fid);
+            }
+            Ok(Err(err)) => {
+                log::error!(
+                    "recv-progress: 文件保存失败 session={} file={} error={}",
+                    sid,
+                    fid,
+                    err
+                );
+            }
+            Err(_) => {
+                log::debug!("recv-progress: 文件上传已取消 session={} file={}", sid, fid);
+            }
+        }
+    });
+}
+
+/// 停止服务器（幂等，abort 事件循环 task）。
+///
+/// - 未启动时调用幂等返回 Ok
+/// - 清理所有中间状态
+pub fn stop_server(state: &Mutex<BridgeState>) {
+    let mut s = lock(state);
+    if let Some(stop_tx) = s.server_stop_tx.take() {
+        let _ = stop_tx.send(());
+    }
+    if let Some(task) = s.server_event_task.take() {
+        task.abort();
+    }
+    s.server_handle.take();
+    for (_key, cancel) in s.active_transfers.drain() {
+        cancel.cancel();
+    }
+    // 哈希任务同样取消，避免停止后进度继续上报
+    for (_key, token) in s.cancel_tokens.drain() {
+        token.cancel();
+    }
+    lock(&s.pending_requests).clear();
+    s.pending_decisions.clear();
+    s.web_send_event_tx.take();
+    clear_web_send_files(&s.web_send_files);
+    s.web_download_decisions.clear();
+    s.pending_file_uploads.clear();
+    s.pending_file_downloads.clear();
+    // 服务器停止：关闭所有尚未消费的接收直写 fd
+    for (_key, recv_fd) in s.recv_target_fds.drain() {
+        let _ = unsafe { std::fs::File::from_raw_fd(recv_fd.fd) };
+    }
+    s.session_peers.clear();
+}
+
+// ── 传输决策（两阶段交互）────────────────────────────────────────────
+
+/// 接受传输——取出 pending decision 并发送 Accept 决策。
+///
+/// 会话已被清理（用户未响应时对方取消）时返回 `BridgeError::SessionExpired`。
+pub fn accept_transfer(
+    state: &Mutex<BridgeState>,
+    session_id: &str,
+    file_ids: &[String],
+) -> Result<(), BridgeError> {
+    let mut s = lock(state);
+    if let Some(sender) = s.pending_decisions.remove(session_id) {
+        let file_set: std::collections::HashSet<String> = file_ids.iter().cloned().collect();
+        let decision = localsend::http::server::v2::PrepareUploadDecisionV2::Accept(file_set);
+        let _ = sender.send(decision);
+        lock(&s.pending_requests).retain(|r| r.session_id != session_id);
+        Ok(())
+    } else {
+        Err(BridgeError::SessionExpired(session_id.to_string()))
+    }
+}
+
+/// 拒绝传输——取出 pending decision 并发送 Decline 决策。
+///
+/// 会话已被清理时返回 `BridgeError::SessionExpired`。
+pub fn decline_transfer(state: &Mutex<BridgeState>, session_id: &str) -> Result<(), BridgeError> {
+    let mut s = lock(state);
+    if let Some(sender) = s.pending_decisions.remove(session_id) {
+        let decision = localsend::http::server::v2::PrepareUploadDecisionV2::Decline;
+        let _ = sender.send(decision);
+        lock(&s.pending_requests).retain(|r| r.session_id != session_id);
+        Ok(())
+    } else {
+        Err(BridgeError::SessionExpired(session_id.to_string()))
+    }
+}
+
+/// 将待处理的文件上传标记为失败（丢弃发送端导致 500 响应）。
+pub fn fail_file_upload(
+    state: &Mutex<BridgeState>,
+    session_id: &str,
+    file_id: &str,
+) -> Result<(), BridgeError> {
+    let mut s = lock(state);
+
+    if s.pending_file_uploads
+        .remove(&(session_id.to_string(), file_id.to_string()))
+        .is_some()
+    {
+        return Ok(());
+    }
+
+    // 无待处理项时仅报错，不做任何副作用：
+    // 会话级取消由 cancel_local_session 负责（取消令牌 + 清理 + /cancel），
+    // 单文件失败请求不应暗中取消整个会话的进行中传输。
+    Err(BridgeError::SessionExpired(format!(
+        "无待处理的文件上传 session={}, file={}",
+        session_id, file_id
+    )))
+}
+
+/// 预注册接收文件的直写目标 fd（ArkTS 侧在 respondTransfer 前逐文件调用）。
+///
+/// 注册后 fd 所有权移交 Rust：FileUpload 到达时经 `from_raw_fd` 消费并关闭；
+/// 若该文件最终未上传（拒绝/会话取消/发送方中止），由会话终态清理关闭。
+pub fn register_recv_file_fd(
+    state: &Mutex<BridgeState>,
+    session_id: &str,
+    file_id: &str,
+    fd: i32,
+    path: &str,
+) -> Result<(), BridgeError> {
+    if fd < 0 {
+        return Err(BridgeError::InvalidArgument("接收句柄无效".to_string()));
+    }
+    let mut s = lock(state);
+    // 覆盖注册前关闭旧句柄，避免泄漏
+    if let Some(old) = s
+        .recv_target_fds
+        .remove(&(session_id.to_string(), file_id.to_string()))
+    {
+        let _ = unsafe { std::fs::File::from_raw_fd(old.fd) };
+    }
+    s.recv_target_fds.insert(
+        (session_id.to_string(), file_id.to_string()),
+        crate::bridge::state::RecvTargetFd {
+            fd,
+            path: path.to_string(),
+        },
+    );
+    Ok(())
+}
+
+/// 关闭某个会话名下尚未被消费的预注册 fd（会话终态清理用）。
+///
+/// 已消费（handle_file_upload 取出并写入）的 fd 由写入完成路径关闭，
+/// 此处只处理遗留项，避免 fd 泄漏。
+pub fn close_unconsumed_recv_fds(state: &Mutex<BridgeState>, session_id: &str) {
+    let keys: Vec<(String, String)> = {
+        let s = lock(state);
+        s.recv_target_fds
+            .keys()
+            .filter(|(sid, _)| sid == session_id)
+            .cloned()
+            .collect()
+    };
+    for key in keys {
+        let entry = lock(state).recv_target_fds.remove(&key);
+        if let Some(recv_fd) = entry {
+            // 将裸 fd 包装进 File 并立即释放即完成关闭（不依赖 libc/nix）
+            let _ = unsafe { std::fs::File::from_raw_fd(recv_fd.fd) };
+        }
+    }
+}
+
+/// 丢弃某个会话已注册但尚未开始上传的直写目标（respond 失败/回滚时由 ArkTS 调用）。
+///
+/// 与 [`close_unconsumed_recv_fds`] 等价，提供独立 NAPI 入口供回滚路径使用。
+pub fn discard_recv_file_fds(state: &Mutex<BridgeState>, session_id: &str) {
+    close_unconsumed_recv_fds(state, session_id);
+}
+
+// ── 服务器状态与查询 ────────────────────────────────────────────────────
+
+/// 获取服务器状态 JSON（{"running", "activeSession", "fingerprint"}）。
+pub fn get_server_status(state: &BridgeState) -> String {
+    let running = state.server_handle.is_some();
+    let fingerprint = state.fingerprint.clone();
+    let active_session = {
+        let reqs = lock(&state.pending_requests);
+        reqs.first().map(|r| r.session_id.clone())
+    };
+
+    json!({
+        "running": running,
+        "activeSession": active_session,
+        "fingerprint": fingerprint,
+    })
+    .to_string()
+}
+
+/// 获取当前发送会话 ID。
+pub fn get_current_send_session_id(state: &BridgeState) -> String {
+    let sid = lock(&state.current_send_session_id);
+    sid.clone()
+}
+
+/// 轮询待处理请求。
+pub fn poll_pending_requests(state: &BridgeState) -> Vec<PendingRequest> {
+    let reqs = lock(&state.pending_requests);
+    reqs.clone()
+}
+
+/// 取消本地会话——触发取消令牌、清理中间状态、向发送方发 /cancel（尽力而为）。
+/// 后台投递与 /cancel 请求均 spawn 到全局 runtime，不临时建线程与 runtime。
+pub fn cancel_local_session(
+    runtime: &tokio::runtime::Runtime,
+    state: &Mutex<BridgeState>,
+    session_id: &str,
+) {
+    let event_tx;
+    let peer_info = {
+        let s = lock(state);
+        if let Some(cancel) = s.active_transfers.get(session_id) {
+            cancel.cancel();
+        }
+        drop(s);
+
+        let mut s = lock(state);
+        s.active_transfers.remove(session_id);
+        lock(&s.pending_requests).retain(|r| r.session_id != session_id);
+        s.pending_decisions.remove(session_id);
+
+        // 清理待处理文件上传目标——使未开始的上传返回 500
+        let keys_to_remove: Vec<(String, String)> = s
+            .pending_file_uploads
+            .keys()
+            .filter(|(sid, _)| sid == session_id)
+            .cloned()
+            .collect();
+        for k in keys_to_remove {
+            s.pending_file_uploads.remove(&k);
+        }
+
+        let peer = s.session_peers.remove(session_id);
+        let cert_pem = s.cert_pem.clone();
+        let key_pem = s.key_pem.clone();
+        event_tx = s.event_tx.clone();
+
+        peer.map(|(ip, port, protocol)| (ip, port, protocol, cert_pem, key_pem))
+    };
+
+    // 关键事件（会话终态）尽力投递：channel 满时转后台阻塞发送，
+    // 不能像进度事件那样静默丢弃，否则 UI 永远收不到取消终态
+    if let Some(event_tx) = event_tx {
+        let sid = session_id.to_string();
+        let ev = BridgeEvent::SessionEnd {
+            session_id: sid.clone(),
+            reason: crate::bridge::event::SessionEndReason::Cancelled,
+        };
+        if event_tx.try_send(ev).is_err() {
+            runtime.spawn(async move {
+                let _ = event_tx
+                    .send(BridgeEvent::SessionEnd {
+                        session_id: sid,
+                        reason: crate::bridge::event::SessionEndReason::Cancelled,
+                    })
+                    .await;
+            });
+        }
+    }
+
+    // 取消会话：关闭该会话已注册但未消费的直写 fd
+    close_unconsumed_recv_fds(state, session_id);
+
+    // 向发送方发送 /cancel 请求（尽力而为）
+    if let Some((peer_ip, peer_port, peer_protocol, cert_pem, key_pem)) = peer_info {
+        let sid = session_id.to_string();
+        runtime.spawn(async move {
+            let client = match localsend::http::client::LsHttpClient::new(
+                &key_pem,
+                &cert_pem,
+                localsend::http::client::LsHttpClientVersion::V2,
+                None,
+                Some(std::time::Duration::from_secs(5)),
+            ) {
+                Ok(c) => c,
+                Err(_) => return,
+            };
+            let _ = client
+                .cancel(peer_protocol, &peer_ip, peer_port, &sid)
+                .await;
+            log::debug!(
+                "cancel-local-session: 已向发送方 {}:{} 发送 /cancel，session={}",
+                peer_ip,
+                peer_port,
+                sid
+            );
+        });
+    }
+}
+
+// ── 高级 API ──────────────────────────────────────────────────────────
+
+/// 从 JSON 配置创建服务器（含身份初始化）。
+pub async fn create_server(
+    state: Arc<Mutex<BridgeState>>,
+    config_json: &str,
+) -> Result<String, BridgeError> {
+    let config: Value = serde_json::from_str(config_json)
+        .map_err(|e| BridgeError::InvalidArgument(format!("配置 JSON 解析失败: {e}")))?;
+
+    let alias = config::str_field(&config, "alias", "HarmonyOS")?;
+    let device_type_str = config::str_field(&config, "deviceType", "mobile")?;
+    let device_model = config::str_field(&config, "deviceModel", "HarmonyOS")?;
+    let port = config::u16_field(&config, "port", 53317)?;
+    let use_https = config::bool_field(&config, "useHttps", true)?;
+    let pin = config::opt_str_field(&config, "pin")?;
+    let verify_checksums = config::bool_field(&config, "verifyChecksums", true)?;
+    let save_dir = config::str_field(&config, "saveDir", "")?;
+    let show_token = config::opt_str_field(&config, "showToken")?;
+
+    log::debug!(
+        "create_server: alias={} use_https={} port={} save_dir={}",
+        alias,
+        use_https,
+        port,
+        save_dir
+    );
+
+    identity::init_with_persisted_identity(
+        &state,
+        alias.clone(),
+        identity::parse_device_type(&device_type_str),
+        &save_dir,
+    )?;
+
+    {
+        let mut s = lock(&state);
+        if !device_model.is_empty() {
+            s.device_model = device_model;
+        }
+        // 先设置 save_dir/verify_checksums 再启动服务器：
+        // 服务器事件循环在启动时捕获 state.save_dir（handle_file_upload
+        // 拼接保存路径），若在 start_server 之后才设置会捕获到空值，
+        // 导致接收文件写入错误路径。
+        // 空 saveDir 保持为空（不得补成 "/"，否则接收文件会写到根目录）；
+        // 非空时统一补尾斜杠，供 handle_file_upload 直接拼接文件名
+        if !save_dir.is_empty() && !save_dir.ends_with('/') {
+            s.save_dir = save_dir + "/";
+        } else {
+            s.save_dir = save_dir;
+        }
+        s.verify_checksums = verify_checksums;
+    }
+
+    start_server(
+        state.clone(),
+        port,
+        use_https,
+        verify_checksums,
+        pin,
+        None,
+        show_token,
+    )
+    .await?;
+
+    let (fingerprint, actual_port) = {
+        let s = lock(&state);
+        (s.fingerprint.clone(), s.local_port)
+    };
+
+    Ok(json!({
+        "fingerprint": fingerprint,
+        "port": actual_port,
+    })
+    .to_string())
+}
+
+// ── 单元测试 ────────────────────────────────────────────────────────────
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::bridge::state::PendingFile;
+    // 该导入仅被 Android / OHOS 专属用例引用，需与用例 cfg 保持一致，避免其他平台报未使用导入
+    #[cfg(any(target_os = "android", all(target_os = "linux", target_env = "ohos")))]
+    use crate::bridge::state::RecvTargetFd;
+
+    fn new_state_with_event_tx() -> (Arc<Mutex<BridgeState>>, mpsc::Receiver<BridgeEvent>) {
+        let (event_tx, event_rx) = mpsc::channel::<BridgeEvent>(64);
+        let state = Arc::new(Mutex::new(BridgeState::new()));
+        lock(&state).event_tx = Some(event_tx);
+        (state, event_rx)
+    }
+
+    #[test]
+    fn test_start_server_twice_returns_already_running() {
+        // 真实启动验证（port 0 → OS 分配，零外部网络依赖），
+        // 覆盖 start_server 重复启动 → AlreadyRunning 的幂等语义。
+        let state = Arc::new(Mutex::new(BridgeState::new()));
+        identity::init_with_persisted_identity(
+            &state,
+            "HandySend-Test".to_string(),
+            localsend::model::discovery::DeviceType::Mobile,
+            "",
+        )
+        .unwrap();
+
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        rt.block_on(async {
+            let port = start_server(state.clone(), 0, false, true, None, None, None)
+                .await
+                .expect("首次启动失败");
+            assert!(port > 0);
+
+            // 重复启动 → AlreadyRunning
+            let err = start_server(state.clone(), 0, false, true, None, None, None)
+                .await
+                .expect_err("重复启动应返回 AlreadyRunning");
+            assert!(matches!(err, BridgeError::AlreadyRunning));
+
+            // stop 后重新启动成功（快速 stop→start 无残留）
+            stop_server(&state);
+            let port2 = start_server(state.clone(), 0, false, true, None, None, None)
+                .await
+                .expect("stop 后重新启动失败");
+            assert!(port2 > 0);
+
+            stop_server(&state);
+        });
+    }
+
+    #[test]
+    fn test_stop_server_idempotent() {
+        let state = Mutex::new(BridgeState::new());
+        // 未启动时调用 stop_server 应幂等返回 Ok（不 panic）
+        stop_server(&state);
+        stop_server(&state);
+    }
+
+    #[test]
+    fn test_stop_server_clears_state() {
+        let mut bs = BridgeState::new();
+        let cancel = tokio_util::sync::CancellationToken::new();
+        bs.active_transfers
+            .insert("transfer-1".to_string(), cancel.clone());
+        let state = Mutex::new(bs);
+
+        stop_server(&state);
+
+        let s = state.lock().unwrap();
+        assert!(s.server_handle.is_none());
+        assert!(s.server_stop_tx.is_none());
+        assert!(s.server_event_task.is_none());
+        assert!(s.active_transfers.is_empty());
+        assert!(s.pending_decisions.is_empty());
+        assert!(cancel.is_cancelled(), "活跃传输的取消令牌应被触发");
+    }
+
+    #[test]
+    fn test_accept_transfer_no_pending_decision_returns_session_expired() {
+        let state = Mutex::new(BridgeState::new());
+        let result = accept_transfer(&state, "nonexistent", &[]);
+        assert!(matches!(result, Err(BridgeError::SessionExpired(_))));
+    }
+
+    #[test]
+    fn test_decline_transfer_no_pending_decision_returns_session_expired() {
+        let state = Mutex::new(BridgeState::new());
+        let result = decline_transfer(&state, "nonexistent");
+        assert!(matches!(result, Err(BridgeError::SessionExpired(_))));
+    }
+
+    #[test]
+    fn test_accept_transfer_with_pending_decision() {
+        let state = Mutex::new(BridgeState::new());
+        let (tx, mut rx) = oneshot::channel();
+        {
+            let mut s = state.lock().unwrap();
+            s.pending_decisions.insert("session-1".to_string(), tx);
+        }
+
+        let result = accept_transfer(&state, "session-1", &["file-a".to_string()]);
+        assert!(result.is_ok());
+
+        let decision = rx.try_recv().unwrap();
+        match decision {
+            localsend::http::server::v2::PrepareUploadDecisionV2::Accept(ids) => {
+                assert!(ids.contains("file-a"));
+            }
+            localsend::http::server::v2::PrepareUploadDecisionV2::Decline => panic!("期望 Accept"),
+        }
+    }
+
+    #[test]
+    fn test_decline_transfer_with_pending_decision() {
+        let state = Mutex::new(BridgeState::new());
+        let (tx, mut rx) = oneshot::channel();
+        {
+            let mut s = state.lock().unwrap();
+            s.pending_decisions.insert("session-2".to_string(), tx);
+        }
+
+        let result = decline_transfer(&state, "session-2");
+        assert!(result.is_ok());
+
+        let decision = rx.try_recv().unwrap();
+        assert!(matches!(
+            decision,
+            localsend::http::server::v2::PrepareUploadDecisionV2::Decline
+        ));
+    }
+
+    #[test]
+    fn test_accept_transfer_removes_pending_request() {
+        let state = Mutex::new(BridgeState::new());
+        let (tx, _rx) = oneshot::channel();
+        {
+            let mut s = state.lock().unwrap();
+            s.pending_decisions.insert("s".to_string(), tx);
+            s.pending_requests.lock().unwrap().push(PendingRequest {
+                session_id: "s".to_string(),
+                sender_alias: "A".to_string(),
+                sender_fingerprint: "fp".to_string(),
+                sender_protocol: "https".to_string(),
+                files: vec![PendingFile {
+                    file_id: "f1".to_string(),
+                    file_name: "a.txt".to_string(),
+                    size: 10,
+                    file_type: "text/plain".to_string(),
+                    preview: None,
+                    sha256: None,
+                }],
+            });
+        }
+
+        accept_transfer(&state, "s", &[]).unwrap();
+        assert!(state
+            .lock()
+            .unwrap()
+            .pending_requests
+            .lock()
+            .unwrap()
+            .is_empty());
+        assert!(state.lock().unwrap().pending_decisions.is_empty());
+    }
+
+    #[test]
+    fn test_get_server_status_not_running() {
+        let state = BridgeState::new();
+        let status = get_server_status(&state);
+        let parsed: Value = serde_json::from_str(&status).unwrap();
+        assert!(!parsed["running"].as_bool().unwrap());
+        assert_eq!(parsed["fingerprint"], "");
+    }
+
+    #[test]
+    fn test_get_current_send_session_id_default() {
+        let state = BridgeState::new();
+        let sid = get_current_send_session_id(&state);
+        assert!(sid.is_empty());
+    }
+
+    #[test]
+    fn test_poll_pending_requests_empty() {
+        let state = BridgeState::new();
+        assert!(poll_pending_requests(&state).is_empty());
+    }
+
+    #[test]
+    fn test_cancel_local_session_cleans_state() {
+        let (state, mut event_rx) = new_state_with_event_tx();
+        {
+            let mut s = state.lock().unwrap();
+            s.session_peers.insert(
+                "s".to_string(),
+                (
+                    "192.168.1.5".to_string(),
+                    53317,
+                    localsend::model::discovery::ProtocolType::Https,
+                ),
+            );
+        }
+
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        cancel_local_session(&rt, &state, "s");
+
+        let s = state.lock().unwrap();
+        assert!(s.session_peers.is_empty());
+        // 应推送 SessionEnd(Cancelled) 事件
+        let ev = event_rx.try_recv().unwrap();
+        assert!(matches!(
+            ev,
+            BridgeEvent::SessionEnd {
+                reason: crate::bridge::event::SessionEndReason::Cancelled,
+                ..
+            }
+        ));
+    }
+
+    #[test]
+    fn test_cancel_local_session_nonexistent_no_panic() {
+        let state = Mutex::new(BridgeState::new());
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        cancel_local_session(&rt, &state, "nonexistent");
+    }
+
+    #[test]
+    fn test_create_server_invalid_json() {
+        let state = Arc::new(Mutex::new(BridgeState::new()));
+        let result = tokio::runtime::Runtime::new()
+            .unwrap()
+            .block_on(async { create_server(state, "not json").await });
+        assert!(result.is_err());
+    }
+
+    // ── 文件上传失败决策测试 ──
+
+    #[test]
+    fn test_fail_file_upload_drops_pending() {
+        let state = Mutex::new(BridgeState::new());
+        let (tx, mut rx) =
+            oneshot::channel::<localsend::http::server::common::save::FileUploadTarget>();
+        {
+            let mut s = state.lock().unwrap();
+            s.pending_file_uploads
+                .insert(("s-1".to_string(), "f-1".to_string()), tx);
+        }
+        fail_file_upload(&state, "s-1", "f-1").unwrap();
+        assert!(rx.try_recv().is_err());
+        assert!(state.lock().unwrap().pending_file_uploads.is_empty());
+    }
+
+    #[test]
+    fn test_fail_file_upload_no_pending_errors() {
+        let state = Mutex::new(BridgeState::new());
+        let result = fail_file_upload(&state, "s-none", "f-none");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_fail_file_upload_no_pending_keeps_active_transfer() {
+        let mut bs = BridgeState::new();
+        let cancel = tokio_util::sync::CancellationToken::new();
+        bs.active_transfers
+            .insert("s-1".to_string(), cancel.clone());
+        let state = Mutex::new(bs);
+
+        let result = fail_file_upload(&state, "s-1", "f-other");
+        assert!(result.is_err());
+        assert!(!cancel.is_cancelled(), "单文件失败不应取消会话的活跃传输");
+    }
+
+    // ── 接收进度节流测试 ──
+    // 纯节流逻辑测试见 bridge/throttle.rs；此处保留跨层集成测试
+
+    #[test]
+    #[cfg(any(target_os = "android", all(target_os = "linux", target_env = "ohos")))]
+    fn test_handle_file_upload_throttles_progress_but_not_completion() {
+        // 行为级验证（真实时钟）：高频进度消息下跨层中间进度事件数
+        // 远小于消息数；结果跟踪任务的 100% 完成事件不经过节流器、
+        // 必然送达
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        rt.block_on(async {
+            let (state, mut event_rx) = new_state_with_event_tx();
+            let (target_tx, target_rx) = oneshot::channel();
+            {
+                let mut s = state.lock().unwrap();
+                s.pending_file_uploads
+                    .insert(("s-th".to_string(), "f-th".to_string()), target_tx);
+            }
+
+            // 注册一个真实文件的写 fd（直写目标），驱动 handle_file_upload 走 Fd 分支
+            let tmp_path =
+                std::env::temp_dir().join(format!("handysend-throttle-{}.bin", std::process::id()));
+            let tmp_file = std::fs::File::create(&tmp_path).unwrap();
+            let raw_fd = std::os::fd::IntoRawFd::into_raw_fd(tmp_file);
+            {
+                let mut s = state.lock().unwrap();
+                s.recv_target_fds.insert(
+                    ("s-th".to_string(), "f-th".to_string()),
+                    RecvTargetFd {
+                        fd: raw_fd,
+                        path: tmp_path.display().to_string(),
+                    },
+                );
+            }
+
+            // 不解构 Fd 写盘，仅驱动 handle_file_upload 创建的
+            // progress/result 通道，模拟上游写盘行为
+            let save_dir = format!("{}/handysend-throttle/", std::env::temp_dir().display());
+            let event_tx = state.lock().unwrap().event_tx.clone();
+            handle_file_upload(
+                &state, "s-th", "f-th", "th.bin", 3_200_000, &save_dir, &event_tx,
+            )
+            .await;
+
+            let target = target_rx.await.expect("应收到 FileUploadTarget");
+            let localsend::http::server::common::save::FileUploadTarget::Fd {
+                fd,
+                result_tx,
+                progress_tx,
+                ..
+            } = target
+            else {
+                panic!("应为 Fd 变体");
+            };
+            // 测试不再写盘：回收 fd（包装进 File 即关闭）并清理临时文件
+            let _ = unsafe { std::fs::File::from_raw_fd(fd) };
+            let _ = std::fs::remove_file(&tmp_path);
+            let progress_tx = progress_tx.expect("应携带进度通道");
+
+            // 高频进度消息（send().await 保证全部送达消费端）
+            const MSG_COUNT: u64 = 200;
+            for i in 1..=MSG_COUNT {
+                let bytes = i * 16 * 1024;
+                progress_tx.send(bytes).await.expect("进度消息应被消费");
+            }
+            drop(progress_tx);
+            result_tx.send(Ok(())).expect("应报告写盘成功");
+
+            // 收集事件直到 100% 完成事件到达
+            let mut intermediate = 0usize;
+            let mut completion = false;
+            while let Some(ev) = event_rx.recv().await {
+                if let BridgeEvent::UploadProgress { progress, .. } = ev {
+                    if progress >= 1.0 {
+                        completion = true;
+                        break;
+                    } else {
+                        intermediate += 1;
+                    }
+                }
+            }
+            assert!(completion, "100% 完成事件必须不受节流限制、及时送达");
+            assert!(
+                intermediate * 10 < MSG_COUNT as usize,
+                "高频进度消息下推送的中间进度事件应远小于消息数，实际 {intermediate}/{MSG_COUNT}"
+            );
+        });
+    }
+
+    #[test]
+    fn test_register_recv_file_fd_rejects_negative_fd() {
+        // 非法句柄直接报错，不进入登记表
+        let state = Mutex::new(BridgeState::new());
+        let result = register_recv_file_fd(&state, "s-neg", "f-neg", -1, "/tmp/target.bin");
+        assert!(matches!(result, Err(BridgeError::InvalidArgument(_))));
+        assert!(state.lock().unwrap().recv_target_fds.is_empty());
+    }
+
+    #[test]
+    fn test_register_and_discard_recv_fd() {
+        // fd 注册表生命周期：注册后存在，discard 时关闭未消费 fd 并清空
+        let state = Mutex::new(BridgeState::new());
+        let tmp = std::env::temp_dir().join(format!("handysend-fdreg-{}.bin", std::process::id()));
+        let file = std::fs::File::create(&tmp).unwrap();
+        let raw_fd = std::os::fd::IntoRawFd::into_raw_fd(file);
+        register_recv_file_fd(&state, "s-fd", "f-fd", raw_fd, "/tmp/target.bin").unwrap();
+        assert!(state
+            .lock()
+            .unwrap()
+            .recv_target_fds
+            .contains_key(&("s-fd".to_string(), "f-fd".to_string())));
+        discard_recv_file_fds(&state, "s-fd");
+        assert!(state.lock().unwrap().recv_target_fds.is_empty());
+        let _ = std::fs::remove_file(&tmp);
+    }
+
+    #[test]
+    #[cfg(any(target_os = "android", all(target_os = "linux", target_env = "ohos")))]
+    fn test_handle_file_upload_without_registered_fd_fails() {
+        // 未预注册直写 fd 的文件上传应按失败处理：target_tx 被丢弃、无 Path 落盘回退
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        rt.block_on(async {
+            let (state, _event_rx) = new_state_with_event_tx();
+            let (target_tx, mut target_rx) = oneshot::channel();
+            {
+                let mut s = state.lock().unwrap();
+                s.pending_file_uploads
+                    .insert(("s-nofd".to_string(), "f-nofd".to_string()), target_tx);
+            }
+            let event_tx = state.lock().unwrap().event_tx.clone();
+            handle_file_upload(
+                &state,
+                "s-nofd",
+                "f-nofd",
+                "x.bin",
+                100,
+                "/tmp/unused/",
+                &event_tx,
+            )
+            .await;
+            // 未注册 fd：target_tx 应被丢弃（无 Path/Fd 应答），上传方收 RecvError
+            let result = target_rx.try_recv();
+            assert!(result.is_err(), "应无 FileUploadTarget 应答（失败路径）");
+        });
+    }
+}

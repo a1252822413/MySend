@@ -1,0 +1,11 @@
+{
+  "modelVersion": "26.0.0",
+  "name": "localsend-harmonynext",
+  "version": "0.1.0",
+  "description": "LocalSend client for HarmonyOS NEXT (pure ArkTS, protocol v2.2).",
+  "main": "",
+  "author": "localsendnext",
+  "license": "Apache-2.0",
+  "dependencies": {},
+  "devDependencies": {}
+}

@@ -1,0 +1,68 @@
+{
+  "routerMap": [
+    {
+      "name": "ShareLinkPage",
+      "pageSourceFile": "src/main/ets/pages/ShareLinkPage.ets",
+      "buildFunction": "ShareLinkPageBuilder",
+      "data": {
+        "description": "分享链接页（含网页接收模式 mode=receive）"
+      }
+    },
+    {
+      "name": "ReceiveHistoryPage",
+      "pageSourceFile": "src/main/ets/pages/ReceiveHistoryPage.ets",
+      "buildFunction": "ReceiveHistoryPageBuilder",
+      "data": {
+        "description": "接收历史页"
+      }
+    },
+    {
+      "name": "TransferCenterPage",
+      "pageSourceFile": "src/main/ets/pages/TransferCenterPage.ets",
+      "buildFunction": "TransferCenterPageBuilder",
+      "data": {
+        "description": "任务（一级页签内容，聚合全部任务与任务历史）"
+      }
+    },
+    {
+      "name": "SessionDetailPage",
+      "pageSourceFile": "src/main/ets/pages/SessionDetailPage.ets",
+      "buildFunction": "SessionDetailPageBuilder",
+      "data": {
+        "description": "唯一通用会话详情页"
+      }
+    },
+    {
+      "name": "TroubleshootPage",
+      "pageSourceFile": "src/main/ets/pages/TroubleshootPage.ets",
+      "buildFunction": "TroubleshootPageBuilder",
+      "data": {
+        "description": "故障排除页"
+      }
+    },
+    {
+      "name": "HttpLogsPage",
+      "pageSourceFile": "src/main/ets/pages/HttpLogsPage.ets",
+      "buildFunction": "HttpLogsPageBuilder",
+      "data": {
+        "description": "诊断日志页"
+      }
+    },
+    {
+      "name": "DeviceDetailsPage",
+      "pageSourceFile": "src/main/ets/pages/DeviceDetailsPage.ets",
+      "buildFunction": "DeviceDetailsPageBuilder",
+      "data": {
+        "description": "设备详情页"
+      }
+    },
+    {
+      "name": "VerifyPage",
+      "pageSourceFile": "src/main/ets/pages/VerifyPage.ets",
+      "buildFunction": "VerifyPageBuilder",
+      "data": {
+        "description": "指纹验证页"
+      }
+    }
+  ]
+}

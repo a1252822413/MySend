@@ -1,0 +1,64 @@
+# Dependencies
+oh_modules/
+node_modules/
+
+# Build output
+build/
+dist/
+.preview/
+**/target/
+
+# IDE & editor
+.idea/
+.vscode/
+.deveco/
+.trae/
+.qoder/
+.opencode/
+.codebuddy/
+.workbuddy/
+.codegenie/
+*.iml
+local.properties
+
+# Hvigor / DevEco build cache
+.hvigor/
+.cache/
+screenshots/
+
+# C++ build artifacts
+.cxx/
+
+# Native library packages
+*.har
+*.hsp
+
+# Language server / analyzer caches
+.clangd
+.appanalyzer/
+
+# Test results
+.test/
+
+# DevEco generated build profile (contains local signing paths)
+/build-profile.json5
+BuildProfile.ets
+
+# Environment variables (contains local paths)
+.env
+
+# SDD workflow
+/spec
+
+# codegraph
+.codegraph
+codegraph.json
+
+# temp file
+temp/
+
+# 预览图生成工具（screenshot-gen）
+tools/screenshot-gen/node_modules/
+tools/screenshot-gen/raw/
+tools/screenshot-gen/raw-smoke/
+tools/screenshot-gen/output/

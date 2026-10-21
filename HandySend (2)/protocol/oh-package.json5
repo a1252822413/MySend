@@ -1,0 +1,12 @@
+{
+  "name": "@lsnext/protocol",
+  "version": "0.1.0",
+  "description": "LocalSend v2.2 wire protocol for HarmonyOS NEXT: DTOs, HTTP/1.1 server+client, mTLS identity, multicast discovery, transfer sessions.",
+  "main": "./src/main/ets/Index.ets",
+  "author": "localsendnext",
+  "license": "Apache-2.0",
+  "dependencies": {},
+  "devDependencies": {
+    "@ohos/hypium": "1.0.21"
+  }
+}
