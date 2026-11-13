@@ -1,0 +1,262 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  快传 · 统一设计令牌（design/unified/tokens.json 的 WinUI 3 落地）
+  来源：design/unified/handoff/DesignTokens.xaml；规范依据 docs/harmonyos-app-design.md:233-236、
+        docs/UI-SPACING.md。PC 与 HarmonyOS 共用同一套语义角色、间距刻度、圆角与字阶。
+
+  规则：
+   1) 三级绿：accent(图形) #16A34A / accentFill(实心按钮) #15803D / accentInk(绿色小字) #0F7A3C。
+      暗色统一提亮派生 #3BE49A。#16A34A + 白字仅 3.30:1，故实心按钮必须用 accentFill。
+   2) 间距只允许 0/4/8/12/16/24/32；圆角 卡12 / 控件8 / 行10 / 胶囊全圆。
+   3) 字阶 22/15/13/12/11，大数字 30。
+   4) 层级靠 1px 描边表达，不使用厚重投影（v1.1 阴影减重）。
+   5) 窗口材质由系统 Mica/Acrylic 与省电/高对比度状态决定，应用内不提供设置项。
+
+  注意：ThemeDictionaries 里成对出现的键必须在 Light / Dark 两边都存在，
+        否则 ThemeResource 解析会抛 XamlParseException（表现为启动即崩）。
+-->
+<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <ResourceDictionary.ThemeDictionaries>
+        <!-- ============================ 浅色 ============================ -->
+        <ResourceDictionary x:Key="Light">
+            <!-- 语义表面与文字 -->
+            <SolidColorBrush x:Key="BrandBgBrush" Color="#F0F3F1"/>
+            <SolidColorBrush x:Key="BrandBgVoidBrush" Color="#EAEEEC"/>
+            <SolidColorBrush x:Key="BrandSurfaceBrush" Color="#FFFFFF"/>
+            <SolidColorBrush x:Key="BrandSurface2Brush" Color="#F1F5F3"/>
+            <SolidColorBrush x:Key="BrandSurface3Brush" Color="#E3EAE7"/>
+            <SolidColorBrush x:Key="BrandSurfaceHiBrush" Color="#FBFDFC"/>
+            <SolidColorBrush x:Key="BrandTextBrush" Color="#0F1614"/>
+            <SolidColorBrush x:Key="BrandTextDimBrush" Color="#55635C"/>
+            <SolidColorBrush x:Key="BrandTextMuteBrush" Color="#6B7A72"/>
+
+            <!-- 品牌三级绿与状态色 -->
+            <SolidColorBrush x:Key="BrandAccentBrush" Color="#16A34A"/>
+            <SolidColorBrush x:Key="BrandAccentFillBrush" Color="#15803D"/>
+            <SolidColorBrush x:Key="BrandAccentInkBrush" Color="#0F7A3C"/>
+            <SolidColorBrush x:Key="BrandOnAccentBrush" Color="#FFFFFF"/>
+            <SolidColorBrush x:Key="BrandAccentSoftBrush" Color="#1A16A34A"/>
+            <SolidColorBrush x:Key="BrandSuccessBrush" Color="#15803D"/>
+            <SolidColorBrush x:Key="BrandWarningBrush" Color="#B06F00"/>
+            <SolidColorBrush x:Key="BrandDangerBrush" Color="#C0392B"/>
+            <SolidColorBrush x:Key="BrandDangerOnBrush" Color="#FFFFFF"/>
+            <SolidColorBrush x:Key="BrandDangerSoftBrush" Color="#1AC0392B"/>
+            <SolidColorBrush x:Key="BrandSuccessSoftBrush" Color="#1A15803D"/>
+            <SolidColorBrush x:Key="BrandWarningSoftBrush" Color="#1AB06F00"/>
+            <SolidColorBrush x:Key="BrandLineBrush" Color="#12101613"/>
+            <SolidColorBrush x:Key="BrandLineStrongBrush" Color="#21101613"/>
+            <SolidColorBrush x:Key="BrandCardBorderBrush" Color="#1A101613"/>
+            <SolidColorBrush x:Key="BrandScrimBrush" Color="#4D0F1613"/>
+
+            <!-- 系统材质降级底色（仅 SystemBackdrop 不可用时 / ContentDialog 内嵌材质） -->
+            <SolidColorBrush x:Key="MaterialWindowBrush" Color="#BDF6F9F7"/>
+            <SolidColorBrush x:Key="MaterialPanelBrush" Color="#9EF8FBF9"/>
+            <SolidColorBrush x:Key="MaterialCardBrush" Color="#E6FFFFFF"/>
+
+            <!-- 覆盖 WinUI 内置键：让原生控件自动吃同一套色。
+                 注意：这是图形、图标、选中条、进度、芯片所用的主绿 #16A34A（与设计令牌 accent 对齐，鲜亮）。
+                 实心按钮因白字对比度要求，单独用 BrandAccentFillBrush(#15803D)，不在此处。 -->
+            <SolidColorBrush x:Key="AccentFillColorDefaultBrush" Color="#16A34A"/>
+            <SolidColorBrush x:Key="AccentFillColorSecondaryBrush" Color="#16A34A" Opacity="0.9"/>
+            <SolidColorBrush x:Key="AccentFillColorTertiaryBrush" Color="#16A34A" Opacity="0.8"/>
+            <SolidColorBrush x:Key="TextOnAccentFillColorDefaultBrush" Color="#FFFFFF"/>
+            <SolidColorBrush x:Key="TextOnAccentFillColorPrimaryBrush" Color="#FFFFFF"/>
+            <SolidColorBrush x:Key="CardBackgroundFillColorDefaultBrush" Color="#F2FFFFFF"/>
+            <SolidColorBrush x:Key="CardBackgroundFillColorSecondaryBrush" Color="#FFFFFFFF"/>
+            <SolidColorBrush x:Key="CardStrokeColorDefaultBrush" Color="#1A101613"/>
+            <SolidColorBrush x:Key="ChipFillBrush" Color="#0F000000"/>
+            <SolidColorBrush x:Key="ChipStrokeBrush" Color="#17000000"/>
+            <SolidColorBrush x:Key="ProgressBarBackgroundBrush" Color="#E3EAE7"/>
+
+            <Color x:Key="SystemAccentColor">#16A34A</Color>
+            <Color x:Key="SystemAccentColorLight1">#15803D</Color>
+            <Color x:Key="SystemAccentColorLight2">#16A34A</Color>
+            <Color x:Key="SystemAccentColorLight3">#1CB454</Color>
+            <Color x:Key="SystemAccentColorDark1">#16A34A</Color>
+            <Color x:Key="SystemAccentColorDark2">#12833C</Color>
+            <Color x:Key="SystemAccentColorDark3">#0E6B31</Color>
+        </ResourceDictionary>
+
+        <!-- ============================ 深色 ============================ -->
+        <ResourceDictionary x:Key="Dark">
+            <SolidColorBrush x:Key="BrandBgBrush" Color="#0A0E0C"/>
+            <SolidColorBrush x:Key="BrandBgVoidBrush" Color="#070A09"/>
+            <SolidColorBrush x:Key="BrandSurfaceBrush" Color="#151F1B"/>
+            <SolidColorBrush x:Key="BrandSurface2Brush" Color="#1B2622"/>
+            <SolidColorBrush x:Key="BrandSurface3Brush" Color="#24302B"/>
+            <SolidColorBrush x:Key="BrandSurfaceHiBrush" Color="#1D2823"/>
+            <SolidColorBrush x:Key="BrandTextBrush" Color="#E9F1EE"/>
+            <SolidColorBrush x:Key="BrandTextDimBrush" Color="#9AA8A3"/>
+            <SolidColorBrush x:Key="BrandTextMuteBrush" Color="#7B8A84"/>
+
+            <SolidColorBrush x:Key="BrandAccentBrush" Color="#3BE49A"/>
+            <SolidColorBrush x:Key="BrandAccentFillBrush" Color="#3BE49A"/>
+            <SolidColorBrush x:Key="BrandAccentInkBrush" Color="#3BE49A"/>
+            <SolidColorBrush x:Key="BrandOnAccentBrush" Color="#04110B"/>
+            <SolidColorBrush x:Key="BrandAccentSoftBrush" Color="#213BE49A"/>
+            <SolidColorBrush x:Key="BrandSuccessBrush" Color="#3BE49A"/>
+            <SolidColorBrush x:Key="BrandWarningBrush" Color="#FFB64D"/>
+            <SolidColorBrush x:Key="BrandDangerBrush" Color="#FF6B5A"/>
+            <SolidColorBrush x:Key="BrandDangerOnBrush" Color="#2B0B08"/>
+            <SolidColorBrush x:Key="BrandDangerSoftBrush" Color="#24FF6B5A"/>
+            <SolidColorBrush x:Key="BrandSuccessSoftBrush" Color="#213BE49A"/>
+            <SolidColorBrush x:Key="BrandWarningSoftBrush" Color="#24FFB64D"/>
+            <SolidColorBrush x:Key="BrandLineBrush" Color="#12E9F1EE"/>
+            <SolidColorBrush x:Key="BrandLineStrongBrush" Color="#21E9F1EE"/>
+            <SolidColorBrush x:Key="BrandCardBorderBrush" Color="#1AE9F1EE"/>
+            <SolidColorBrush x:Key="BrandScrimBrush" Color="#9E040706"/>
+
+            <SolidColorBrush x:Key="MaterialWindowBrush" Color="#B80A0E0C"/>
+            <SolidColorBrush x:Key="MaterialPanelBrush" Color="#94151F1B"/>
+            <SolidColorBrush x:Key="MaterialCardBrush" Color="#E6151F1B"/>
+
+            <SolidColorBrush x:Key="AccentFillColorDefaultBrush" Color="#3BE49A"/>
+            <SolidColorBrush x:Key="AccentFillColorSecondaryBrush" Color="#3BE49A" Opacity="0.9"/>
+            <SolidColorBrush x:Key="AccentFillColorTertiaryBrush" Color="#3BE49A" Opacity="0.8"/>
+            <SolidColorBrush x:Key="TextOnAccentFillColorDefaultBrush" Color="#04110B"/>
+            <SolidColorBrush x:Key="TextOnAccentFillColorPrimaryBrush" Color="#04110B"/>
+            <SolidColorBrush x:Key="CardBackgroundFillColorDefaultBrush" Color="#1FFFFFFF"/>
+            <SolidColorBrush x:Key="CardBackgroundFillColorSecondaryBrush" Color="#2EFFFFFF"/>
+            <SolidColorBrush x:Key="CardStrokeColorDefaultBrush" Color="#1AE9F1EE"/>
+            <SolidColorBrush x:Key="ChipFillBrush" Color="#1AFFFFFF"/>
+            <SolidColorBrush x:Key="ChipStrokeBrush" Color="#2EFFFFFF"/>
+            <SolidColorBrush x:Key="ProgressBarBackgroundBrush" Color="#24302B"/>
+
+            <Color x:Key="SystemAccentColor">#3BE49A</Color>
+            <Color x:Key="SystemAccentColorLight1">#5FEBB0</Color>
+            <Color x:Key="SystemAccentColorLight2">#3BE49A</Color>
+            <Color x:Key="SystemAccentColorLight3">#2FC884</Color>
+            <Color x:Key="SystemAccentColorDark1">#3BE49A</Color>
+            <Color x:Key="SystemAccentColorDark2">#16A34A</Color>
+            <Color x:Key="SystemAccentColorDark3">#0E6B31</Color>
+        </ResourceDictionary>
+    </ResourceDictionary.ThemeDictionaries>
+
+    <!-- ===================== 间距：0/4/8/12/16/24/32 ===================== -->
+    <!-- Thickness 版：给 Padding / Margin / BorderThickness 用 -->
+    <Thickness x:Key="SpacePage">24,24,24,24</Thickness>
+    <Thickness x:Key="SpaceSection">16,16,16,16</Thickness>
+    <Thickness x:Key="SpaceBlock">12,12,12,12</Thickness>
+    <Thickness x:Key="SpaceCard">16,16,16,16</Thickness>
+    <Thickness x:Key="SpaceCardCompact">12,12,12,12</Thickness>
+    <Thickness x:Key="SpaceControl">8,8,8,8</Thickness>
+    <Thickness x:Key="SpaceMicro">4,4,4,4</Thickness>
+    <Thickness x:Key="SpaceChip">8,4,8,4</Thickness>
+    <Thickness x:Key="SpaceRow">12,8,12,8</Thickness>
+    <Thickness x:Key="SpaceZero">0,0,0,0</Thickness>
+    <!-- x:Double 版：给 StackPanel.Spacing / Grid.ColumnSpacing 用 -->
+    <x:Double x:Key="GapPage">24</x:Double>
+    <x:Double x:Key="GapSection">16</x:Double>
+    <x:Double x:Key="GapBlock">12</x:Double>
+    <x:Double x:Key="GapCard">16</x:Double>
+    <x:Double x:Key="GapControl">8</x:Double>
+    <x:Double x:Key="GapMicro">4</x:Double>
+    <x:Double x:Key="GapZero">0</x:Double>
+
+    <!-- ===================== 圆角 ===================== -->
+    <CornerRadius x:Key="RadiusXs">4,4,4,4</CornerRadius>
+    <CornerRadius x:Key="RadiusControl">8,8,8,8</CornerRadius>
+    <CornerRadius x:Key="RadiusRow">10,10,10,10</CornerRadius>
+    <CornerRadius x:Key="RadiusCard">12,12,12,12</CornerRadius>
+    <CornerRadius x:Key="RadiusPill">999,999,999,999</CornerRadius>
+
+    <!-- ===================== 字阶 / 尺寸 ===================== -->
+    <x:Double x:Key="FontDisplay">30</x:Double>
+    <x:Double x:Key="FontH1">22</x:Double>
+    <x:Double x:Key="FontH2">15</x:Double>
+    <x:Double x:Key="FontBody">13</x:Double>
+    <x:Double x:Key="FontSm">12</x:Double>
+    <x:Double x:Key="FontLabel">11</x:Double>
+    <!-- 字形图标专用字号（空态大图标，不属于文字字阶） -->
+    <x:Double x:Key="IconGlyphMedium">18</x:Double>
+    <x:Double x:Key="IconGlyphLarge">40</x:Double>
+    <x:Double x:Key="IconGlyphHero">44</x:Double>
+    <x:Double x:Key="ControlHeight">36</x:Double>
+    <x:Double x:Key="TouchMin">44</x:Double>
+    <x:Double x:Key="IconBlock">40</x:Double>
+    <x:Double x:Key="AvatarSize">56</x:Double>
+    <x:Double x:Key="FileListMaxHeight">240</x:Double>
+    <x:Double x:Key="ToastMaxWidth">380</x:Double>
+
+    <!-- ===================== keyed 样式（仅 Border / TextBlock，无控件模板风险） ===================== -->
+    <Style x:Key="PageTitleStyle" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="{StaticResource FontH1}"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="Foreground" Value="{ThemeResource BrandTextBrush}"/>
+    </Style>
+    <Style x:Key="PageSubtitleStyle" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="{StaticResource FontSm}"/>
+        <Setter Property="Foreground" Value="{ThemeResource BrandTextDimBrush}"/>
+        <Setter Property="TextWrapping" Value="Wrap"/>
+    </Style>
+    <Style x:Key="SectionTitleStyle" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="{StaticResource FontH2}"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="Foreground" Value="{ThemeResource BrandTextBrush}"/>
+    </Style>
+    <Style x:Key="BodyTextStyle" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="{StaticResource FontBody}"/>
+        <Setter Property="Foreground" Value="{ThemeResource BrandTextBrush}"/>
+    </Style>
+    <Style x:Key="CaptionTextStyle" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="{StaticResource FontSm}"/>
+        <Setter Property="Foreground" Value="{ThemeResource BrandTextDimBrush}"/>
+    </Style>
+    <Style x:Key="MutedTextStyle" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="{StaticResource FontLabel}"/>
+        <Setter Property="Foreground" Value="{ThemeResource BrandTextMuteBrush}"/>
+    </Style>
+
+    <Style x:Key="CardStyle" TargetType="Border">
+        <Setter Property="Padding" Value="{StaticResource SpaceCard}"/>
+        <Setter Property="CornerRadius" Value="{StaticResource RadiusCard}"/>
+        <Setter Property="Background" Value="{ThemeResource CardBackgroundFillColorDefaultBrush}"/>
+        <Setter Property="BorderBrush" Value="{ThemeResource CardStrokeColorDefaultBrush}"/>
+        <Setter Property="BorderThickness" Value="1,1,1,1"/>
+    </Style>
+    <Style x:Key="CardCompactStyle" TargetType="Border">
+        <Setter Property="Padding" Value="{StaticResource SpaceCardCompact}"/>
+        <Setter Property="CornerRadius" Value="{StaticResource RadiusCard}"/>
+        <Setter Property="Background" Value="{ThemeResource CardBackgroundFillColorDefaultBrush}"/>
+        <Setter Property="BorderBrush" Value="{ThemeResource CardStrokeColorDefaultBrush}"/>
+        <Setter Property="BorderThickness" Value="1,1,1,1"/>
+    </Style>
+    <Style x:Key="RowSurfaceStyle" TargetType="Border">
+        <Setter Property="Padding" Value="{StaticResource SpaceCardCompact}"/>
+        <Setter Property="CornerRadius" Value="{StaticResource RadiusRow}"/>
+        <Setter Property="Background" Value="{ThemeResource BrandSurface2Brush}"/>
+        <Setter Property="BorderBrush" Value="{ThemeResource BrandLineBrush}"/>
+        <Setter Property="BorderThickness" Value="1,1,1,1"/>
+    </Style>
+    <Style x:Key="ChipStyle" TargetType="Border">
+        <Setter Property="Padding" Value="{StaticResource SpaceChip}"/>
+        <Setter Property="CornerRadius" Value="{StaticResource RadiusControl}"/>
+        <Setter Property="Background" Value="{ThemeResource ChipFillBrush}"/>
+        <Setter Property="BorderBrush" Value="{ThemeResource ChipStrokeBrush}"/>
+        <Setter Property="BorderThickness" Value="1,1,1,1"/>
+    </Style>
+    <Style x:Key="ChipSuccessStyle" TargetType="Border">
+        <Setter Property="Padding" Value="{StaticResource SpaceChip}"/>
+        <Setter Property="CornerRadius" Value="{StaticResource RadiusControl}"/>
+        <Setter Property="Background" Value="{ThemeResource BrandSuccessSoftBrush}"/>
+    </Style>
+    <Style x:Key="ChipDangerStyle" TargetType="Border">
+        <Setter Property="Padding" Value="{StaticResource SpaceChip}"/>
+        <Setter Property="CornerRadius" Value="{StaticResource RadiusControl}"/>
+        <Setter Property="Background" Value="{ThemeResource BrandDangerSoftBrush}"/>
+    </Style>
+    <!-- 破坏性操作主按钮（清空历史等）。文字色随主题切换，保证 WCAG AA：
+         Light 白字 / #C0392B ≈ 5.5:1，Dark 深字 / #FF6B5A ≈ 8.4:1 -->
+    <Style x:Key="DangerButtonStyle" TargetType="Button">
+        <Setter Property="Background" Value="{ThemeResource BrandDangerBrush}"/>
+        <Setter Property="Foreground" Value="{ThemeResource BrandDangerOnBrush}"/>
+        <Setter Property="BorderBrush" Value="{ThemeResource BrandDangerBrush}"/>
+        <Setter Property="BorderThickness" Value="1,1,1,1"/>
+        <Setter Property="Padding" Value="{StaticResource SpaceControl}"/>
+        <Setter Property="CornerRadius" Value="{StaticResource RadiusControl}"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+    </Style>
+</ResourceDictionary>

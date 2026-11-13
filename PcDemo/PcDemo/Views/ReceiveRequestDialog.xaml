@@ -12,47 +12,47 @@
     PrimaryButtonClick="OnPrimaryClick"
     SecondaryButtonClick="OnSecondaryClick">
 
-    <StackPanel Spacing="12" MinWidth="420">
+    <StackPanel Spacing="{StaticResource GapBlock}" MinWidth="420">
 
         <!-- 发送方信息卡片 -->
-        <Border Padding="12" CornerRadius="8"
+        <Border Padding="{StaticResource SpaceCardCompact}" CornerRadius="{StaticResource RadiusControl}"
                 Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                 BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1">
             <Grid ColumnDefinitions="44,*">
                 <!-- 发送方头像图标 -->
-                <Border Grid.Column="0" Width="44" Height="44" CornerRadius="22"
+                <Border Grid.Column="0" Width="44" Height="44" CornerRadius="{StaticResource RadiusCard}"
                         Background="{ThemeResource AccentFillColorDefaultBrush}">
-                    <FontIcon Glyph="&#xE77B;" FontSize="18"
+                    <FontIcon Glyph="&#xE77B;" FontSize="{StaticResource FontH2}"
                               Foreground="{ThemeResource TextOnAccentFillColorDefaultBrush}"
                               HorizontalAlignment="Center" VerticalAlignment="Center"
                               AutomationProperties.Name="发送方头像"/>
                 </Border>
-                <StackPanel Grid.Column="1" Margin="12,0,0,0" Spacing="4" VerticalAlignment="Center">
-                    <TextBlock Text="{Binding SenderAlias}" FontWeight="SemiBold" FontSize="15"/>
-                    <StackPanel Orientation="Horizontal" Spacing="8">
-                        <FontIcon Glyph="&#xE774;" FontSize="11" Opacity="0.7" VerticalAlignment="Center"/>
-                        <TextBlock Text="{Binding SenderIp}" Opacity="0.7" FontSize="12"/>
+                <StackPanel Grid.Column="1" Margin="12,0,0,0" Spacing="{StaticResource GapMicro}" VerticalAlignment="Center">
+                    <TextBlock Text="{Binding SenderAlias}" FontWeight="SemiBold" FontSize="{StaticResource FontH2}"/>
+                    <StackPanel Orientation="Horizontal" Spacing="{StaticResource GapControl}">
+                        <FontIcon Glyph="&#xE774;" FontSize="{StaticResource FontLabel}" Opacity="0.7" VerticalAlignment="Center"/>
+                        <TextBlock Text="{Binding SenderIp}" Foreground="{ThemeResource BrandTextDimBrush}" FontSize="{StaticResource FontSm}"/>
                     </StackPanel>
                 </StackPanel>
             </Grid>
         </Border>
 
         <!-- 文件列表标题 + 全选/全不选 + 已选汇总 -->
-        <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+        <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="{StaticResource GapControl}">
             <TextBlock Grid.Column="0" Text="文件列表" FontWeight="SemiBold" VerticalAlignment="Center"/>
-            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="{StaticResource GapMicro}" VerticalAlignment="Center">
                 <Button Content="全选" Click="OnSelectAllClick"
-                        Padding="8,4" FontSize="11" CornerRadius="6"
+                        Padding="{StaticResource SpaceChip}" FontSize="{StaticResource FontLabel}" CornerRadius="{StaticResource RadiusControl}"
                         Background="Transparent"
                         BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1"/>
                 <Button Content="全不选" Click="OnSelectNoneClick"
-                        Padding="8,4" FontSize="11" CornerRadius="6"
+                        Padding="{StaticResource SpaceChip}" FontSize="{StaticResource FontLabel}" CornerRadius="{StaticResource RadiusControl}"
                         Background="Transparent"
                         BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1"/>
             </StackPanel>
-            <Border Grid.Column="2" Padding="8,4" CornerRadius="10"
+            <Border Grid.Column="2" Padding="{StaticResource SpaceChip}" CornerRadius="{StaticResource RadiusRow}"
                     Background="{ThemeResource AccentFillColorSecondaryBrush}">
-                <TextBlock Text="{Binding SelectedSummaryText}" FontSize="11"/>
+                <TextBlock Text="{Binding SelectedSummaryText}" FontSize="{StaticResource FontLabel}"/>
             </Border>
         </Grid>
 
@@ -70,7 +70,7 @@
             </ListView.ItemContainerStyle>
             <ListView.ItemTemplate>
                 <DataTemplate>
-                    <Border Padding="12,8" CornerRadius="6"
+                    <Border Padding="{StaticResource SpaceRow}" CornerRadius="{StaticResource RadiusControl}"
                             Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                             BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1">
                         <Grid>
@@ -83,18 +83,18 @@
                             <CheckBox Grid.Column="0"
                                       IsChecked="{Binding IsSelected, Mode=TwoWay}"
                                       AutomationProperties.Name="{Binding FileName}"
-                                      MinWidth="0" Padding="0"
+                                      MinWidth="0" Padding="{StaticResource SpaceZero}"
                                       VerticalAlignment="Center"/>
                             <!-- 文件类型图标：固定列，与勾选框间距 8（PUA 字形需 Fluent Icons 字体） -->
-                            <TextBlock Grid.Column="1" Text="{Binding FileIcon}" FontSize="16"
+                            <TextBlock Grid.Column="1" Text="{Binding FileIcon}" FontSize="{StaticResource FontH2}"
                                        FontFamily="Segoe Fluent Icons"
                                        Margin="8,0,0,0" VerticalAlignment="Center"
                                        AutomationProperties.AccessibilityView="Raw"/>
                             <!-- 文件名 + 大小：剩余宽度，与图标间距 10 -->
-                            <StackPanel Grid.Column="2" Margin="8,0,0,0" Spacing="4" VerticalAlignment="Center">
+                            <StackPanel Grid.Column="2" Margin="8,0,0,0" Spacing="{StaticResource GapMicro}" VerticalAlignment="Center">
                                 <TextBlock Text="{Binding FileName}" TextWrapping="Wrap"
-                                           FontWeight="SemiBold" FontSize="13"/>
-                                <TextBlock Text="{Binding DisplaySize}" Opacity="0.6" FontSize="11"/>
+                                           FontWeight="SemiBold" FontSize="{StaticResource FontBody}"/>
+                                <TextBlock Text="{Binding DisplaySize}" Foreground="{ThemeResource BrandTextMuteBrush}" FontSize="{StaticResource FontLabel}"/>
                             </StackPanel>
                         </Grid>
                     </Border>

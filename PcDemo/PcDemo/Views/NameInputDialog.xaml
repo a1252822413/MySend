@@ -8,9 +8,9 @@
     CloseButtonText="取消"
     DefaultButton="Primary">
 
-    <StackPanel Width="360" Spacing="8">
+    <StackPanel Width="360" Spacing="{StaticResource GapControl}">
         <TextBlock Text="输入新的显示名称（仅本地生效，不影响对方设备上的名字）。"
-                   FontSize="12" Opacity="0.65" TextWrapping="Wrap"/>
-        <TextBox x:Name="InputBox" PlaceholderText="输入名称" MaxLength="60" FontSize="14"/>
+                   FontSize="{StaticResource FontSm}" Foreground="{ThemeResource BrandTextDimBrush}" TextWrapping="Wrap"/>
+        <TextBox x:Name="InputBox" PlaceholderText="输入名称" MaxLength="60" FontSize="{StaticResource FontH2}"/>
     </StackPanel>
 </ContentDialog>

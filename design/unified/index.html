@@ -1,0 +1,879 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light" data-material="mica" class="booting">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>快传 · 双端统一设计评审板 v1.3</title>
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<svg class="sprite" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+  <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 3v12m0 0 4-4m-4 4-4-4M4 17v3h16v-3"/></symbol>
+  <symbol id="i-send" viewBox="0 0 24 24"><path d="m4 12 16-8-6 16-2-7-8-1Z"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+  <symbol id="i-settings" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3m0 14v3M2 12h3m14 0h3M4.9 4.9l2.1 2.1m10 10 2.1 2.1m0-14.2-2.1 2.1m-10 10-2.1 2.1"/></symbol>
+  <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 11a8 8 0 0 0-14-5L4 8m0 0V3m0 5h5M4 13a8 8 0 0 0 14 5l2-2m0 0v5m0-5h-5"/></symbol>
+  <symbol id="i-folder" viewBox="0 0 24 24"><path d="M3 7h6l2 2h10v10H3V7Z"/></symbol>
+  <symbol id="i-copy" viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></symbol>
+  <symbol id="i-chevron" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-file" viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6V3Zm8 0v4h4"/></symbol>
+  <symbol id="i-image" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="m4 18 5-5 4 4 3-3 4 4"/></symbol>
+  <symbol id="i-text" viewBox="0 0 24 24"><path d="M5 5h14M12 5v14M9 19h6"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 13 4 4L19 7"/></symbol>
+  <symbol id="i-wifi" viewBox="0 0 24 24"><path d="M2 8a16 16 0 0 1 20 0M5 12a11 11 0 0 1 14 0M8 16a6 6 0 0 1 8 0"/><circle cx="12" cy="20" r="1"/></symbol>
+  <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 2 4 5v6c0 5 3 9 8 11 5-2 8-6 8-11V5l-8-3Z"/></symbol>
+  <symbol id="i-shield-check" viewBox="0 0 24 24"><path d="M12 2 4 5v6c0 5 3 9 8 11 5-2 8-6 8-11V5l-8-3Z"/><path d="m8.5 12 2.5 2.5 4.5-4.5"/></symbol>
+  <symbol id="i-ban" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m6 6 12 12"/></symbol>
+  <symbol id="i-key" viewBox="0 0 24 24"><circle cx="8" cy="8" r="4"/><path d="m11 11 9 9m-4-4 2-2m-5-1 2-2"/></symbol>
+  <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20 14A8 8 0 0 1 10 4a8 8 0 1 0 10 10Z"/></symbol>
+  <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M4.9 4.9l1.4 1.4m11.4 11.4 1.4 1.4m0-14.2-1.4 1.4M6.3 17.7l-1.4 1.4"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m16 16 5 5"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18"/></symbol>
+  <symbol id="i-people" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3 20c0-3 3-5 6-5s6 2 6 5"/><circle cx="17" cy="9" r="2"/><path d="M16 14c3 0 5 2 5 5"/></symbol>
+  <symbol id="i-monitor" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M9 20h6M12 16v4"/></symbol>
+  <symbol id="i-phone" viewBox="0 0 24 24"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/></symbol>
+  <symbol id="i-pencil" viewBox="0 0 24 24"><path d="M4 20h4l10-10-4-4L4 16v4Z"/></symbol>
+  <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3m-8 0 1 13h8l1-13"/></symbol>
+  <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 16V10a6 6 0 0 1 12 0v6l2 2H4l2-2Z"/><path d="M10 21h4"/></symbol>
+  <symbol id="i-layers" viewBox="0 0 24 24"><path d="m12 3 9 5-9 5-9-5 9-5Z"/><path d="m3 13 9 5 9-5"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v5m0 3v.5"/></symbol>
+  <symbol id="i-clipboard" viewBox="0 0 24 24"><rect x="6" y="4" width="12" height="17" rx="2"/><path d="M9 4V3h6v1"/></symbol>
+  <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 16V4m0 0 4 4m-4-4-4 4M4 17v3h16v-3"/></symbol>
+</svg>
+
+<div class="board">
+  <header class="board-head">
+    <div class="board-brand">
+      <div class="brand-mark"><svg class="ico"><use href="#i-send"/></svg></div>
+      <div>
+        <h1>快传 · 双端统一设计</h1>
+        <p>PC WinUI 3 × HarmonyOS ArkUI · 同一套令牌 / 同一套信息架构 / 平台各自原生材质</p>
+      </div>
+      <span class="version">v1.3</span>
+    </div>
+
+    <div class="controls">
+      <div class="control-group" role="group" aria-label="主题">
+        <span class="control-label">主题</span>
+        <div class="seg" id="themeSeg">
+          <button type="button" class="is-on" data-theme-value="light"><svg class="ico"><use href="#i-sun"/></svg>浅色</button>
+          <button type="button" data-theme-value="dark"><svg class="ico"><use href="#i-moon"/></svg>深色</button>
+        </div>
+      </div>
+      <div class="control-group preview-only" role="group" aria-label="系统材质（仅评审预览）"
+           title="产品内没有材质设置项：Windows 由系统 Mica / 亚克力开关决定，鸿蒙由系统模糊与省电策略决定。这里仅用于预览两种系统材质">
+        <span class="control-label">系统材质<sup>*</sup></span>
+        <div class="seg" id="materialSeg">
+          <button type="button" class="is-on" data-material-value="mica">云母</button>
+          <button type="button" data-material-value="acrylic">亚克力</button>
+          <button type="button" data-material-value="solid">不透明</button>
+        </div>
+      </div>
+      <div class="control-group" role="group" aria-label="视图">
+        <span class="control-label">视图</span>
+        <div class="seg" id="viewSeg">
+          <button type="button" class="is-on" data-view-value="both">并排</button>
+          <button type="button" data-view-value="pc">PC</button>
+          <button type="button" data-view-value="phone">手机</button>
+        </div>
+      </div>
+      <div class="control-group" role="group" aria-label="页面">
+        <span class="control-label">页面</span>
+        <div class="seg" id="pageSeg">
+          <button type="button" class="is-on" data-page-value="receive">接收</button>
+          <button type="button" data-page-value="send">发送</button>
+          <button type="button" data-page-value="history">历史</button>
+          <button type="button" data-page-value="devices">设备</button>
+          <button type="button" data-page-value="settings">设置</button>
+          <button type="button" data-page-value="toasts">提醒</button>
+          <button type="button" data-page-value="dialogs">弹窗</button>
+        </div>
+      </div>
+      <div class="control-group is-hidden" id="dialogGroup" role="group" aria-label="弹窗">
+        <span class="control-label">弹窗</span>
+        <div class="seg small" id="dialogSeg">
+          <button type="button" class="is-on" data-dialog-value="receive-request">接收请求</button>
+          <button type="button" data-dialog-value="pin">PIN</button>
+          <button type="button" data-dialog-value="send-progress">发送进度</button>
+          <button type="button" data-dialog-value="receive-progress">接收进度</button>
+          <button type="button" data-dialog-value="text">发送文字</button>
+          <button type="button" data-dialog-value="detail">传输详情</button>
+          <button type="button" data-dialog-value="rename">重命名</button>
+          <button type="button" data-dialog-value="clear">清空确认</button>
+        </div>
+      </div>
+      <div class="control-group is-hidden" id="toastGroup" role="group" aria-label="顶部悬浮提醒">
+        <span class="control-label">提醒</span>
+        <div class="seg small" id="toastSeg">
+          <button type="button" class="is-on" data-toast-value="receive-ok">接收成功</button>
+          <button type="button" data-toast-value="receive-fail">接收失败</button>
+          <button type="button" data-toast-value="send-ok">发送成功</button>
+          <button type="button" data-toast-value="send-fail">发送失败</button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <div class="legend" aria-label="当前令牌摘要">
+    <span class="legend-title">统一令牌</span>
+    <span class="legend-item"><i class="swatch" style="background:var(--accent)"></i>图形 <code>var(--accent)</code></span>
+    <span class="legend-item"><i class="swatch" style="background:var(--accent-fill)"></i>按钮 <code>var(--accent-fill)</code></span>
+    <span class="legend-item"><i class="swatch" style="background:var(--accent-ink)"></i>文字 <code>var(--accent-ink)</code></span>
+    <span class="legend-item">间距 <code>4 / 8 / 12 / 16 / 24 / 32</code></span>
+    <span class="legend-item">圆角 <code>12 / 8 / 10</code></span>
+    <span class="legend-item">阴影 <code>1px 近距 + 描边</code></span>
+    <span class="legend-item">提醒 <code>顶部悬浮 · 4 态</code></span>
+    <span class="legend-item legend-aa">WCAG AA 全项达标</span>
+  </div>
+
+  <main class="stage" id="stage" data-view="both" data-page="receive" data-scene="pages" data-dialog="receive-request" data-toast="receive-ok">
+
+    <!-- ==================== PC ==================== -->
+    <section class="device device-pc" aria-label="PC 端预览">
+      <div class="frame-label"><span class="dot"></span>Windows · WinUI 3 <span class="frame-note">系统 Mica 材质（无设置项）· 5 页 + 8 弹窗 + 4 态提醒</span></div>
+      <div class="pc-stage">
+        <div class="pc-window">
+          <div class="pc-titlebar">
+            <div class="pc-title-left">
+              <span class="pc-hamburger"><svg class="ico"><use href="#i-people"/></svg></span>
+              <div class="brand-mark tiny"><svg class="ico"><use href="#i-send"/></svg></div>
+              <span class="pc-title-text">快传</span>
+            </div>
+            <div class="pc-window-btns"><i></i><i></i><i></i></div>
+          </div>
+          <div class="pc-body">
+            <nav class="pc-nav" aria-label="PC 导航">
+              <a class="nav-item is-on" data-nav="receive"><svg class="ico"><use href="#i-download"/></svg>接收</a>
+              <a class="nav-item" data-nav="send"><svg class="ico"><use href="#i-send"/></svg>发送</a>
+              <a class="nav-item" data-nav="history"><svg class="ico"><use href="#i-clock"/></svg>历史记录</a>
+              <a class="nav-item" data-nav="devices"><svg class="ico"><use href="#i-shield-check"/></svg>设备管理</a>
+              <div class="nav-spacer"></div>
+              <a class="nav-item" data-nav="settings"><svg class="ico"><use href="#i-settings"/></svg>设置</a>
+              <div class="nav-foot"><i class="dot-live"></i>后台接收中</div>
+            </nav>
+
+            <div class="pc-content">
+
+              <!-- PC 接收 -->
+              <div class="page is-active" data-device="pc" data-page="receive">
+                <div class="page-head"><h2>接收文件</h2><p>等待附近设备发来文件，接收后自动保存到本机</p></div>
+                <div class="card hero-card">
+                  <div class="hero-top">
+                    <div class="avatar"><svg class="ico"><use href="#i-people"/></svg></div>
+                    <div class="hero-info">
+                      <div class="hero-line"><strong>xiaoxiao-PC</strong><span class="chip success">在线</span><span class="chip">HTTPS</span><span class="chip"><svg class="ico"><use href="#i-key"/></svg>PIN 已开启</span></div>
+                      <div class="hero-meta"><span>端口 53317</span><span class="sep">·</span><span>指纹 A3F2…9C1D</span><button class="link-btn" aria-label="复制设备指纹"><svg class="ico"><use href="#i-copy"/></svg></button></div>
+                    </div>
+                    <div class="signal"><i></i><i></i><i></i></div>
+                  </div>
+                  <div class="path-row">
+                    <svg class="ico"><use href="#i-folder"/></svg>
+                    <span class="path-box">C:\Users\xiaoxiao\Downloads\快传</span>
+                    <button class="btn ghost">打开</button>
+                  </div>
+                </div>
+                <div class="section-head"><h3>附近设备</h3><span class="chip count">3</span><span class="toolbar-spacer"></span><span class="dev-sub">仅白名单模式已开启</span><button class="icon-btn" aria-label="刷新设备"><svg class="ico"><use href="#i-refresh"/></svg></button></div>
+                <div class="dev-grid">
+                  <div class="dev-card">
+                    <i class="statusbar"></i><div class="icon-block"><svg class="ico"><use href="#i-phone"/></svg></div>
+                    <div class="dev-info"><div class="dev-name">HUAWEI Mate 70 <span class="chip trust">白名单</span></div><div class="dev-sub num">192.168.1.23 · 53317</div><div class="dev-sub">HarmonyOS · 手机</div></div>
+                    <div class="dev-state"><i class="dot-live"></i><span>在线</span></div>
+                  </div>
+                  <div class="dev-card">
+                    <i class="statusbar"></i><div class="icon-block"><svg class="ico"><use href="#i-monitor"/></svg></div>
+                    <div class="dev-info"><div class="dev-name">Office-PC</div><div class="dev-sub num">192.168.1.41 · 53317</div><div class="dev-sub">Windows · 电脑</div></div>
+                    <div class="dev-state"><i class="dot-live"></i><span>在线</span></div>
+                  </div>
+                  <div class="dev-card is-blocked">
+                    <i class="statusbar off"></i><div class="icon-block"><svg class="ico"><use href="#i-monitor"/></svg></div>
+                    <div class="dev-info"><div class="dev-name">Unknown-PC <span class="chip block">已阻止</span></div><div class="dev-sub num">192.168.1.77 · 53317</div><div class="dev-sub">Windows · 电脑</div></div>
+                    <div class="dev-state"><span>403 拒绝</span></div>
+                  </div>
+                </div>
+                <div class="foot-note"><i class="dot-live"></i>服务常驻 · 关窗后隐藏到托盘仍可接收 · 传输结果以顶部提醒反馈</div>
+              </div>
+
+              <!-- PC 发送 -->
+              <div class="page" data-device="pc" data-page="send">
+                <div class="page-head"><h2>发送文件</h2><p>选择目标设备与文件，支持多选群发；非白名单设备在仅白名单模式下置灰</p></div>
+                <div class="section-head"><h3>选择目标设备</h3><span class="chip count">1 已选</span><button class="icon-btn" aria-label="刷新设备"><svg class="ico"><use href="#i-refresh"/></svg></button></div>
+                <div class="dev-grid">
+                  <div class="dev-card is-picked">
+                    <i class="statusbar"></i><div class="icon-block"><svg class="ico"><use href="#i-phone"/></svg></div>
+                    <div class="dev-info"><div class="dev-name">HUAWEI Mate 70 <span class="chip trust">白名单</span></div><div class="dev-sub num">192.168.1.23 · 53317</div><div class="dev-sub">HarmonyOS · 手机</div></div>
+                    <div class="pick-mark"><svg class="ico"><use href="#i-check"/></svg></div>
+                  </div>
+                  <div class="dev-card is-blocked">
+                    <i class="statusbar off"></i><div class="icon-block"><svg class="ico"><use href="#i-monitor"/></svg></div>
+                    <div class="dev-info"><div class="dev-name">Office-PC</div><div class="dev-sub num">192.168.1.41 · 53317</div><div class="dev-sub">非白名单 · 不可选</div></div>
+                    <div class="dev-state"><span>已禁用</span></div>
+                  </div>
+                </div>
+                <div class="toolbar">
+                  <button class="btn"><svg class="ico"><use href="#i-file"/></svg>添加文件</button>
+                  <button class="btn"><svg class="ico"><use href="#i-folder"/></svg>添加文件夹</button>
+                  <button class="btn"><svg class="ico"><use href="#i-text"/></svg>文字</button>
+                  <span class="toolbar-spacer"></span>
+                  <button class="btn ghost">清空</button>
+                </div>
+                <div class="file-stack">
+                  <div class="card compact file-card">
+                    <div class="icon-block file-icon"><svg class="ico"><use href="#i-image"/></svg></div>
+                    <div class="file-info"><strong>产品原型_v3.png</strong><div class="dev-sub num">2.4 MB / 2.4 MB · 已完成</div><div class="bar"><i style="width:100%"></i></div></div>
+                    <span class="chip success">完成</span>
+                  </div>
+                  <div class="card compact file-card">
+                    <div class="icon-block file-icon"><svg class="ico"><use href="#i-file"/></svg></div>
+                    <div class="file-info"><strong>需求说明.pdf</strong><div class="dev-sub num">860 KB / 1.2 MB · 12.4 MB/s</div><div class="bar"><i style="width:71%"></i></div></div>
+                    <span class="chip">72%</span>
+                  </div>
+                </div>
+                <div class="card action-bar">
+                  <div class="ready"><i class="dot-live"></i>目标已选</div>
+                  <div class="ready"><i class="dot-live"></i>2 个文件 · 3.6 MB</div>
+                  <span class="toolbar-spacer"></span>
+                  <span class="pin-box"><svg class="ico"><use href="#i-key"/></svg>对端 PIN ••••</span>
+                  <button class="btn primary">开始发送</button>
+                </div>
+              </div>
+
+              <!-- PC 历史 -->
+              <div class="page" data-device="pc" data-page="history">
+                <div class="page-head"><h2>历史记录</h2><p>最近 50 条传输记录，点击可查看逐文件明细</p></div>
+                <div class="section-head"><div class="seg small" aria-label="筛选"><button class="is-on">全部</button><button>接收</button><button>发送</button></div><span class="toolbar-spacer"></span><div class="search-box"><svg class="ico"><use href="#i-search"/></svg><span>搜索文件名或设备</span></div><button class="btn sm"><svg class="ico"><use href="#i-trash"/></svg>清空</button></div>
+                <div class="file-stack">
+                  <div class="card compact hist-card"><i class="hist-stripe in"></i><div class="hist-body"><strong>来自 HUAWEI Mate 70</strong><span class="dev-sub">3 个文件 · 18.6 MB</span></div><span class="dev-sub num">今天 19:42</span><span class="chip success">完成</span><button class="icon-btn" aria-label="查看详情"><svg class="ico"><use href="#i-chevron"/></svg></button></div>
+                  <div class="card compact hist-card"><i class="hist-stripe out"></i><div class="hist-body"><strong>发往 Office-PC</strong><span class="dev-sub">需求说明.pdf · 1.2 MB</span></div><span class="dev-sub num">今天 18:05</span><span class="chip success">完成</span><button class="icon-btn" aria-label="查看详情"><svg class="ico"><use href="#i-chevron"/></svg></button></div>
+                  <div class="card compact hist-card"><i class="hist-stripe out"></i><div class="hist-body"><strong>发往 HUAWEI Mate 70</strong><span class="dev-sub">照片.zip · 已取消</span></div><span class="dev-sub num">昨天 21:18</span><span class="chip danger">已取消</span><button class="icon-btn" aria-label="查看详情"><svg class="ico"><use href="#i-chevron"/></svg></button></div>
+                </div>
+                <div class="foot-note">记录保存在本机 · 关闭窗口不丢记录</div>
+              </div>
+
+              <!-- PC 设备管理 -->
+              <div class="page" data-device="pc" data-page="devices">
+                <div class="page-head"><h2>设备管理</h2><p>白名单设备免确认接收并可单独开启自动接收；黑名单设备在 HTTP 层直接拒绝</p></div>
+                <div class="stat-strip">
+                  <div class="stat"><span class="dev-sub">白名单</span><strong class="num">2</strong></div>
+                  <div class="stat"><span class="dev-sub">黑名单</span><strong class="num">1</strong></div>
+                  <div class="stat"><span class="dev-sub">仅白名单模式</span><span class="chip success">已开启</span></div>
+                </div>
+                <div class="card add-device">
+                  <div class="section-head"><h3>添加设备</h3><span class="toolbar-spacer"></span><span class="dev-sub">从已发现设备选择，或粘贴对方指纹</span></div>
+                  <div class="add-device-grid">
+                    <div class="fake-input"><svg class="ico"><use href="#i-phone"/></svg>HUAWEI Mate 70 · 192.168.1.23</div>
+                    <button class="btn"><svg class="ico"><use href="#i-shield-check"/></svg>加入白名单</button>
+                    <button class="btn"><svg class="ico"><use href="#i-ban"/></svg>加入黑名单</button>
+                  </div>
+                  <div class="add-device-grid two">
+                    <div class="fake-input num">A3F2…9C1D（设备指纹）</div>
+                    <div class="fake-input">别名（可选）</div>
+                    <button class="btn ghost">添加</button>
+                  </div>
+                </div>
+                <div class="card trust-list">
+                  <div class="section-head"><h3>信任设备（白名单）</h3><span class="chip count">2</span><span class="toolbar-spacer"></span><span class="dev-sub">勾选自动接收可跳过确认弹窗</span></div>
+                  <div class="trust-row">
+                    <div class="icon-block"><svg class="ico"><use href="#i-phone"/></svg></div>
+                    <div class="dev-info"><div class="dev-name">HUAWEI Mate 70 <span class="chip trust"><svg class="ico"><use href="#i-shield-check"/></svg>已信任</span></div><div class="dev-sub num">A3F2…9C1D</div></div>
+                    <div class="trust-actions"><span class="dev-sub">自动接收</span><span class="switch sm is-on"><i></i></span><button class="btn sm"><svg class="ico"><use href="#i-pencil"/></svg>重命名</button><button class="btn sm"><svg class="ico"><use href="#i-trash"/></svg>移除</button></div>
+                  </div>
+                  <div class="trust-row">
+                    <div class="icon-block"><svg class="ico"><use href="#i-monitor"/></svg></div>
+                    <div class="dev-info"><div class="dev-name">Office-PC <span class="chip trust"><svg class="ico"><use href="#i-shield-check"/></svg>已信任</span></div><div class="dev-sub num">7C11…4E88</div></div>
+                    <div class="trust-actions"><span class="dev-sub">自动接收</span><span class="switch sm"><i></i></span><button class="btn sm"><svg class="ico"><use href="#i-pencil"/></svg>重命名</button><button class="btn sm"><svg class="ico"><use href="#i-trash"/></svg>移除</button></div>
+                  </div>
+                </div>
+                <div class="card trust-list">
+                  <div class="section-head"><h3>已阻止（黑名单）</h3><span class="chip count">1</span></div>
+                  <div class="trust-row">
+                    <div class="icon-block"><svg class="ico"><use href="#i-monitor"/></svg></div>
+                    <div class="dev-info"><div class="dev-name">Unknown-PC</div><div class="dev-sub num">9D3B…10F4 · 请求已被拒绝 12 次</div></div>
+                    <div class="trust-actions"><button class="btn sm"><svg class="ico"><use href="#i-pencil"/></svg>重命名</button><button class="btn sm"><svg class="ico"><use href="#i-trash"/></svg>移除</button></div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- PC 设置 -->
+              <div class="page" data-device="pc" data-page="settings">
+                <div class="page-head"><h2>设置</h2><p>调整传输参数与外观偏好，保存后立即生效</p></div>
+                <div class="card setting-group">
+                  <h3>设备身份</h3>
+                  <div class="setting-row"><span>本机显示名</span><div class="fake-input">xiaoxiao-PC</div><span class="hint">对方看到的名称</span></div>
+                  <div class="setting-row"><span>设备模型</span><div class="fake-input">Windows 11 台式机</div><span class="hint">写入 info 响应</span></div>
+                  <div class="setting-row"><span>设备类型</span><div class="seg small"><button class="is-on">电脑</button><button>手机</button><button>平板</button></div><span class="hint">用于图标</span></div>
+                  <div class="setting-row"><span>设备指纹</span><div class="fake-input num">A3F2…9C1D</div><button class="btn sm"><svg class="ico"><use href="#i-copy"/></svg>复制</button></div>
+                </div>
+                <div class="card setting-group">
+                  <h3>连接与安全</h3>
+                  <div class="setting-row"><span>服务端口</span><div class="fake-input num">53317</div><span class="hint">同端口 HTTPS</span></div>
+                  <div class="setting-row"><span>多播组</span><div class="fake-input num">224.0.0.167</div><span class="hint">发现用</span></div>
+                  <div class="setting-row"><span>接收保存目录</span><div class="path-box">C:\Users\xiaoxiao\Downloads\快传</div><button class="btn ghost">浏览…</button></div>
+                  <div class="setting-row"><span>接收 PIN 码</span><div class="fake-input num">••••</div><span class="hint">留空 = 不启用</span></div>
+                  <div class="setting-row"><span>使用 HTTPS</span><span class="toolbar-spacer"></span><span class="switch is-on" aria-label="使用 HTTPS 已开启"><i></i></span></div>
+                  <div class="setting-row"><span>仅白名单模式</span><span class="toolbar-spacer"></span><span class="switch is-on"><i></i></span></div>
+                </div>
+                <div class="card setting-group">
+                  <h3>系统</h3>
+                  <div class="setting-row"><span>开机自启</span><span class="toolbar-spacer"></span><span class="switch is-on"><i></i></span></div>
+                  <div class="setting-row"><span>自动接收</span><span class="toolbar-spacer"></span><span class="switch"><i></i></span></div>
+                  <div class="setting-row"><span>关闭窗口时最小化到托盘</span><span class="toolbar-spacer"></span><span class="switch is-on"><i></i></span></div>
+                  <div class="setting-row"><span>接收完成通知</span><span class="toolbar-spacer"></span><span class="switch is-on"><i></i></span></div>
+                </div>
+                <div class="card setting-group">
+                  <h3>网络与防火墙</h3>
+                  <div class="status-line ok"><svg class="ico"><use href="#i-shield-check"/></svg>防火墙已放行 · 入站 53317 可达</div>
+                  <div class="toolbar"><button class="btn sm"><svg class="ico"><use href="#i-refresh"/></svg>重新检测</button><button class="btn sm"><svg class="ico"><use href="#i-shield"/></svg>添加放行规则</button></div>
+                </div>
+                <div class="card setting-group">
+                  <h3>外观</h3>
+                  <div class="setting-row"><span>主题模式</span><div class="seg small"><button class="is-on">跟随系统</button><button>浅色</button><button>深色</button></div><span class="hint">与手机端一致</span></div>
+                  <div class="foot-note"><svg class="ico"><use href="#i-shield"/></svg>窗口材质与动画强弱跟随系统设置（省电模式 / 减少透明 / 减少动画），应用内不提供开关</div>
+                </div>
+                <div class="action-bar"><span class="dev-sub">上次保存：刚刚</span><span class="toolbar-spacer"></span><button class="btn primary">保存更改</button></div>
+              </div>
+
+            </div>
+          </div>
+
+          <!-- ===== PC 顶部悬浮提醒：成功/失败 × 接收/发送，覆盖内容不占布局 ===== -->
+          <div class="toast-host pc-toast-host" aria-live="polite">
+            <div class="toast ok" data-toast-id="receive-ok" role="status">
+              <div class="toast-ico"><svg class="ico"><use href="#i-check"/></svg></div>
+              <div class="toast-body">
+                <div class="toast-title">已接收 3 个文件</div>
+                <div class="toast-sub num">18.6 MB · 保存到 下载\快传</div>
+                <div class="toast-actions"><button class="btn primary sm"><svg class="ico"><use href="#i-folder"/></svg>打开文件夹</button><button class="btn sm">查看历史</button></div>
+              </div>
+              <button class="icon-btn toast-close" aria-label="关闭提醒"><svg class="ico"><use href="#i-x"/></svg></button>
+              <i class="toast-timer" aria-hidden="true"></i>
+            </div>
+            <div class="toast fail" data-toast-id="receive-fail" role="alert">
+              <div class="toast-ico"><svg class="ico"><use href="#i-alert"/></svg></div>
+              <div class="toast-body">
+                <div class="toast-title">接收失败</div>
+                <div class="toast-sub">存储空间不足，3 个文件未保存</div>
+                <div class="toast-actions"><button class="btn sm"><svg class="ico"><use href="#i-refresh"/></svg>重试</button><button class="btn ghost sm">查看详情</button></div>
+              </div>
+              <button class="icon-btn toast-close" aria-label="关闭提醒"><svg class="ico"><use href="#i-x"/></svg></button>
+              <i class="toast-timer" aria-hidden="true"></i>
+            </div>
+            <div class="toast ok" data-toast-id="send-ok" role="status">
+              <div class="toast-ico"><svg class="ico"><use href="#i-check"/></svg></div>
+              <div class="toast-body">
+                <div class="toast-title">已发送到 HUAWEI Mate 70</div>
+                <div class="toast-sub num">2 个文件 · 3.6 MB · 用时 4.2 秒</div>
+                <div class="toast-actions"><button class="btn sm">查看详情</button><button class="btn ghost sm">再次发送</button></div>
+              </div>
+              <button class="icon-btn toast-close" aria-label="关闭提醒"><svg class="ico"><use href="#i-x"/></svg></button>
+              <i class="toast-timer" aria-hidden="true"></i>
+            </div>
+            <div class="toast fail" data-toast-id="send-fail" role="alert">
+              <div class="toast-ico"><svg class="ico"><use href="#i-alert"/></svg></div>
+              <div class="toast-body">
+                <div class="toast-title">发送失败</div>
+                <div class="toast-sub">Office-PC 拒绝接收 · 已自动重试 2 次</div>
+                <div class="toast-actions"><button class="btn sm"><svg class="ico"><use href="#i-refresh"/></svg>重试</button><button class="btn ghost sm">查看详情</button></div>
+              </div>
+              <button class="icon-btn toast-close" aria-label="关闭提醒"><svg class="ico"><use href="#i-x"/></svg></button>
+              <i class="toast-timer" aria-hidden="true"></i>
+            </div>
+          </div>
+
+          <!-- ===== PC 弹窗层 ===== -->
+          <div class="dialog-layer">
+            <div class="dialog-scrim"></div>
+
+            <!-- 1 接收请求 -->
+            <div class="dlg" data-dialog="receive-request">
+              <div class="dlg-head">
+                <div>
+                  <div class="dlg-title">收到文件传输请求</div>
+                  <p class="dlg-sub">HUAWEI Mate 70 · 192.168.1.23 · 3 个文件 · 18.6 MB</p>
+                </div>
+                <button class="icon-btn" aria-label="关闭"><svg class="ico"><use href="#i-x"/></svg></button>
+              </div>
+              <div class="dlg-body">
+                <div class="req-sender">
+                  <div class="icon-block"><svg class="ico"><use href="#i-phone"/></svg></div>
+                  <div class="dev-info"><div class="dev-name">HUAWEI Mate 70 <span class="chip trust">白名单</span></div><div class="dev-sub">HarmonyOS · 手机 · 已信任设备</div></div>
+                  <span class="chip"><svg class="ico"><use href="#i-clock"/></svg>60 秒后自动拒绝</span>
+                </div>
+                <div class="req-list">
+                  <label class="req-item"><span class="checkbox is-on"><svg class="ico"><use href="#i-check"/></svg></span><svg class="ico file-ico"><use href="#i-image"/></svg><span class="req-name">产品原型_v3.png</span><span class="dev-sub num">2.4 MB</span></label>
+                  <label class="req-item"><span class="checkbox is-on"><svg class="ico"><use href="#i-check"/></svg></span><svg class="ico file-ico"><use href="#i-file"/></svg><span class="req-name">需求说明.pdf</span><span class="dev-sub num">1.2 MB</span></label>
+                  <label class="req-item"><span class="checkbox"><svg class="ico"><use href="#i-check"/></svg></span><svg class="ico file-ico"><use href="#i-file"/></svg><span class="req-name">照片备份.zip</span><span class="dev-sub num">15.0 MB</span></label>
+                </div>
+                <div class="req-tools"><button class="link-btn">全选</button><button class="link-btn">全不选</button><span class="toolbar-spacer"></span><span>已选 2 / 3 · 3.6 MB</span></div>
+                <label class="check-row"><span class="checkbox is-on"><svg class="ico"><use href="#i-check"/></svg></span>信任此设备，以后自动接收<span class="hint">（加入白名单）</span></label>
+              </div>
+              <div class="dlg-foot"><button class="btn">拒绝</button><span class="toolbar-spacer"></span><button class="btn primary">接收</button></div>
+            </div>
+
+            <!-- 2 PIN -->
+            <div class="dlg sm" data-dialog="pin">
+              <div class="dlg-head"><div><div class="dlg-title">输入接收 PIN 码</div><p class="dlg-sub">HUAWEI Mate 70 要求配对码后才能发送</p></div></div>
+              <div class="dlg-body">
+                <div class="pin-row">
+                  <span class="pin-cell is-on num">4</span><span class="pin-cell is-on num">8</span><span class="pin-cell is-on num">2</span><span class="pin-cell is-focus num">·</span>
+                </div>
+                <div class="status-line warn"><svg class="ico"><use href="#i-alert"/></svg>PIN 不正确，还可尝试 2 次</div>
+              </div>
+              <div class="dlg-foot"><button class="btn">取消</button><span class="toolbar-spacer"></span><button class="btn primary">确认</button></div>
+            </div>
+
+            <!-- 3 发送进度 -->
+            <div class="dlg" data-dialog="send-progress">
+              <div class="dlg-head"><div><div class="dlg-title">正在发送</div><p class="dlg-sub">发往 HUAWEI Mate 70 · 3 个文件 · 18.6 MB</p></div></div>
+              <div class="dlg-body">
+                <div class="prog-summary" role="group" aria-label="总进度">
+                  <div class="prog-top">
+                    <div class="big-pct"><strong class="num">56<span>%</span></strong></div>
+                    <div class="prog-meta"><div><strong>已完成 2 / 3 个文件</strong> · 共 18.6 MB</div><div class="dev-sub">12.4 MB/s · 剩余约 1 分钟</div></div>
+                  </div>
+                  <div class="bar thick" role="progressbar" aria-label="总进度（按字节）" aria-valuenow="56" aria-valuemin="0" aria-valuemax="100"><i style="width:56%"></i></div>
+                  <div class="prog-bytes"><span>已发送 10.5 MB</span><span class="toolbar-spacer"></span><span class="num">18.6 MB</span></div>
+                </div>
+                <div class="prog-files">
+                  <div class="section-head compact"><h3>文件进度</h3><span class="chip count">3</span><span class="toolbar-spacer"></span><span class="dev-sub">按队列顺序传输</span></div>
+                  <div class="fp-list" role="list">
+                    <div class="fp-row is-done" role="listitem">
+                      <div class="fp-line"><span class="fp-state"><svg class="ico"><use href="#i-check"/></svg></span><svg class="ico file-ico"><use href="#i-image"/></svg><span class="fp-name">产品原型_v3.png</span><span class="fp-meta num">2.4 MB</span><span class="chip success">已完成</span></div>
+                      <div class="bar" role="progressbar" aria-label="产品原型_v3.png 进度" aria-valuenow="100" aria-valuemin="0" aria-valuemax="100"><i style="width:100%"></i></div>
+                    </div>
+                    <div class="fp-row is-done" role="listitem">
+                      <div class="fp-line"><span class="fp-state"><svg class="ico"><use href="#i-check"/></svg></span><svg class="ico file-ico"><use href="#i-file"/></svg><span class="fp-name">需求说明.pdf</span><span class="fp-meta num">1.2 MB</span><span class="chip success">已完成</span></div>
+                      <div class="bar" role="progressbar" aria-label="需求说明.pdf 进度" aria-valuenow="100" aria-valuemin="0" aria-valuemax="100"><i style="width:100%"></i></div>
+                    </div>
+                    <div class="fp-row is-active" role="listitem">
+                      <div class="fp-line"><span class="fp-state"><svg class="ico"><use href="#i-upload"/></svg></span><svg class="ico file-ico"><use href="#i-file"/></svg><span class="fp-name">照片备份.zip</span><span class="fp-meta num">15.0 MB</span><span class="chip active">46% · 传输中</span></div>
+                      <div class="bar" role="progressbar" aria-label="照片备份.zip 进度" aria-valuenow="46" aria-valuemin="0" aria-valuemax="100"><i style="width:46%"></i></div>
+                      <div class="fp-detail"><span class="num">6.9 MB / 15.0 MB</span><span>12.4 MB/s</span><span class="toolbar-spacer"></span><span>剩余约 1 分钟</span></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="dlg-foot"><span class="dev-sub">可继续操作，进度显示在托盘</span><span class="toolbar-spacer"></span><button class="btn danger">取消传输</button></div>
+            </div>
+
+            <!-- 4 接收进度 -->
+            <div class="dlg" data-dialog="receive-progress">
+              <div class="dlg-head"><div><div class="dlg-title">正在接收文件</div><p class="dlg-sub">来自 HUAWEI Mate 70 · 3 个文件 · 18.6 MB</p></div></div>
+              <div class="dlg-body">
+                <div class="prog-summary" role="group" aria-label="总进度">
+                  <div class="prog-top">
+                    <div class="big-pct"><strong class="num">18<span>%</span></strong></div>
+                    <div class="prog-meta"><div><strong>已保存 1 / 3 个文件</strong> · 共 18.6 MB</div><div class="dev-sub">8.2 MB/s · 剩余约 2 分钟</div></div>
+                  </div>
+                  <div class="bar thick" role="progressbar" aria-label="总进度（按字节）" aria-valuenow="18" aria-valuemin="0" aria-valuemax="100"><i style="width:18%"></i></div>
+                  <div class="prog-bytes"><span>已接收 3.3 MB</span><span class="toolbar-spacer"></span><span class="num">18.6 MB</span></div>
+                </div>
+                <div class="prog-files">
+                  <div class="section-head compact"><h3>文件进度</h3><span class="chip count">3</span><span class="toolbar-spacer"></span><span class="dev-sub">SHA-256 边写边校验</span></div>
+                  <div class="fp-list" role="list">
+                    <div class="fp-row is-done" role="listitem">
+                      <div class="fp-line"><span class="fp-state"><svg class="ico"><use href="#i-check"/></svg></span><svg class="ico file-ico"><use href="#i-image"/></svg><span class="fp-name">产品原型_v3.png</span><span class="fp-meta num">2.4 MB</span><span class="chip success">已校验</span></div>
+                      <div class="bar" role="progressbar" aria-label="产品原型_v3.png 进度" aria-valuenow="100" aria-valuemin="0" aria-valuemax="100"><i style="width:100%"></i></div>
+                    </div>
+                    <div class="fp-row is-active" role="listitem">
+                      <div class="fp-line"><span class="fp-state"><svg class="ico"><use href="#i-download"/></svg></span><svg class="ico file-ico"><use href="#i-file"/></svg><span class="fp-name">需求说明.pdf</span><span class="fp-meta num">1.2 MB</span><span class="chip active">72% · 接收中</span></div>
+                      <div class="bar" role="progressbar" aria-label="需求说明.pdf 进度" aria-valuenow="72" aria-valuemin="0" aria-valuemax="100"><i style="width:72%"></i></div>
+                      <div class="fp-detail"><span class="num">860 KB / 1.2 MB</span><span>8.2 MB/s</span><span class="toolbar-spacer"></span><span>剩余约 1 秒</span></div>
+                    </div>
+                    <div class="fp-row is-wait" role="listitem">
+                      <div class="fp-line"><span class="fp-state"><svg class="ico"><use href="#i-clock"/></svg></span><svg class="ico file-ico"><use href="#i-file"/></svg><span class="fp-name">照片备份.zip</span><span class="fp-meta num">15.0 MB</span><span class="chip">等待中 · 0%</span></div>
+                      <div class="bar" role="progressbar" aria-label="照片备份.zip 进度" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"><i style="width:0%"></i></div>
+                    </div>
+                  </div>
+                </div>
+                <div class="status-line"><svg class="ico"><use href="#i-folder"/></svg>保存到 C:\Users\xiaoxiao\Downloads\快传</div>
+              </div>
+              <div class="dlg-foot"><span class="dev-sub">取消会删除本次已写入的文件</span><span class="toolbar-spacer"></span><button class="btn danger">取消接收</button></div>
+            </div>
+
+            <!-- 5 发送文字 -->
+            <div class="dlg" data-dialog="text">
+              <div class="dlg-head"><div><div class="dlg-title">发送文字</div><p class="dlg-sub">接收端会把它保存为 .txt 文件</p></div><button class="icon-btn" aria-label="关闭"><svg class="ico"><use href="#i-x"/></svg></button></div>
+              <div class="dlg-body">
+                <div class="textarea">在这里输入文字，支持多行…<br>https://192.168.1.23:53317</div>
+                <div class="foot-note">将作为「文字片段.txt」加入待发送列表</div>
+              </div>
+              <div class="dlg-foot"><button class="btn"><svg class="ico"><use href="#i-clipboard"/></svg>粘贴剪贴板</button><span class="toolbar-spacer"></span><button class="btn">取消</button><button class="btn primary">发送</button></div>
+            </div>
+
+            <!-- 6 传输详情 -->
+            <div class="dlg" data-dialog="detail">
+              <div class="dlg-head"><div><div class="dlg-title">传输详情</div><p class="dlg-sub">来自 HUAWEI Mate 70 · 今天 19:42 · 完成</p></div><button class="icon-btn" aria-label="关闭"><svg class="ico"><use href="#i-x"/></svg></button></div>
+              <div class="dlg-body">
+                <div class="detail-grid">
+                  <div class="detail-line"><span>方向</span><span class="num">接收 · HTTPS</span></div>
+                  <div class="detail-line"><span>总大小</span><span class="num">18.6 MB · 用时 4.2 秒</span></div>
+                  <div class="detail-line"><span>保存位置</span><span class="num">Downloads\快传</span></div>
+                </div>
+                <div class="section-head"><h3>文件清单</h3><span class="chip count">3</span></div>
+                <div class="detail-item"><svg class="ico"><use href="#i-image"/></svg><span>产品原型_v3.png</span><span class="dev-sub num">2.4 MB · 已校验</span></div>
+                <div class="detail-item"><svg class="ico"><use href="#i-file"/></svg><span>需求说明.pdf</span><span class="dev-sub num">1.2 MB · 已校验</span></div>
+                <div class="detail-item"><svg class="ico"><use href="#i-file"/></svg><span>照片备份.zip</span><span class="dev-sub num">15.0 MB · 已校验</span></div>
+              </div>
+              <div class="dlg-foot"><button class="btn"><svg class="ico"><use href="#i-folder"/></svg>打开位置</button><span class="toolbar-spacer"></span><button class="btn primary">关闭</button></div>
+            </div>
+
+            <!-- 7 重命名 -->
+            <div class="dlg sm" data-dialog="rename">
+              <div class="dlg-head"><div><div class="dlg-title">重命名</div><p class="dlg-sub">仅本地生效，不影响对方设备上的名字</p></div></div>
+              <div class="dlg-body"><div class="fake-input">HUAWEI Mate 70（家里的手机）</div></div>
+              <div class="dlg-foot"><button class="btn">取消</button><span class="toolbar-spacer"></span><button class="btn primary">保存</button></div>
+            </div>
+
+            <!-- 8 清空确认 -->
+            <div class="dlg sm" data-dialog="clear">
+              <div class="dlg-head"><div><div class="dlg-title">清空全部历史记录？</div><p class="dlg-sub">共 50 条记录将被删除，此操作无法撤销。已接收的文件不受影响。</p></div></div>
+              <div class="dlg-body"><div class="status-line warn"><svg class="ico"><use href="#i-alert"/></svg>仅删除记录，不删除磁盘上的文件</div></div>
+              <div class="dlg-foot"><button class="btn">取消</button><span class="toolbar-spacer"></span><button class="btn danger">清空记录</button></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== HarmonyOS ==================== -->
+    <section class="device device-phone" aria-label="鸿蒙端预览">
+      <div class="frame-label"><span class="dot"></span>HarmonyOS · ArkUI <span class="frame-note">系统模糊材质 · 4 Tab + 5 页 + 8 浮层 + 4 态提醒</span></div>
+      <div class="phone-shell">
+        <div class="phone-wallpaper" aria-hidden="true"></div>
+        <div class="phone-status"><span class="num">9:41</span><span class="phone-notch"></span><span class="num"><svg class="ico"><use href="#i-wifi"/></svg> · 100%</span></div>
+        <div class="phone-content">
+
+          <!-- 手机 接收 -->
+          <div class="page is-active" data-device="phone" data-page="receive">
+            <div class="phone-head"><div><h2>接收文件</h2><p>附近设备可向你发送文件</p></div><button class="icon-btn round" aria-label="刷新设备"><svg class="ico"><use href="#i-refresh"/></svg></button></div>
+            <div class="card hero-card phone-hero">
+              <div class="hero-top">
+                <div class="avatar"><svg class="ico"><use href="#i-phone"/></svg></div>
+                <div class="hero-info"><div class="hero-line"><strong>HUAWEI Mate 70</strong><span class="chip success">在线</span></div><div class="hero-meta"><span>HTTPS</span><span class="sep">·</span><span>PIN</span></div></div>
+                <div class="signal"><i></i><i></i><i></i></div>
+              </div>
+              <div class="path-row"><svg class="ico"><use href="#i-folder"/></svg><span class="path-box">下载 / 快传</span><button class="btn ghost">打开</button></div>
+            </div>
+            <div class="section-head"><h3>附近设备</h3><span class="chip count">2</span><span class="toolbar-spacer"></span><span class="dev-sub">5s 自动刷新</span></div>
+            <div class="file-stack">
+              <div class="dev-card"><i class="statusbar"></i><div class="icon-block"><svg class="ico"><use href="#i-monitor"/></svg></div><div class="dev-info"><div class="dev-name">xiaoxiao-PC <span class="chip trust">白名单</span></div><div class="dev-sub num">192.168.1.12 · 53317</div><div class="dev-sub">Windows · 电脑</div></div><div class="dev-state"><i class="dot-live"></i><span>在线</span></div></div>
+              <div class="dev-card"><i class="statusbar away"></i><div class="icon-block"><svg class="ico"><use href="#i-monitor"/></svg></div><div class="dev-info"><div class="dev-name">Office-PC</div><div class="dev-sub num">192.168.1.41 · 53317</div><div class="dev-sub">Windows · 电脑</div></div><div class="dev-state"><span>离开</span></div></div>
+            </div>
+            <div class="foot-note"><i class="dot-live"></i>后台保活已开启 · 锁屏也能接收 · 结果以顶部提醒反馈</div>
+          </div>
+
+          <!-- 手机 发送 -->
+          <div class="page" data-device="phone" data-page="send">
+            <div class="phone-head"><div><h2>发送文件</h2><p>选择文件与目标设备</p></div><button class="icon-btn round" aria-label="更多"><svg class="ico"><use href="#i-plus"/></svg></button></div>
+            <div class="section-head"><h3>添加内容</h3></div>
+            <div class="add-grid">
+              <button class="add-tile"><span class="add-icon"><svg class="ico"><use href="#i-folder"/></svg></span><strong>文件</strong><span class="dev-sub">文件管理</span></button>
+              <button class="add-tile"><span class="add-icon"><svg class="ico"><use href="#i-image"/></svg></span><strong>媒体</strong><span class="dev-sub">系统相册</span></button>
+              <button class="add-tile"><span class="add-icon"><svg class="ico"><use href="#i-text"/></svg></span><strong>文字</strong><span class="dev-sub">新建文本</span></button>
+            </div>
+            <div class="section-head"><h3>待发送</h3><span class="chip count">2</span><span class="toolbar-spacer"></span><button class="link-btn">清空</button></div>
+            <div class="file-stack">
+              <div class="card compact file-card"><div class="icon-block file-icon"><svg class="ico"><use href="#i-image"/></svg></div><div class="file-info"><strong>产品原型_v3.png</strong><div class="dev-sub num">2.4 MB</div></div><button class="icon-btn" aria-label="移除文件"><svg class="ico"><use href="#i-x"/></svg></button></div>
+              <div class="card compact file-card"><div class="icon-block file-icon"><svg class="ico"><use href="#i-file"/></svg></div><div class="file-info"><strong>需求说明.pdf</strong><div class="dev-sub num">1.2 MB</div></div><button class="icon-btn" aria-label="移除文件"><svg class="ico"><use href="#i-x"/></svg></button></div>
+            </div>
+            <div class="section-head"><h3>目标设备</h3><span class="chip count">1 已选</span></div>
+            <div class="dev-card is-picked"><i class="statusbar"></i><div class="icon-block"><svg class="ico"><use href="#i-monitor"/></svg></div><div class="dev-info"><div class="dev-name">xiaoxiao-PC <span class="chip trust">白名单</span></div><div class="dev-sub num">192.168.1.12 · 53317</div></div><div class="pick-mark"><svg class="ico"><use href="#i-check"/></svg></div></div>
+            <div class="card phone-action"><div><span class="dev-sub">合计</span><strong class="num">3.6 MB</strong></div><span class="toolbar-spacer"></span><button class="btn primary">开始发送</button></div>
+          </div>
+
+          <!-- 手机 历史 -->
+          <div class="page" data-device="phone" data-page="history">
+            <div class="phone-head"><div><h2>历史记录</h2><p>最近 200 条传输</p></div><button class="icon-btn round" aria-label="清空历史"><svg class="ico"><use href="#i-trash"/></svg></button></div>
+            <div class="seg small full" aria-label="筛选"><button class="is-on">全部</button><button>接收</button><button>发送</button></div>
+            <div class="file-stack">
+              <div class="card compact hist-card phone-hist"><i class="hist-stripe in"></i><div class="hist-body"><strong>来自 xiaoxiao-PC</strong><span class="dev-sub">3 个文件 · 18.6 MB</span><span class="dev-sub num">今天 19:42</span></div><span class="chip success">完成</span></div>
+              <div class="card compact hist-card phone-hist"><i class="hist-stripe out"></i><div class="hist-body"><strong>发往 Office-PC</strong><span class="dev-sub">需求说明.pdf · 1.2 MB</span><span class="dev-sub num">今天 18:05</span></div><span class="chip success">完成</span></div>
+              <div class="card compact hist-card phone-hist"><i class="hist-stripe out"></i><div class="hist-body"><strong>发往 xiaoxiao-PC</strong><span class="dev-sub">照片.zip · 已取消</span><span class="dev-sub num">昨天 21:18</span></div><span class="chip danger">已取消</span></div>
+            </div>
+            <div class="foot-note">点击条目可打开、另存或复制路径</div>
+          </div>
+
+          <!-- 手机 设备管理 -->
+          <div class="page" data-device="phone" data-page="devices">
+            <div class="phone-head"><div><h2>设备管理</h2><p>信任设备免确认，阻止设备直接拒绝</p></div><button class="icon-btn round" aria-label="添加设备"><svg class="ico"><use href="#i-plus"/></svg></button></div>
+            <div class="seg small full" aria-label="名单"><button class="is-on">信任 2</button><button>阻止 1</button></div>
+            <div class="card trust-list phone-group">
+              <div class="trust-row">
+                <div class="icon-block"><svg class="ico"><use href="#i-monitor"/></svg></div>
+                <div class="dev-info"><div class="dev-name">xiaoxiao-PC <span class="chip trust"><svg class="ico"><use href="#i-shield-check"/></svg>已信任</span></div><div class="dev-sub num">A3F2…9C1D</div></div>
+                <div class="trust-actions"><span class="switch sm is-on"><i></i></span></div>
+              </div>
+              <div class="trust-row">
+                <div class="icon-block"><svg class="ico"><use href="#i-monitor"/></svg></div>
+                <div class="dev-info"><div class="dev-name">Office-PC <span class="chip trust"><svg class="ico"><use href="#i-shield-check"/></svg>已信任</span></div><div class="dev-sub num">7C11…4E88</div></div>
+                <div class="trust-actions"><span class="switch sm"><i></i></span></div>
+              </div>
+            </div>
+            <div class="card phone-group">
+              <div class="section-head"><h3>已阻止（黑名单）</h3><span class="chip count">1</span></div>
+              <div class="trust-row">
+                <div class="icon-block"><svg class="ico"><use href="#i-ban"/></svg></div>
+                <div class="dev-info"><div class="dev-name">Unknown-PC</div><div class="dev-sub num">9D3B…10F4</div></div>
+                <div class="trust-actions"><button class="btn sm">移除</button></div>
+              </div>
+            </div>
+            <div class="foot-note"><i class="dot-live"></i>信任设备可单独开启自动接收</div>
+          </div>
+
+          <!-- 手机 设置 -->
+          <div class="page" data-device="phone" data-page="settings">
+            <div class="phone-head"><div><h2>设置</h2><p>与 PC 端保持同一套参数</p></div><button class="icon-btn round" aria-label="关于"><svg class="ico"><use href="#i-shield"/></svg></button></div>
+            <div class="card setting-group phone-group">
+              <h3>设备身份</h3>
+              <div class="setting-row phone-row"><span>本机显示名</span><strong class="num">HUAWEI Mate 70</strong><svg class="ico"><use href="#i-chevron"/></svg></div>
+              <div class="setting-row phone-row"><span>设备指纹</span><strong class="num">A3F2…9C1D</strong><svg class="ico"><use href="#i-chevron"/></svg></div>
+            </div>
+            <div class="card setting-group phone-group">
+              <h3>连接与安全</h3>
+              <div class="setting-row phone-row"><span>使用 HTTPS</span><span class="toolbar-spacer"></span><span class="switch is-on"><i></i></span></div>
+              <div class="setting-row phone-row"><span>接收 PIN 码</span><strong class="num">已开启</strong><svg class="ico"><use href="#i-chevron"/></svg></div>
+              <div class="setting-row phone-row"><span>服务端口</span><strong class="num">53317</strong><svg class="ico"><use href="#i-chevron"/></svg></div>
+              <div class="setting-row phone-row"><span>仅白名单模式</span><span class="toolbar-spacer"></span><span class="switch is-on"><i></i></span></div>
+            </div>
+            <div class="card setting-group phone-group">
+              <h3>接收</h3>
+              <div class="setting-row phone-row"><span>接收保存目录</span><strong class="num">下载 / 快传</strong><svg class="ico"><use href="#i-chevron"/></svg></div>
+              <div class="setting-row phone-row"><span>自动保存到相册</span><span class="toolbar-spacer"></span><span class="switch is-on"><i></i></span></div>
+              <div class="setting-row phone-row"><span>自动接收</span><span class="toolbar-spacer"></span><span class="switch"><i></i></span></div>
+            </div>
+            <div class="card setting-group phone-group">
+              <h3>通知与后台</h3>
+              <div class="setting-row phone-row"><span>后台保活</span><span class="toolbar-spacer"></span><span class="switch is-on"><i></i></span></div>
+              <div class="setting-row phone-row"><span>接收完成通知</span><span class="toolbar-spacer"></span><span class="switch is-on"><i></i></span></div>
+              <div class="setting-row phone-row"><span>分享入口</span><span class="toolbar-spacer"></span><span class="switch is-on"><i></i></span></div>
+            </div>
+            <div class="card setting-group phone-group">
+              <h3>外观</h3>
+              <div class="setting-row phone-row"><span>主题模式</span><strong>跟随系统</strong><svg class="ico"><use href="#i-chevron"/></svg></div>
+              <div class="foot-note"><svg class="ico"><use href="#i-shield"/></svg>模糊材质与动画强弱跟随系统，应用内不提供开关</div>
+            </div>
+            <div class="card setting-group phone-group">
+              <h3>关于</h3>
+              <div class="setting-row phone-row"><span>版本</span><strong class="num">1.0.0 (122)</strong></div>
+              <div class="setting-row phone-row"><span>协议</span><strong class="num">LocalSend v2.2</strong></div>
+              <div class="setting-row phone-row"><span>诊断日志</span><strong>查看</strong><svg class="ico"><use href="#i-chevron"/></svg></div>
+            </div>
+            <div class="foot-note">与 PC 端互通 · 同一套设计令牌</div>
+          </div>
+
+        </div>
+        <!-- ===== 手机顶部悬浮提醒：状态栏下方，4 态 ===== -->
+        <div class="toast-host phone-toast-host" aria-live="polite">
+          <div class="toast ok" data-toast-id="receive-ok" role="status">
+            <div class="toast-ico"><svg class="ico"><use href="#i-check"/></svg></div>
+            <div class="toast-body">
+              <div class="toast-title">已接收 3 个文件</div>
+              <div class="toast-sub num">18.6 MB · 保存到 下载/快传</div>
+              <div class="toast-actions"><button class="btn primary sm"><svg class="ico"><use href="#i-folder"/></svg>打开</button><button class="btn ghost sm">历史</button></div>
+            </div>
+            <button class="icon-btn toast-close" aria-label="关闭提醒"><svg class="ico"><use href="#i-x"/></svg></button>
+            <i class="toast-timer" aria-hidden="true"></i>
+          </div>
+          <div class="toast fail" data-toast-id="receive-fail" role="alert">
+            <div class="toast-ico"><svg class="ico"><use href="#i-alert"/></svg></div>
+            <div class="toast-body">
+              <div class="toast-title">接收失败</div>
+              <div class="toast-sub">存储空间不足，3 个文件未保存</div>
+              <div class="toast-actions"><button class="btn sm"><svg class="ico"><use href="#i-refresh"/></svg>重试</button><button class="btn ghost sm">详情</button></div>
+            </div>
+            <button class="icon-btn toast-close" aria-label="关闭提醒"><svg class="ico"><use href="#i-x"/></svg></button>
+            <i class="toast-timer" aria-hidden="true"></i>
+          </div>
+          <div class="toast ok" data-toast-id="send-ok" role="status">
+            <div class="toast-ico"><svg class="ico"><use href="#i-check"/></svg></div>
+            <div class="toast-body">
+              <div class="toast-title">已发送到 xiaoxiao-PC</div>
+              <div class="toast-sub num">2 个文件 · 3.6 MB · 4.2 秒</div>
+              <div class="toast-actions"><button class="btn sm">查看详情</button></div>
+            </div>
+            <button class="icon-btn toast-close" aria-label="关闭提醒"><svg class="ico"><use href="#i-x"/></svg></button>
+            <i class="toast-timer" aria-hidden="true"></i>
+          </div>
+          <div class="toast fail" data-toast-id="send-fail" role="alert">
+            <div class="toast-ico"><svg class="ico"><use href="#i-alert"/></svg></div>
+            <div class="toast-body">
+              <div class="toast-title">发送失败</div>
+              <div class="toast-sub">xiaoxiao-PC 拒绝接收 · 已重试 2 次</div>
+              <div class="toast-actions"><button class="btn sm"><svg class="ico"><use href="#i-refresh"/></svg>重试</button><button class="btn ghost sm">详情</button></div>
+            </div>
+            <button class="icon-btn toast-close" aria-label="关闭提醒"><svg class="ico"><use href="#i-x"/></svg></button>
+            <i class="toast-timer" aria-hidden="true"></i>
+          </div>
+        </div>
+        <nav class="phone-tabs" aria-label="底部导航">
+          <button class="tab is-on" data-nav="receive"><svg class="ico"><use href="#i-download"/></svg><span>接收</span></button>
+          <button class="tab" data-nav="send"><svg class="ico"><use href="#i-send"/></svg><span>发送</span></button>
+          <button class="tab" data-nav="history"><svg class="ico"><use href="#i-clock"/></svg><span>历史</span></button>
+          <button class="tab" data-nav="settings"><svg class="ico"><use href="#i-settings"/></svg><span>设置</span></button>
+        </nav>
+
+        <!-- ===== 手机 浮层 ===== -->
+        <div class="dialog-layer">
+          <div class="dialog-scrim"></div>
+
+          <div class="sheet" data-dialog="receive-request">
+            <div class="sheet-handle"></div>
+            <div class="sheet-head"><div class="dlg-title">收到文件传输请求</div><button class="icon-btn" aria-label="关闭"><svg class="ico"><use href="#i-x"/></svg></button></div>
+            <div class="sheet-body">
+              <div class="req-sender">
+                <div class="icon-block"><svg class="ico"><use href="#i-monitor"/></svg></div>
+                <div class="dev-info"><div class="dev-name">xiaoxiao-PC <span class="chip trust">白名单</span></div><div class="dev-sub num">192.168.1.12 · 3 个文件 · 18.6 MB</div></div>
+              </div>
+              <div class="req-list">
+                <label class="req-item"><span class="checkbox is-on"><svg class="ico"><use href="#i-check"/></svg></span><svg class="ico file-ico"><use href="#i-image"/></svg><span class="req-name">产品原型_v3.png</span><span class="dev-sub num">2.4 MB</span></label>
+                <label class="req-item"><span class="checkbox is-on"><svg class="ico"><use href="#i-check"/></svg></span><svg class="ico file-ico"><use href="#i-file"/></svg><span class="req-name">需求说明.pdf</span><span class="dev-sub num">1.2 MB</span></label>
+                <label class="req-item"><span class="checkbox"><svg class="ico"><use href="#i-check"/></svg></span><svg class="ico file-ico"><use href="#i-file"/></svg><span class="req-name">照片备份.zip</span><span class="dev-sub num">15.0 MB</span></label>
+              </div>
+              <label class="check-row"><span class="checkbox is-on"><svg class="ico"><use href="#i-check"/></svg></span>信任此设备，以后自动接收</label>
+              <div class="foot-note"><svg class="ico"><use href="#i-clock"/></svg>60 秒后自动拒绝</div>
+            </div>
+            <div class="sheet-foot"><button class="btn">拒绝</button><button class="btn primary">接收 2 个</button></div>
+          </div>
+
+          <div class="sheet" data-dialog="send-progress">
+            <div class="sheet-handle"></div>
+            <div class="sheet-head"><div class="dlg-title">正在发送</div><span class="chip">第 3 / 3 个</span></div>
+            <div class="sheet-body">
+              <div class="prog-summary" role="group" aria-label="总进度">
+                <div class="prog-top">
+                  <div class="big-pct"><strong class="num">56<span>%</span></strong></div>
+                  <div class="prog-meta"><div><strong>已完成 2 / 3 个文件</strong></div><div class="dev-sub">12.4 MB/s · 剩余约 1 分钟</div></div>
+                </div>
+                <div class="bar thick" role="progressbar" aria-label="总进度（按字节）" aria-valuenow="56" aria-valuemin="0" aria-valuemax="100"><i style="width:56%"></i></div>
+                <div class="prog-bytes"><span>已发送 10.5 MB</span><span class="toolbar-spacer"></span><span class="num">18.6 MB</span></div>
+              </div>
+              <div class="prog-files">
+                <div class="section-head compact"><h3>文件进度</h3><span class="chip count">3</span><span class="toolbar-spacer"></span><span class="dev-sub">按队列顺序</span></div>
+                <div class="fp-list" role="list">
+                  <div class="fp-row is-done" role="listitem">
+                    <div class="fp-line"><span class="fp-state"><svg class="ico"><use href="#i-check"/></svg></span><svg class="ico file-ico"><use href="#i-image"/></svg><span class="fp-name">产品原型_v3.png</span><span class="fp-meta num">2.4 MB</span><span class="chip success">已完成</span></div>
+                    <div class="bar" role="progressbar" aria-label="产品原型_v3.png 进度" aria-valuenow="100" aria-valuemin="0" aria-valuemax="100"><i style="width:100%"></i></div>
+                  </div>
+                  <div class="fp-row is-done" role="listitem">
+                    <div class="fp-line"><span class="fp-state"><svg class="ico"><use href="#i-check"/></svg></span><svg class="ico file-ico"><use href="#i-file"/></svg><span class="fp-name">需求说明.pdf</span><span class="fp-meta num">1.2 MB</span><span class="chip success">已完成</span></div>
+                    <div class="bar" role="progressbar" aria-label="需求说明.pdf 进度" aria-valuenow="100" aria-valuemin="0" aria-valuemax="100"><i style="width:100%"></i></div>
+                  </div>
+                  <div class="fp-row is-active" role="listitem">
+                    <div class="fp-line"><span class="fp-state"><svg class="ico"><use href="#i-upload"/></svg></span><svg class="ico file-ico"><use href="#i-file"/></svg><span class="fp-name">照片备份.zip</span><span class="fp-meta num">15.0 MB</span><span class="chip active">46%</span></div>
+                    <div class="bar" role="progressbar" aria-label="照片备份.zip 进度" aria-valuenow="46" aria-valuemin="0" aria-valuemax="100"><i style="width:46%"></i></div>
+                    <div class="fp-detail"><span class="num">6.9 MB / 15.0 MB</span><span class="toolbar-spacer"></span><span>传输中</span></div>
+                  </div>
+                </div>
+              </div>
+              <div class="foot-note">发往 xiaoxiao-PC · 3 个文件 · 共 18.6 MB</div>
+            </div>
+            <div class="sheet-foot"><button class="btn danger">取消传输</button><button class="btn">后台继续</button></div>
+          </div>
+
+          <div class="sheet" data-dialog="receive-progress">
+            <div class="sheet-handle"></div>
+            <div class="sheet-head"><div class="dlg-title">正在接收</div><span class="chip">第 2 / 3 个</span></div>
+            <div class="sheet-body">
+              <div class="prog-summary" role="group" aria-label="总进度">
+                <div class="prog-top">
+                  <div class="big-pct"><strong class="num">18<span>%</span></strong></div>
+                  <div class="prog-meta"><div><strong>已保存 1 / 3 个文件</strong></div><div class="dev-sub">8.2 MB/s · 剩余约 2 分钟</div></div>
+                </div>
+                <div class="bar thick" role="progressbar" aria-label="总进度（按字节）" aria-valuenow="18" aria-valuemin="0" aria-valuemax="100"><i style="width:18%"></i></div>
+                <div class="prog-bytes"><span>已接收 3.3 MB</span><span class="toolbar-spacer"></span><span class="num">18.6 MB</span></div>
+              </div>
+              <div class="prog-files">
+                <div class="section-head compact"><h3>文件进度</h3><span class="chip count">3</span><span class="toolbar-spacer"></span><span class="dev-sub">边写边校验</span></div>
+                <div class="fp-list" role="list">
+                  <div class="fp-row is-done" role="listitem">
+                    <div class="fp-line"><span class="fp-state"><svg class="ico"><use href="#i-check"/></svg></span><svg class="ico file-ico"><use href="#i-image"/></svg><span class="fp-name">产品原型_v3.png</span><span class="fp-meta num">2.4 MB</span><span class="chip success">已校验</span></div>
+                    <div class="bar" role="progressbar" aria-label="产品原型_v3.png 进度" aria-valuenow="100" aria-valuemin="0" aria-valuemax="100"><i style="width:100%"></i></div>
+                  </div>
+                  <div class="fp-row is-active" role="listitem">
+                    <div class="fp-line"><span class="fp-state"><svg class="ico"><use href="#i-download"/></svg></span><svg class="ico file-ico"><use href="#i-file"/></svg><span class="fp-name">需求说明.pdf</span><span class="fp-meta num">1.2 MB</span><span class="chip active">72%</span></div>
+                    <div class="bar" role="progressbar" aria-label="需求说明.pdf 进度" aria-valuenow="72" aria-valuemin="0" aria-valuemax="100"><i style="width:72%"></i></div>
+                    <div class="fp-detail"><span class="num">860 KB / 1.2 MB</span><span class="toolbar-spacer"></span><span>接收中</span></div>
+                  </div>
+                  <div class="fp-row is-wait" role="listitem">
+                    <div class="fp-line"><span class="fp-state"><svg class="ico"><use href="#i-clock"/></svg></span><svg class="ico file-ico"><use href="#i-file"/></svg><span class="fp-name">照片备份.zip</span><span class="fp-meta num">15.0 MB</span><span class="chip">等待中</span></div>
+                    <div class="bar" role="progressbar" aria-label="照片备份.zip 进度" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"><i style="width:0%"></i></div>
+                  </div>
+                </div>
+              </div>
+              <div class="status-line"><svg class="ico"><use href="#i-folder"/></svg>保存到 下载 / 快传</div>
+            </div>
+            <div class="sheet-foot"><button class="btn danger">取消接收</button><button class="btn">后台继续</button></div>
+          </div>
+
+          <div class="sheet" data-dialog="text">
+            <div class="sheet-handle"></div>
+            <div class="sheet-head"><div class="dlg-title">发送文字</div><button class="icon-btn" aria-label="关闭"><svg class="ico"><use href="#i-x"/></svg></button></div>
+            <div class="sheet-body">
+              <div class="textarea">在这里输入文字，支持多行…</div>
+              <div class="foot-note">接收端保存为 .txt 文件</div>
+            </div>
+            <div class="sheet-foot"><button class="btn"><svg class="ico"><use href="#i-clipboard"/></svg>粘贴</button><button class="btn primary">发送</button></div>
+          </div>
+
+          <div class="sheet" data-dialog="detail">
+            <div class="sheet-handle"></div>
+            <div class="sheet-head"><div class="dlg-title">传输详情</div><button class="icon-btn" aria-label="关闭"><svg class="ico"><use href="#i-x"/></svg></button></div>
+            <div class="sheet-body">
+              <div class="detail-grid">
+                <div class="detail-line"><span>方向</span><span class="num">接收 · HTTPS</span></div>
+                <div class="detail-line"><span>总大小</span><span class="num">18.6 MB · 4.2 秒</span></div>
+                <div class="detail-line"><span>保存位置</span><span class="num">下载 / 快传</span></div>
+              </div>
+              <div class="detail-item"><svg class="ico"><use href="#i-image"/></svg><span>产品原型_v3.png</span><span class="dev-sub num">2.4 MB</span></div>
+              <div class="detail-item"><svg class="ico"><use href="#i-file"/></svg><span>需求说明.pdf</span><span class="dev-sub num">1.2 MB</span></div>
+              <div class="detail-item"><svg class="ico"><use href="#i-file"/></svg><span>照片备份.zip</span><span class="dev-sub num">15.0 MB</span></div>
+            </div>
+            <div class="sheet-foot"><button class="btn"><svg class="ico"><use href="#i-folder"/></svg>打开位置</button><button class="btn primary">关闭</button></div>
+          </div>
+
+          <div class="alert" data-dialog="pin">
+            <div class="empty-icon"><svg class="ico"><use href="#i-key"/></svg></div>
+            <div>
+              <div class="dlg-title">输入接收 PIN 码</div>
+              <p class="dlg-sub">xiaoxiao-PC 要求配对码</p>
+            </div>
+            <div class="pin-row"><span class="pin-cell is-on num">4</span><span class="pin-cell is-on num">8</span><span class="pin-cell is-on num">2</span><span class="pin-cell is-focus num">·</span></div>
+            <div class="status-line warn"><svg class="ico"><use href="#i-alert"/></svg>PIN 不正确，还可尝试 2 次</div>
+            <div class="alert-actions"><button class="btn">取消</button><button class="btn primary">确认</button></div>
+          </div>
+
+          <div class="alert" data-dialog="rename">
+            <div class="empty-icon"><svg class="ico"><use href="#i-pencil"/></svg></div>
+            <div>
+              <div class="dlg-title">重命名</div>
+              <p class="dlg-sub">仅本地生效</p>
+            </div>
+            <div class="fake-input">xiaoxiao-PC（家里的电脑）</div>
+            <div class="alert-actions"><button class="btn">取消</button><button class="btn primary">保存</button></div>
+          </div>
+
+          <div class="alert" data-dialog="clear">
+            <div class="empty-icon danger"><svg class="ico"><use href="#i-alert"/></svg></div>
+            <div>
+              <div class="dlg-title">清空全部历史？</div>
+              <p class="dlg-sub">共 200 条记录，不可撤销；文件不会被删除</p>
+            </div>
+            <div class="alert-actions"><button class="btn">取消</button><button class="btn danger">清空</button></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <footer class="board-foot">
+    快传统一设计评审板 v1.3 · 全部视觉值来自 <code>tokens.css</code> · 双端组件同名同状态 · 未修改任何工程源码
+  </footer>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>

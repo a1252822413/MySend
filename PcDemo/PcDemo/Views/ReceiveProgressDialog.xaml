@@ -1,5 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 接收进度对话框：环形进度 + 阶段/速度/剩余时间；PrimaryButton"取消接收" → 二次确认面板（不关闭对话框） -->
+<!--
+  接收进度对话框（design/unified v1.3 FileProgressList）
+  总进度按「已收字节 / 总字节」，文件进度按每个 ReceiveFile 的 BytesReceived / Metadata.Size，
+  每个文件一条独立进度条；列表独立滚动，SHA-256 边写边校验。
+-->
 <ContentDialog
     x:Class="PcDemo.Views.ReceiveProgressDialog"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
@@ -10,33 +14,59 @@
     SecondaryButtonClick="OnContinueClick">
 
     <Grid MinWidth="400">
-        <!-- 进度面板：二次确认时保持显示（确认按钮在底部命令区切换） -->
-        <StackPanel Spacing="12" Padding="0,4,0,0">
+        <StackPanel Spacing="{StaticResource GapBlock}" Padding="0,4,0,0">
             <!-- 计算属性(SenderText/Ring/FilesText/StatText)不做 x:Bind：由 P.PropertyChanged →
                  OnProgressChanged → RefreshUi() 只更新变化节点。P.* 实现 INPC 保持自动绑定。 -->
-            <Border HorizontalAlignment="Center" Padding="8,4" CornerRadius="10"
+            <Border HorizontalAlignment="Left" Padding="{StaticResource SpaceChip}"
+                    CornerRadius="{StaticResource RadiusControl}"
                     Background="{ThemeResource ChipFillBrush}">
-                <TextBlock x:Name="SenderTextBlock" FontSize="12" Opacity="0.85"/>
+                <TextBlock x:Name="SenderTextBlock" FontSize="{StaticResource FontSm}"
+                           Foreground="{ThemeResource BrandTextDimBrush}"/>
             </Border>
-            <Grid Width="112" Height="112" HorizontalAlignment="Center">
-                <ProgressRing x:Name="ProgressRingControl" Width="112" Height="112"
-                              Foreground="{ThemeResource AccentFillColorDefaultBrush}"
-                              Background="{ThemeResource ControlStrokeColorSecondaryBrush}"
-                              IsIndeterminate="{x:Bind P.IsIndeterminate, Mode=OneWay}"/>
-                <!-- 中央百分比：始终显示（等待下一个文件/校验阶段为 0%，接收中随进度跳动） -->
-                <TextBlock x:Name="RingPercentTextBlock" FontSize="26" FontWeight="SemiBold"
-                           Foreground="{ThemeResource TextFillColorPrimaryBrush}"
-                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
+
+            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="{StaticResource GapSection}">
+                <Grid Width="96" Height="96" HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <ProgressRing x:Name="ProgressRingControl" Width="96" Height="96"
+                                  Foreground="{ThemeResource AccentFillColorDefaultBrush}"
+                                  Background="{ThemeResource ControlStrokeColorSecondaryBrush}"
+                                  IsIndeterminate="{x:Bind P.IsIndeterminate, Mode=OneWay}"/>
+                    <TextBlock x:Name="RingPercentTextBlock" FontSize="{StaticResource FontH1}" FontWeight="SemiBold"
+                               Foreground="{ThemeResource BrandTextBrush}"
+                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                </Grid>
+                <StackPanel Grid.Column="1" Spacing="{StaticResource GapMicro}" VerticalAlignment="Center">
+                    <TextBlock x:Name="PhaseTextBlock" FontSize="{StaticResource FontH2}" FontWeight="SemiBold"
+                               Text="{x:Bind P.PhaseText, Mode=OneWay}"/>
+                    <TextBlock x:Name="FilesTextBlock" FontSize="{StaticResource FontSm}"
+                               Foreground="{ThemeResource BrandTextDimBrush}"/>
+                    <TextBlock x:Name="StatTextBlock" FontSize="{StaticResource FontSm}"
+                               Foreground="{ThemeResource BrandTextDimBrush}"/>
+                    <ProgressBar x:Name="TotalProgressBar" Height="8" Minimum="0" Maximum="100" Value="0"
+                                 CornerRadius="{StaticResource RadiusXs}"
+                                 Foreground="{ThemeResource BrandAccentFillBrush}"
+                                 Background="{ThemeResource BrandSurface3Brush}"
+                                 AutomationProperties.Name="总进度（按字节）"/>
+                </StackPanel>
             </Grid>
-            <StackPanel Spacing="4" HorizontalAlignment="Center">
-                <TextBlock x:Name="PhaseTextBlock" FontSize="15" FontWeight="SemiBold"
-                           HorizontalAlignment="Center"
-                           Text="{x:Bind P.PhaseText, Mode=OneWay}"/>
-                <TextBlock x:Name="FilesTextBlock" FontSize="12" Opacity="0.7"
-                           HorizontalAlignment="Center"/>
-                <TextBlock x:Name="StatTextBlock" FontSize="12" Opacity="0.75"
-                           HorizontalAlignment="Center"/>
-            </StackPanel>
+
+            <!-- 文件进度：每个文件一条独立进度条 -->
+            <Grid ColumnDefinitions="Auto,Auto,*" ColumnSpacing="{StaticResource GapControl}">
+                <TextBlock Text="文件进度" Style="{StaticResource SectionTitleStyle}"/>
+                <Border Padding="{StaticResource SpaceChip}" CornerRadius="{StaticResource RadiusControl}"
+                        Background="{ThemeResource ChipFillBrush}">
+                    <TextBlock x:Name="FileCountTextBlock" Text="0" FontSize="{StaticResource FontLabel}"
+                               Foreground="{ThemeResource BrandTextDimBrush}"/>
+                </Border>
+                <TextBlock Text="SHA-256 边写边校验" Style="{StaticResource CaptionTextStyle}"
+                           HorizontalAlignment="Right" VerticalAlignment="Center"/>
+            </Grid>
+            <ScrollViewer MaxHeight="{StaticResource FileListMaxHeight}"
+                          VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                <StackPanel x:Name="FileListPanel" Spacing="{StaticResource GapControl}"/>
+            </ScrollViewer>
+
+            <TextBlock x:Name="DestinationTextBlock" FontSize="{StaticResource FontLabel}"
+                       Foreground="{ThemeResource BrandTextMuteBrush}" TextTrimming="CharacterEllipsis"/>
         </StackPanel>
     </Grid>
 </ContentDialog>

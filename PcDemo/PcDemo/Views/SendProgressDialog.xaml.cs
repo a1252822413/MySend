@@ -3,6 +3,7 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using PcDemo.Converters;
+using PcDemo.Controls;
 using PcDemo.Models;
 
 namespace PcDemo.Views;
@@ -28,8 +29,12 @@ public sealed partial class SendProgressDialog : ContentDialog
         // SendSessionManager 的所有状态更新都经 DispatcherQueue（UI 线程），
         // 这里只刷新会变化的节点（StatText/Ring/状态文字），不做整页 Bindings.Update()
         _single.PropertyChanged += OnSessionChanged;
+        // v1.3：逐文件进度。SendFileItem.BytesSent / Status 都是可观察属性，
+        // 每个文件一行独立 ProgressBar，不再只显示「完成 / 传输中」文字。
+        foreach (var f in _single.Files) f.PropertyChanged += OnFileChanged;
         SinglePanel.Visibility = Visibility.Visible;
         BatchPanel.Visibility = Visibility.Collapsed;
+        BuildFileRows();
         RefreshUi();
     }
 
@@ -92,6 +97,9 @@ public sealed partial class SendProgressDialog : ContentDialog
         // （早期版本在不确定态隐藏数字，导致整个"等待"阶段看不出与旧版差异）
         RingPercentTextBlock.Text = $"{RingValue:0}%";
         RingPercentTextBlock.Visibility = Visibility.Visible;
+        // 总进度条与环形共用「按字节」口径；逐文件条用各自 BytesSent/Size，两者不混用
+        TotalProgressBar.Value = Math.Clamp(RingValue, 0, 100);
+        RefreshFileRows();
     }
 
     /// <summary>会话状态 → 状态文字色（语义主题资源，深浅主题自适应）。</summary>
@@ -138,6 +146,62 @@ public sealed partial class SendProgressDialog : ContentDialog
     };
 
     public string FilesText => $"{_single!.CompletedFiles} / {_single.Files.Count} 个文件";
+
+    // ---------- v1.3 逐文件进度清单（单发） ----------
+    // 颜色/圆角/字阶由 FileProgressRow 控件的 ThemeResource 提供，这里只算数值与文案。
+    private readonly List<FileProgressRow> _fileRows = new();
+
+    private void OnFileChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+        => RefreshFileRows();
+
+    private void BuildFileRows()
+    {
+        if (_single is null) return;
+        FileListPanel.Children.Clear();
+        _fileRows.Clear();
+        foreach (var f in _single.Files)
+        {
+            var row = new FileProgressRow();
+            row.Bind(f.FileName, ByteFormatter.Format(f.Size));
+            FileListPanel.Children.Add(row);
+            _fileRows.Add(row);
+        }
+        FileCountTextBlock.Text = _single.Files.Count.ToString();
+        RefreshFileRows();
+    }
+
+    /// <summary>每个文件按自己的 BytesSent/Size 计算；总进度另按字节加权，两者不共用同一个值。</summary>
+    private void RefreshFileRows()
+    {
+        if (_single is null) return;
+        for (var i = 0; i < _fileRows.Count && i < _single.Files.Count; i++)
+        {
+            var f = _single.Files[i];
+            var pct = f.Size <= 0 ? 0 : System.Math.Clamp(f.BytesSent / (double)f.Size * 100.0, 0, 100);
+            var state = f.Status switch
+            {
+                SendFileStatus.Done => FileRowState.Done,
+                SendFileStatus.Uploading => FileRowState.Active,
+                SendFileStatus.Failed => FileRowState.Failed,
+                _ => FileRowState.Wait,
+            };
+            var status = f.Status switch
+            {
+                SendFileStatus.Done => "已完成",
+                SendFileStatus.Uploading => $"{pct:0}% · 传输中",
+                SendFileStatus.Failed => "失败",
+                SendFileStatus.Skipped => "已跳过",
+                _ => "等待中 · 0%",
+            };
+            var detail = f.Status switch
+            {
+                SendFileStatus.Uploading => $"{ByteFormatter.Format(f.BytesSent)} / {ByteFormatter.Format(f.Size)}",
+                SendFileStatus.Failed => f.ErrorMessage ?? "传输失败",
+                _ => string.Empty,
+            };
+            _fileRows[i].Update(pct, status, state, detail);
+        }
+    }
 
     // ---------- 群发列表行：每台一个行控件（复用增量刷新，不做整页绑定） ----------
     private sealed class RowControls

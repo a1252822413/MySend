@@ -54,75 +54,75 @@
         </Storyboard>
     </Page.Resources>
 
-    <Grid Padding="24" RowDefinitions="Auto,Auto,*" Background="Transparent"
+    <Grid Padding="{StaticResource SpacePage}" RowDefinitions="Auto,Auto,*" Background="Transparent"
           AllowDrop="True" DragOver="OnDragOver" DragLeave="OnDragLeave" Drop="OnDrop">
-        <Border x:Name="DropHighlightBorder" Margin="0" CornerRadius="14"
+        <Border x:Name="DropHighlightBorder" Margin="{StaticResource SpaceZero}" CornerRadius="{StaticResource RadiusCard}"
                 BorderBrush="{ThemeResource AccentFillColorDefaultBrush}"
                 BorderThickness="2" Background="{ThemeResource AccentFillColorDefaultBrush}"
                 Opacity="0" IsHitTestVisible="False"/>
 
         <Grid Grid.Row="0" ColumnDefinitions="*,Auto">
-            <StackPanel Grid.Column="0" Spacing="4">
-                <TextBlock Text="发送文件" FontSize="22" FontWeight="SemiBold"/>
-                <TextBlock Text="选择目标设备和要发送的文件" FontSize="12" Opacity="0.6"/>
+            <StackPanel Grid.Column="0" Spacing="{StaticResource GapMicro}">
+                <TextBlock Text="发送文件" Style="{StaticResource PageTitleStyle}"/>
+                <TextBlock Text="选择目标设备与文件，支持多选群发；非白名单设备在仅白名单模式下不可选" Style="{StaticResource PageSubtitleStyle}"/>
             </StackPanel>
         </Grid>
 
             <Grid Grid.Row="1" Margin="0,16,0,0" RowDefinitions="Auto,Auto,*">
                 <Grid Grid.Row="0" ColumnDefinitions="*,Auto">
-                    <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                        <TextBlock Text="选择目标设备" FontSize="16" FontWeight="SemiBold"/>
-                        <Border Padding="8,4" CornerRadius="10" Background="{ThemeResource CardStrokeColorDefaultBrush}">
-                            <TextBlock Text="{x:Bind ViewModel.Devices.Count, Mode=OneWay}" FontSize="11" Opacity="0.7"/>
+                    <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="{StaticResource GapControl}" VerticalAlignment="Center">
+                        <TextBlock Text="选择目标设备" FontSize="{StaticResource FontH2}" FontWeight="SemiBold"/>
+                        <Border Padding="{StaticResource SpaceChip}" CornerRadius="{StaticResource RadiusRow}" Background="{ThemeResource CardStrokeColorDefaultBrush}">
+                            <TextBlock Text="{x:Bind ViewModel.Devices.Count, Mode=OneWay}" FontSize="{StaticResource FontLabel}" Foreground="{ThemeResource BrandTextDimBrush}"/>
                         </Border>
                     </StackPanel>
                     <Button Grid.Column="1" Command="{x:Bind ViewModel.RefreshDevicesCommand}"
                             IsEnabled="{x:Bind ViewModel.IsRefreshing, Converter={StaticResource InvertedBoolConverter}}"
-                            Padding="8" Background="Transparent" BorderThickness="0"
+                            Padding="{StaticResource SpaceControl}" Background="Transparent" BorderThickness="0"
                             ToolTipService.ToolTip="重新搜索（每 20 秒自动刷新）">
-                        <StackPanel Orientation="Horizontal" Spacing="8">
+                        <StackPanel Orientation="Horizontal" Spacing="{StaticResource GapControl}">
                             <ProgressRing Width="14" Height="14" IsActive="{x:Bind ViewModel.IsRefreshing}"/>
-                            <TextBlock Text="{x:Bind ViewModel.IsRefreshing, Converter={StaticResource RefreshingTextConverter}}" FontSize="12"/>
+                            <TextBlock Text="{x:Bind ViewModel.IsRefreshing, Converter={StaticResource RefreshingTextConverter}}" FontSize="{StaticResource FontSm}"/>
                         </StackPanel>
                     </Button>
                 </Grid>
 
                 <!-- 已选目标：chips 行（每台一枚 chip，可单独移除，替代原来的摘要长条） -->
-                <Border Grid.Row="1" Margin="0,12,0,0" Padding="12,8" CornerRadius="10"
+                <Border Grid.Row="1" Margin="0,12,0,0" Padding="{StaticResource SpaceRow}" CornerRadius="{StaticResource RadiusRow}"
                         Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                         BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1"
                         Visibility="{x:Bind ViewModel.HasSelectedTarget, Mode=OneWay, Converter={StaticResource BoolToVisibility}}">
                     <Grid ColumnDefinitions="Auto,*,Auto">
-                        <TextBlock Grid.Column="0" Text="发送到" FontSize="12" Opacity="0.65"
+                        <TextBlock Grid.Column="0" Text="发送到" FontSize="{StaticResource FontSm}" Foreground="{ThemeResource BrandTextDimBrush}"
                                    VerticalAlignment="Center" Margin="0,0,8,0"/>
                         <ScrollViewer Grid.Column="1" HorizontalScrollBarVisibility="Auto"
                                       HorizontalScrollMode="Auto"
                                       VerticalScrollBarVisibility="Disabled" VerticalScrollMode="Disabled">
                             <ItemsRepeater ItemsSource="{x:Bind ViewModel.SelectedTargets}">
                                 <ItemsRepeater.Layout>
-                                    <StackLayout Orientation="Horizontal" Spacing="8"/>
+                                    <StackLayout Orientation="Horizontal" Spacing="{StaticResource GapControl}"/>
                                 </ItemsRepeater.Layout>
                                 <ItemsRepeater.ItemTemplate>
                                     <DataTemplate>
-                                        <Border Padding="8,4,4,4" CornerRadius="14"
+                                        <Border Padding="8,4,4,4" CornerRadius="{StaticResource RadiusCard}"
                                                 Background="{ThemeResource AccentFillColorDefaultBrush}">
-                                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                            <StackPanel Orientation="Horizontal" Spacing="{StaticResource GapControl}">
                                                 <TextBlock Text="{Binding DeviceType, Converter={StaticResource DeviceTypeGlyph}}"
-                                                           FontFamily="Segoe Fluent Icons" FontSize="12"
+                                                           FontFamily="Segoe Fluent Icons" FontSize="{StaticResource FontSm}"
                                                            VerticalAlignment="Center"
                                                            Foreground="{ThemeResource TextOnAccentFillColorDefaultBrush}"
                                                            AutomationProperties.AccessibilityView="Raw"/>
-                                                <TextBlock Text="{Binding Alias}" FontSize="12" FontWeight="SemiBold"
+                                                <TextBlock Text="{Binding Alias}" FontSize="{StaticResource FontSm}" FontWeight="SemiBold"
                                                            VerticalAlignment="Center" MaxWidth="150"
                                                            TextTrimming="CharacterEllipsis"
                                                            Foreground="{ThemeResource TextOnAccentFillColorDefaultBrush}"/>
-                                                <Button Width="20" Height="20" Padding="0" CornerRadius="10"
+                                                <Button Width="20" Height="20" Padding="{StaticResource SpaceZero}" CornerRadius="{StaticResource RadiusRow}"
                                                         Background="Transparent" BorderThickness="0"
                                                         VerticalAlignment="Center"
                                                         Click="OnRemoveTargetChipClick"
                                                         AutomationProperties.Name="从已选目标移除该设备"
                                                         ToolTipService.ToolTip="从已选目标移除">
-                                                    <FontIcon Glyph="&#xE711;" FontSize="10"
+                                                    <FontIcon Glyph="&#xE711;" FontSize="{StaticResource FontLabel}"
                                                               Foreground="{ThemeResource TextOnAccentFillColorDefaultBrush}"/>
                                                 </Button>
                                             </StackPanel>
@@ -131,7 +131,7 @@
                                 </ItemsRepeater.ItemTemplate>
                             </ItemsRepeater>
                         </ScrollViewer>
-                        <Button Grid.Column="2" Content="清空" Padding="8,4" Margin="8,0,0,0" FontSize="12"
+                        <Button Grid.Column="2" Content="清空" Padding="{StaticResource SpaceChip}" Margin="8,0,0,0" FontSize="{StaticResource FontSm}"
                                 VerticalAlignment="Center" Background="Transparent" BorderThickness="0"
                                 Click="OnDeselectTargetClick"/>
                     </Grid>
@@ -150,7 +150,7 @@
                         </ItemsRepeater.Layout>
                         <ItemsRepeater.ItemTemplate>
                         <DataTemplate>
-                            <Border Padding="12" CornerRadius="12" Margin="0"
+                            <Border Padding="{StaticResource SpaceCardCompact}" CornerRadius="{StaticResource RadiusCard}" Margin="{StaticResource SpaceZero}"
                                     Tapped="OnDeviceTileTapped"
                                     PointerEntered="OnDeviceTilePointerEntered"
                                     PointerExited="OnDeviceTilePointerExited"
@@ -177,64 +177,64 @@
                                         </MenuFlyout>
                                     </Border.ContextFlyout>
                                     <Grid ColumnDefinitions="3,Auto,*,Auto" VerticalAlignment="Center">
-                                        <Border Grid.Column="0" Width="3" Height="44" CornerRadius="1.5"
+                                        <Border Grid.Column="0" Width="3" Height="44" CornerRadius="{StaticResource RadiusXs}"
                                                 VerticalAlignment="Center" Margin="0,0,8,0"
                                                 Background="{Binding IsOnline, Converter={StaticResource BoolToOnlineDot}}"/>
-                                        <Border Grid.Column="1" Width="48" Height="48" CornerRadius="14"
+                                        <Border Grid.Column="1" Width="48" Height="48" CornerRadius="{StaticResource RadiusCard}"
                                                 Background="{ThemeResource AccentFillColorDefaultBrush}"
                                                 VerticalAlignment="Center">
                                             <!-- PUA 字形，必须显式指定 Segoe Fluent Icons 字体 -->
                                             <TextBlock Text="{Binding DeviceType, Converter={StaticResource DeviceTypeGlyph}}"
                                                        FontFamily="Segoe Fluent Icons"
-                                                       FontSize="20" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                       FontSize="{StaticResource FontH1}" HorizontalAlignment="Center" VerticalAlignment="Center"
                                                        Foreground="{ThemeResource TextOnAccentFillColorDefaultBrush}"/>
                                         </Border>
-                                        <StackPanel Grid.Column="2" Margin="12,0,0,0" Spacing="4" VerticalAlignment="Center">
-                                            <StackPanel Orientation="Horizontal" Spacing="8">
-                                                <TextBlock Text="{Binding Alias}" FontWeight="SemiBold" FontSize="14"
+                                        <StackPanel Grid.Column="2" Margin="12,0,0,0" Spacing="{StaticResource GapMicro}" VerticalAlignment="Center">
+                                            <StackPanel Orientation="Horizontal" Spacing="{StaticResource GapControl}">
+                                                <TextBlock Text="{Binding Alias}" FontWeight="SemiBold" FontSize="{StaticResource FontH2}"
                                                            TextTrimming="CharacterEllipsis"/>
                                                 <!-- 白名单徽章：语义色主题资源（浅底深字） -->
-                                                <Border Padding="8,4" CornerRadius="8"
+                                                <Border Padding="{StaticResource SpaceChip}" CornerRadius="{StaticResource RadiusControl}"
                                                         Background="{ThemeResource SystemFillColorSuccessBackgroundBrush}"
                                                         Visibility="{Binding IsWhitelisted, Mode=OneWay, Converter={StaticResource BoolToVisibility}}">
-                                                    <TextBlock Text="白名单" FontSize="9"
+                                                    <TextBlock Text="白名单" FontSize="{StaticResource FontLabel}"
                                                                Foreground="{ThemeResource SystemFillColorSuccessBrush}"
                                                                AutomationProperties.AccessibilityView="Raw"/>
                                                 </Border>
                                                 <!-- 黑名单徽章 -->
-                                                <Border Padding="8,4" CornerRadius="8"
+                                                <Border Padding="{StaticResource SpaceChip}" CornerRadius="{StaticResource RadiusControl}"
                                                         Background="{ThemeResource SystemFillColorCriticalBackgroundBrush}"
                                                         Visibility="{Binding IsBlacklisted, Mode=OneWay, Converter={StaticResource BoolToVisibility}}">
-                                                    <TextBlock Text="黑名单" FontSize="9"
+                                                    <TextBlock Text="黑名单" FontSize="{StaticResource FontLabel}"
                                                                Foreground="{ThemeResource SystemFillColorCriticalBrush}"
                                                                AutomationProperties.AccessibilityView="Raw"/>
                                                 </Border>
                                             </StackPanel>
-                                            <StackPanel Orientation="Horizontal" Spacing="4">
-                                                <FontIcon Glyph="&#xE774;" FontSize="10" Opacity="0.7"
+                                            <StackPanel Orientation="Horizontal" Spacing="{StaticResource GapMicro}">
+                                                <FontIcon Glyph="&#xE774;" FontSize="{StaticResource FontLabel}" Opacity="0.7"
                                                           VerticalAlignment="Center"
                                                           AutomationProperties.AccessibilityView="Raw"/>
-                                                <TextBlock Text="{Binding Ip}" Opacity="0.7" FontSize="11"
+                                                <TextBlock Text="{Binding Ip}" Foreground="{ThemeResource BrandTextDimBrush}" FontSize="{StaticResource FontLabel}"
                                                            TextTrimming="CharacterEllipsis"/>
-                                                <TextBlock Text="·" Opacity="0.5" FontSize="11"/>
-                                                <TextBlock Text="{Binding Port}" Opacity="0.7" FontSize="11"/>
+                                                <TextBlock Text="·" Foreground="{ThemeResource BrandTextMuteBrush}" FontSize="{StaticResource FontLabel}"/>
+                                                <TextBlock Text="{Binding Port}" Foreground="{ThemeResource BrandTextDimBrush}" FontSize="{StaticResource FontLabel}"/>
                                             </StackPanel>
-                                            <TextBlock Text="{Binding DeviceModel}" Opacity="0.5" FontSize="11"
+                                            <TextBlock Text="{Binding DeviceModel}" Foreground="{ThemeResource BrandTextMuteBrush}" FontSize="{StaticResource FontLabel}"
                                                        TextTrimming="CharacterEllipsis"/>
                                         </StackPanel>
-                                        <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="4"
+                                        <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="{StaticResource GapMicro}"
                                                     VerticalAlignment="Top" Margin="0,4,0,0">
-                                            <Border Padding="8,4" CornerRadius="8"
+                                            <Border Padding="{StaticResource SpaceChip}" CornerRadius="{StaticResource RadiusControl}"
                                                     Background="{ThemeResource AccentFillColorDefaultBrush}"
                                                     Visibility="{Binding IsPicked, Mode=OneWay, Converter={StaticResource BoolToVisibility}}">
-                                                <FontIcon Glyph="&#xE73E;" FontSize="9"
+                                                <FontIcon Glyph="&#xE73E;" FontSize="{StaticResource FontLabel}"
                                                           Foreground="{ThemeResource TextOnAccentFillColorDefaultBrush}"
                                                           AutomationProperties.AccessibilityView="Raw"/>
                                             </Border>
                                             <Ellipse Width="7" Height="7" VerticalAlignment="Center"
                                                      Fill="{Binding IsOnline, Converter={StaticResource BoolToOnlineDot}}"/>
                                             <TextBlock Text="{Binding IsOnline, Converter={StaticResource BoolToOnlineLabel}}"
-                                                       FontSize="10" Opacity="0.7" VerticalAlignment="Center"/>
+                                                       FontSize="{StaticResource FontLabel}" Foreground="{ThemeResource BrandTextDimBrush}" VerticalAlignment="Center"/>
                                         </StackPanel>
                                     </Grid>
                                 </Border>
@@ -243,60 +243,60 @@
                     </ItemsRepeater>
                 </ScrollViewer>
 
-                <StackPanel Grid.Row="2" Margin="0,16,0,16" Spacing="8" HorizontalAlignment="Center" VerticalAlignment="Center"
+                <StackPanel Grid.Row="2" Margin="0,16,0,16" Spacing="{StaticResource GapControl}" HorizontalAlignment="Center" VerticalAlignment="Center"
                             Visibility="{x:Bind ViewModel.HasNoDevices, Mode=OneWay}">
-                    <FontIcon Glyph="&#xE721;" FontSize="40" HorizontalAlignment="Center"/>
-                    <TextBlock Text="正在搜索附近设备..." FontSize="14" FontWeight="SemiBold" HorizontalAlignment="Center"/>
+                    <FontIcon Glyph="&#xE721;" FontSize="{StaticResource IconGlyphLarge}" HorizontalAlignment="Center"/>
+                    <TextBlock Text="正在搜索附近设备..." FontSize="{StaticResource FontH2}" FontWeight="SemiBold" HorizontalAlignment="Center"/>
                     <TextBlock Text="确保目标设备开启 LocalSend 并连接同一 Wi-Fi"
-                               FontSize="12" Opacity="0.6" HorizontalAlignment="Center"/>
+                               FontSize="{StaticResource FontSm}" Foreground="{ThemeResource BrandTextMuteBrush}" HorizontalAlignment="Center"/>
                 </StackPanel>
             </Grid>
 
             <Grid Grid.Row="2" Margin="0,16,0,0" RowDefinitions="Auto,*,Auto">
                 <!-- 操作行：窄窗口自动换行（FlowPanel），避免按钮被截断/盖住 -->
                 <ctrls:FlowPanel Grid.Row="0" HorizontalSpacing="8" VerticalSpacing="8">
-                    <StackPanel x:Name="ImportingIndicator" Orientation="Horizontal" Spacing="8"
+                    <StackPanel x:Name="ImportingIndicator" Orientation="Horizontal" Spacing="{StaticResource GapControl}"
                                 VerticalAlignment="Center" Visibility="Collapsed">
                         <ProgressRing Width="14" Height="14" IsActive="True" VerticalAlignment="Center"
                                       AutomationProperties.Name="正在导入文件"/>
-                        <TextBlock Text="导入中…" FontSize="12" Opacity="0.7" VerticalAlignment="Center"/>
+                        <TextBlock Text="导入中…" FontSize="{StaticResource FontSm}" Foreground="{ThemeResource BrandTextDimBrush}" VerticalAlignment="Center"/>
                     </StackPanel>
-                    <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                        <Button Click="OnPickFilesClick" Padding="12,0" Height="36" CornerRadius="8"
+                    <StackPanel Orientation="Horizontal" Spacing="{StaticResource GapControl}" VerticalAlignment="Center">
+                        <Button Click="OnPickFilesClick" Padding="12,0" Height="36" CornerRadius="{StaticResource RadiusControl}"
                                 AutomationProperties.Name="添加文件">
-                            <StackPanel Orientation="Horizontal" Spacing="8">
-                                <FontIcon Glyph="&#xE8B7;" FontSize="14"/>
+                            <StackPanel Orientation="Horizontal" Spacing="{StaticResource GapControl}">
+                                <FontIcon Glyph="&#xE8B7;" FontSize="{StaticResource FontH2}"/>
                                 <TextBlock Text="添加文件"/>
                             </StackPanel>
                         </Button>
-                        <Button Click="OnPickFolderClick" Padding="12,0" Height="36" CornerRadius="8"
+                        <Button Click="OnPickFolderClick" Padding="12,0" Height="36" CornerRadius="{StaticResource RadiusControl}"
                                 AutomationProperties.Name="添加文件夹"
                                 ToolTipService.ToolTip="选择文件夹（保留目录结构发送）">
-                            <StackPanel Orientation="Horizontal" Spacing="8">
-                                <FontIcon Glyph="&#xE8F4;" FontSize="14"/>
+                            <StackPanel Orientation="Horizontal" Spacing="{StaticResource GapControl}">
+                                <FontIcon Glyph="&#xE8F4;" FontSize="{StaticResource FontH2}"/>
                                 <TextBlock Text="添加文件夹"/>
                             </StackPanel>
                         </Button>
                     </StackPanel>
                     <Button Content="清空" Command="{x:Bind ViewModel.ClearFilesCommand}"
-                            Padding="12,0" Height="36" CornerRadius="8"
+                            Padding="12,0" Height="36" CornerRadius="{StaticResource RadiusControl}"
                             VerticalAlignment="Center"
                             Visibility="{x:Bind ViewModel.HasFiles, Mode=OneWay}"/>
                     <!-- PIN + 发送：窄时可随 FlowPanel 折行 -->
-                    <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                    <StackPanel Orientation="Horizontal" Spacing="{StaticResource GapControl}" VerticalAlignment="Center">
                         <Grid Width="110" VerticalAlignment="Center">
                             <PasswordBox x:Name="PinPasswordBox" PlaceholderText="PIN"
-                                         Height="36" Padding="12,8" CornerRadius="8" FontSize="13"
+                                         Height="36" Padding="{StaticResource SpaceRow}" CornerRadius="{StaticResource RadiusControl}" FontSize="{StaticResource FontBody}"
                                          PasswordChanged="OnPinPasswordChanged"/>
                             <TextBox x:Name="PinVisibleBox" Visibility="Collapsed"
-                                     Height="36" Padding="12,8" CornerRadius="8" FontSize="13"
+                                     Height="36" Padding="{StaticResource SpaceRow}" CornerRadius="{StaticResource RadiusControl}" FontSize="{StaticResource FontBody}"
                                      TextChanged="OnPinTextChanged"/>
                         </Grid>
-                        <Button x:Name="PinToggleBtn" Width="40" Height="36" Padding="0"
-                                Click="OnPinToggleClick" CornerRadius="8"
+                        <Button x:Name="PinToggleBtn" Width="40" Height="36" Padding="{StaticResource SpaceZero}"
+                                Click="OnPinToggleClick" CornerRadius="{StaticResource RadiusControl}"
                                 AutomationProperties.Name="显示或隐藏 PIN"
                                 ToolTipService.ToolTip="显示/隐藏 PIN" VerticalAlignment="Center">
-                            <FontIcon Glyph="&#xE8D4;" FontSize="16"/>
+                            <FontIcon Glyph="&#xE8D4;" FontSize="{StaticResource FontH2}"/>
                         </Button>
                     </StackPanel>
                     <!-- 「开始发送」已移到页面底部动作条（与「发送文字」并列），见本页最后一段 -->
@@ -310,7 +310,7 @@
                        2) Stretch 但上下 margin 不等（12 / 16）+ 内边距 12 → 视觉上间距偏大且不对称；
                        3) VerticalAlignment="Top" → 卡片只贴内容，空白全堆到底部，上小下大。
                      现在：Stretch + 上下 margin 都是 8 + 内边距 12 → 上下各 20，等高且紧凑。 -->
-                <Border Grid.Row="1" Margin="0,12,0,0" Padding="8" CornerRadius="12"
+                <Border Grid.Row="1" Margin="0,12,0,0" Padding="{StaticResource SpaceControl}" CornerRadius="{StaticResource RadiusCard}"
                         VerticalAlignment="Stretch"
                         Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                         BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1">
@@ -327,11 +327,11 @@
                             </ListView.ItemContainerStyle>
                             <ListView.ItemTemplate>
                                 <DataTemplate>
-                                    <Border Padding="12,8" CornerRadius="10"
+                                    <Border Padding="{StaticResource SpaceRow}" CornerRadius="{StaticResource RadiusRow}"
                                             Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                                             BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1">
                                         <Grid ColumnDefinitions="Auto,Auto,*" VerticalAlignment="Center">
-                                            <Border Grid.Column="0" Width="4" CornerRadius="2" MaxHeight="32"
+                                            <Border Grid.Column="0" Width="4" CornerRadius="{StaticResource RadiusXs}" MaxHeight="32"
                                                     VerticalAlignment="Center"
                                                     AutomationProperties.AccessibilityView="Raw"
                                                     Background="{Binding Status, Converter={StaticResource StatusColor}}"/>
@@ -339,11 +339,11 @@
                                                  列宽必须是 Auto：原来写死 40 而图标框本身 40 + Margin 6 = 46，
                                                  溢出到内容列并把内容列的 10px 间距吃掉 6px，
                                                  实测图标框右沿到文字只剩 4px（左 8px 右 4px，很挤）。 -->
-                                            <Border Grid.Column="1" Width="40" Height="40" CornerRadius="11"
+                                            <Border Grid.Column="1" Width="40" Height="40" CornerRadius="{StaticResource RadiusRow}"
                                                     Margin="8,0,0,0" VerticalAlignment="Center"
                                                     Background="{Binding FileKind, Converter={StaticResource FileKindBrush}}">
                                                 <FontIcon Glyph="{Binding FileKind, Converter={StaticResource FileKindGlyph}}"
-                                                          FontSize="20"
+                                                          FontSize="{StaticResource FontH1}"
                                                           HorizontalAlignment="Center" VerticalAlignment="Center"
                                                           AutomationProperties.AccessibilityView="Raw"
                                                           Foreground="{Binding FileKind, Converter={StaticResource FileKindBrush}, ConverterParameter=glyph}"/>
@@ -361,22 +361,22 @@
                                                         <ColumnDefinition Width="Auto"/>
                                                     </Grid.ColumnDefinitions>
                                                     <TextBlock Grid.Column="0" Text="{Binding FileName}"
-                                                               FontSize="13" FontWeight="SemiBold"
+                                                               FontSize="{StaticResource FontBody}" FontWeight="SemiBold"
                                                                VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
-                                                    <TextBlock Grid.Column="1" FontSize="11" Opacity="0.6" VerticalAlignment="Center">
+                                                    <TextBlock Grid.Column="1" FontSize="{StaticResource FontLabel}" Foreground="{ThemeResource BrandTextMuteBrush}" VerticalAlignment="Center">
                                                         <Run Text="{Binding BytesSent, Mode=OneWay, Converter={StaticResource BytesToString}}"/>
                                                         <Run Text=" / "/>
                                                         <Run Text="{Binding Size, Mode=OneWay, Converter={StaticResource BytesToString}}"/>
                                                     </TextBlock>
-                                                    <TextBlock Grid.Column="2" FontSize="11" Opacity="0.65"
+                                                    <TextBlock Grid.Column="2" FontSize="{StaticResource FontLabel}" Foreground="{ThemeResource BrandTextDimBrush}"
                                                                Text="{Binding Status}" VerticalAlignment="Center"/>
-                                                    <Button Grid.Column="3" FontSize="12" Padding="8,4" CornerRadius="6"
+                                                    <Button Grid.Column="3" FontSize="{StaticResource FontSm}" Padding="{StaticResource SpaceChip}" CornerRadius="{StaticResource RadiusControl}"
                                                             Content="移除" VerticalAlignment="Center" Margin="0,0,8,0"
                                                             ToolTipService.ToolTip="从列表移除"
                                                             Click="OnRemoveFileClick"
                                                             Visibility="{Binding Status, Converter={StaticResource PendingOnlyToVisible}}"/>
                                                 </Grid>
-                                                <ProgressBar Grid.Row="1" Margin="0,4,0,0" Height="4" CornerRadius="2"
+                                                <ProgressBar Grid.Row="1" Margin="0,4,0,0" Height="4" CornerRadius="{StaticResource RadiusXs}"
                                                              AutomationProperties.Name="{Binding FileName}"
                                                              Maximum="{Binding Size}"
                                                              Value="{Binding BytesSent, Mode=OneWay}"
@@ -392,25 +392,25 @@
                         <Grid MinHeight="200" Visibility="{x:Bind ViewModel.HasNoFiles, Mode=OneWay}">
                             <Rectangle Stroke="{ThemeResource CardStrokeColorDefaultBrush}" StrokeThickness="1.5"
                                        StrokeDashArray="4 3" RadiusX="10" RadiusY="10"
-                                       Fill="Transparent" Margin="4" IsHitTestVisible="False"/>
-                            <StackPanel Spacing="8" HorizontalAlignment="Center" VerticalAlignment="Center" Padding="24">
-                                <FontIcon x:Name="SendEmptyPulseIcon" Glyph="&#xE898;" FontSize="40"
+                                       Fill="Transparent" Margin="{StaticResource SpaceMicro}" IsHitTestVisible="False"/>
+                            <StackPanel Spacing="{StaticResource GapControl}" HorizontalAlignment="Center" VerticalAlignment="Center" Padding="{StaticResource SpacePage}">
+                                <FontIcon x:Name="SendEmptyPulseIcon" Glyph="&#xE898;" FontSize="{StaticResource IconGlyphLarge}"
                                           HorizontalAlignment="Center"
                                           Foreground="{ThemeResource AccentFillColorDefaultBrush}"
                                           AutomationProperties.AccessibilityView="Raw"/>
-                                <TextBlock Text="拖放文件或文件夹到此处" FontSize="15" FontWeight="SemiBold"
+                                <TextBlock Text="拖放文件或文件夹到此处" FontSize="{StaticResource FontH2}" FontWeight="SemiBold"
                                            HorizontalAlignment="Center" Margin="0,4,0,0"/>
                                 <TextBlock Text="也可以点击上方「添加文件 / 添加文件夹」，或按 Ctrl+V 粘贴"
-                                           FontSize="12" Opacity="0.6" HorizontalAlignment="Center"/>
+                                           FontSize="{StaticResource FontSm}" Foreground="{ThemeResource BrandTextMuteBrush}" HorizontalAlignment="Center"/>
                                 <!-- 剪贴板有文件 → 一键添加提示（读取失败/无文件时整行隐藏） -->
-                                <Button Click="OnAddClipboardClick" Margin="0,8,0,0" Padding="12,4" CornerRadius="14"
+                                <Button Click="OnAddClipboardClick" Margin="0,8,0,0" Padding="12,4" CornerRadius="{StaticResource RadiusCard}"
                                         Background="{ThemeResource ChipFillBrush}"
                                         BorderThickness="0" HorizontalAlignment="Center"
                                         Visibility="{x:Bind ViewModel.HasClipboardFiles, Mode=OneWay}">
-                                    <StackPanel Orientation="Horizontal" Spacing="8">
-                                        <FontIcon Glyph="&#xE8C8;" FontSize="13"/>
-                                        <TextBlock Text="{x:Bind ViewModel.ClipboardHintText, Mode=OneWay}" FontSize="12"/>
-                                        <TextBlock Text="· 点此添加" FontSize="12" Opacity="0.7"/>
+                                    <StackPanel Orientation="Horizontal" Spacing="{StaticResource GapControl}">
+                                        <FontIcon Glyph="&#xE8C8;" FontSize="{StaticResource FontBody}"/>
+                                        <TextBlock Text="{x:Bind ViewModel.ClipboardHintText, Mode=OneWay}" FontSize="{StaticResource FontSm}"/>
+                                        <TextBlock Text="· 点此添加" FontSize="{StaticResource FontSm}" Foreground="{ThemeResource BrandTextDimBrush}"/>
                                     </StackPanel>
                                 </Button>
                             </StackPanel>
@@ -423,41 +423,41 @@
                      底部再放一条进度条永远会被挡住，所以这里不重复放。 -->
                 <!-- 与列表卡片的间距（8）保持一致，上下等距 -->
                 <Grid Grid.Row="2" Margin="0,12,0,0">
-                    <Border Padding="16,12" CornerRadius="12"
+                    <Border Padding="16,12" CornerRadius="{StaticResource RadiusCard}"
                             Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                             BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1">
-                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
-                            <Grid Grid.Column="0" ColumnDefinitions="*,*,*" ColumnSpacing="12">
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{StaticResource GapSection}">
+                            <Grid Grid.Column="0" ColumnDefinitions="*,*,*" ColumnSpacing="{StaticResource GapBlock}">
                             <Grid Grid.Column="0" ColumnDefinitions="Auto,*">
                                 <Ellipse Grid.Column="0" Width="10" Height="10" VerticalAlignment="Center"
                                          Fill="{x:Bind ViewModel.HasSelectedTarget, Mode=OneWay, Converter={StaticResource BoolToPassColor}}"/>
-                                <TextBlock Grid.Column="1" Margin="8,0,0,0" FontSize="12" VerticalAlignment="Center"
+                                <TextBlock Grid.Column="1" Margin="8,0,0,0" FontSize="{StaticResource FontSm}" VerticalAlignment="Center"
                                            Text="{x:Bind ViewModel.HasSelectedTarget, Mode=OneWay, Converter={StaticResource BoolToReadyTarget}}"
                                            TextTrimming="CharacterEllipsis"/>
                             </Grid>
                             <Grid Grid.Column="1" ColumnDefinitions="Auto,*">
                                 <Ellipse Grid.Column="0" Width="10" Height="10" VerticalAlignment="Center"
                                          Fill="{x:Bind ViewModel.HasPendingFiles, Mode=OneWay, Converter={StaticResource BoolToPassColor}}"/>
-                                <TextBlock Grid.Column="1" Margin="8,0,0,0" FontSize="12" VerticalAlignment="Center"
+                                <TextBlock Grid.Column="1" Margin="8,0,0,0" FontSize="{StaticResource FontSm}" VerticalAlignment="Center"
                                            Text="{x:Bind ViewModel.HasPendingFiles, Mode=OneWay, Converter={StaticResource BoolToReadyFile}}"
                                            TextTrimming="CharacterEllipsis"/>
                             </Grid>
                             <Grid Grid.Column="2" ColumnDefinitions="Auto,*">
                                 <Ellipse Grid.Column="0" Width="10" Height="10" VerticalAlignment="Center"
                                          Fill="{x:Bind ViewModel.IsIdleOrFinished, Mode=OneWay, Converter={StaticResource BoolToPassColor}}"/>
-                                <TextBlock Grid.Column="1" Margin="8,0,0,0" FontSize="12" VerticalAlignment="Center"
+                                <TextBlock Grid.Column="1" Margin="8,0,0,0" FontSize="{StaticResource FontSm}" VerticalAlignment="Center"
                                            Text="{x:Bind ViewModel.IsIdleOrFinished, Mode=OneWay, Converter={StaticResource BoolToReadyState}}"
                                            TextTrimming="CharacterEllipsis"/>
                             </Grid>
                             </Grid>
 
                             <!-- 主/次操作：从文件区顶部动作行移下来，成为真正的底部动作条 -->
-                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                                <Button Click="OnSendTextClick" Padding="12,0" Height="36" CornerRadius="8"
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="{StaticResource GapControl}" VerticalAlignment="Center">
+                                <Button Click="OnSendTextClick" Padding="12,0" Height="36" CornerRadius="{StaticResource RadiusControl}"
                                         AutomationProperties.Name="发送文字"
                                         ToolTipService.ToolTip="发送文字/剪贴板内容（对方保存为 .txt）">
-                                    <StackPanel Orientation="Horizontal" Spacing="8">
-                                        <FontIcon Glyph="&#xE70F;" FontSize="14"/>
+                                    <StackPanel Orientation="Horizontal" Spacing="{StaticResource GapControl}">
+                                        <FontIcon Glyph="&#xE70F;" FontSize="{StaticResource FontH2}"/>
                                         <TextBlock Text="发送文字"/>
                                     </StackPanel>
                                 </Button>
@@ -465,14 +465,14 @@
                                         Command="{x:Bind ViewModel.StartSendCommand}"
                                         AutomationProperties.Name="开始发送"
                                         ToolTipService.ToolTip="{x:Bind ViewModel.SendDisabledHint, Mode=OneWay}"
-                                        Padding="24,0" Height="36" CornerRadius="10"
-                                        FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center"
-                                        Background="{ThemeResource AccentFillColorDefaultBrush}"
+                                        Padding="24,0" Height="36" CornerRadius="{StaticResource RadiusRow}"
+                                        FontSize="{StaticResource FontH2}" FontWeight="SemiBold" VerticalAlignment="Center"
+                                        Background="{ThemeResource BrandAccentFillBrush}"
                                         Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}">
                                     <Button.ContentTemplate>
                                         <DataTemplate>
-                                            <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                                                <FontIcon Glyph="&#xE724;" FontSize="14"
+                                            <StackPanel Orientation="Horizontal" Spacing="{StaticResource GapControl}" VerticalAlignment="Center">
+                                                <FontIcon Glyph="&#xE724;" FontSize="{StaticResource FontH2}"
                                                           Foreground="{ThemeResource TextOnAccentFillColorDefaultBrush}"
                                                           AutomationProperties.AccessibilityView="Raw"/>
                                                 <TextBlock Text="{Binding}" VerticalAlignment="Center"/>

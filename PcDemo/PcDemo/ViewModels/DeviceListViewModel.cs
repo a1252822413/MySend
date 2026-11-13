@@ -14,7 +14,20 @@ public partial class DeviceListViewModel : ViewModelBase
 {
     private readonly IDeviceListService _service;
     private readonly IDeviceRegistry _registry;
+    private readonly ISettingsService _settings;
     private DispatcherQueue? _dispatcher;
+
+    /// <summary>设备页统计条：仅白名单模式是否开启（跟随设置实时刷新）。</summary>
+    [ObservableProperty] private bool _whitelistOnly;
+
+    /// <summary>统计条上的中文状态文案。</summary>
+    [ObservableProperty] private string _whitelistOnlyText = "未开启";
+
+    /// <summary>统计条计数。刻意不直接绑定 Whitelist.Count：ObservableCollection 的
+    /// INotifyPropertyChanged 是显式接口实现，x:Bind 对集合 Count 路径的刷新在 WinUI 3
+    /// 上并不可靠；用 VM 上的强类型属性 + PropertyChanged 通知最稳妥。</summary>
+    [ObservableProperty] private int _whitelistCount;
+    [ObservableProperty] private int _blacklistCount;
 
     public ObservableCollection<DeviceListEntry> Whitelist { get; } = new();
     public ObservableCollection<DeviceListEntry> Blacklist { get; } = new();
@@ -33,18 +46,35 @@ public partial class DeviceListViewModel : ViewModelBase
     /// <summary>黑名单为空 → UI 显示空态提示。</summary>
     [ObservableProperty] private bool _hasNoBlacklist = true;
 
-    public DeviceListViewModel(IDeviceListService service, IDeviceRegistry registry)
+    public DeviceListViewModel(IDeviceListService service, IDeviceRegistry registry, ISettingsService settings)
     {
         _service = service;
         _registry = registry;
+        _settings = settings;
         _service.Changed += OnServiceChanged;
+        _settings.Changed += OnSettingsChanged;
         RefreshFromService();
         RefreshDiscovered();
+        ApplyWhitelistOnly();
     }
 
     public void SetDispatcher(DispatcherQueue dq)
     {
         _dispatcher = dq;
+        // 页面重新进入时也同步一次（NavigationCacheMode=Enabled 不会重建 VM）
+        ApplyWhitelistOnly();
+    }
+
+    private void OnSettingsChanged(object? sender, AppSettings current)
+    {
+        if (_dispatcher is null) { ApplyWhitelistOnly(); return; }
+        _dispatcher.TryEnqueue(ApplyWhitelistOnly);
+    }
+
+    private void ApplyWhitelistOnly()
+    {
+        WhitelistOnly = _settings.Current.WhitelistOnly;
+        WhitelistOnlyText = WhitelistOnly ? "已开启" : "未开启";
     }
 
     private void OnServiceChanged(object? sender, EventArgs e)
@@ -65,6 +95,8 @@ public partial class DeviceListViewModel : ViewModelBase
     {
         SyncList(Whitelist, _service.Whitelist);
         SyncList(Blacklist, _service.Blacklist);
+        WhitelistCount = Whitelist.Count;
+        BlacklistCount = Blacklist.Count;
         HasNoWhitelist = Whitelist.Count == 0;
         HasNoBlacklist = Blacklist.Count == 0;
     }

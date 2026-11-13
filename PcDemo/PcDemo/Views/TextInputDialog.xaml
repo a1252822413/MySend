@@ -14,11 +14,11 @@
     SecondaryButtonClick="OnSecondaryClick">
 
     <Grid Width="440">
-        <StackPanel Spacing="8">
+        <StackPanel Spacing="{StaticResource GapControl}">
             <TextBlock Text="输入要发送的文字（可多行）。接收端会把它保存为 .txt 文件。"
-                       FontSize="12" Opacity="0.65" TextWrapping="Wrap"/>
+                       FontSize="{StaticResource FontSm}" Foreground="{ThemeResource BrandTextDimBrush}" TextWrapping="Wrap"/>
             <TextBox x:Name="InputTextBox" AcceptsReturn="True" TextWrapping="Wrap"
-                     Height="180" FontSize="14"
+                     Height="180" FontSize="{StaticResource FontH2}"
                      PlaceholderText="在这里输入文字…"/>
         </StackPanel>
     </Grid>

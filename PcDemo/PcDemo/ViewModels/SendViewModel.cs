@@ -701,7 +701,14 @@ public partial class SendViewModel : ViewModelBase,
                 : ok == 0
                     ? $"发送给 {done} 台设备均失败"
                     : $"成功 {ok} 台，失败 {fail} 台（共 {done} 台）";
-            _messenger.Send(new ShowToastMessage { Kind = fail == 0 ? ToastKind.Success : ToastKind.Warning, Message = $"群发完成\n{msg}" });
+            _messenger.Send(new TransferResultMessage
+            {
+                Kind = fail == 0 ? TransferResultKind.SendSuccess : TransferResultKind.SendFailure,
+                Title = fail == 0 ? "群发完成" : "群发部分失败",
+                Detail = msg,
+                PrimaryActionText = "查看历史",
+                PrimaryAction = () => _messenger.Send(new NavigateToPageMessage { Tag = "History" }),
+            });
         }
 
         // 群发结束 → 关闭列表弹窗（与单发共用 ProgressFinished）
@@ -863,11 +870,48 @@ public partial class SendViewModel : ViewModelBase,
             _ =>
                 ("发送失败", s.ErrorMessage ?? "未知错误", ToastKind.Error),
         };
-        _messenger.Send(new ShowToastMessage
+        // 传输结果统一走顶部悬浮提醒 4 态（design/unified v1.2 §2）。
+        // 用户主动取消仍用通用提示；其余终态都给「发送成功 / 发送失败」结构化提醒。
+        void RetrySend()
         {
-            Message = title == message ? message : $"{title}\n{message}",
-            Kind = kind,
-        });
+            if (StartSendCommand.CanExecute(null)) StartSendCommand.Execute(null);
+        }
+        void OpenHistory() => _messenger.Send(new NavigateToPageMessage { Tag = "History" });
+
+        if (s.State == SendSessionState.Completed && failedCount == 0)
+        {
+            _messenger.Send(new TransferResultMessage
+            {
+                Kind = TransferResultKind.SendSuccess,
+                Title = $"已发送到 {s.Target.Alias}",
+                Detail = $"{s.Files.Count} 个文件 · {PcDemo.Converters.ByteFormatter.Format(s.TotalBytesSent)}",
+                PrimaryActionText = "查看历史",
+                PrimaryAction = OpenHistory,
+                SecondaryActionText = "再次发送",
+                SecondaryAction = RetrySend,
+            });
+        }
+        else if (s.State != SendSessionState.Cancelled)
+        {
+            _messenger.Send(new TransferResultMessage
+            {
+                Kind = TransferResultKind.SendFailure,
+                Title = title,
+                Detail = message.Replace("\n", " · "),
+                PrimaryActionText = "重试",
+                PrimaryAction = RetrySend,
+                SecondaryActionText = "查看历史",
+                SecondaryAction = OpenHistory,
+            });
+        }
+        else
+        {
+            _messenger.Send(new ShowToastMessage
+            {
+                Message = title == message ? message : $"{title}\n{message}",
+                Kind = kind,
+            });
+        }
     }
 
     /// <summary>记录一条发送历史（单发路径用；群发路径经 SettleQueueSession 调用）。</summary>

@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  TopToast：内容区右上角的非模态悬浮提醒（design/unified v1.2 §2）。
+  与旧 CenteredToast 的区别：
+   1) 不铺遮罩、不抢焦点、不占布局，纯覆盖在内容区右上角；
+   2) 接收/发送 × 成功/失败 四态同构，支持两个动作按钮与自动收起计时线；
+   3) 成功 role=status / 失败 role=alert，容器 aria-live=polite；
+   4) 失败停留 8s、成功 4s，鼠标悬停暂停，悬停移开继续。
+-->
+<UserControl
+    x:Class="PcDemo.Controls.TopToast"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Visibility="Collapsed">
+
+    <Grid x:Name="RootGrid"
+          AutomationProperties.LiveSetting="Polite"
+          HorizontalAlignment="Right" VerticalAlignment="Top"
+          Margin="0,16,16,0">
+        <Border x:Name="CardBorder"
+                MinWidth="300" MaxWidth="{StaticResource ToastMaxWidth}"
+                Padding="{StaticResource SpaceCardCompact}"
+                CornerRadius="{StaticResource RadiusCard}"
+                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                BorderThickness="1"
+                Opacity="0">
+            <!-- 入场：从上方 12px 轻移 + 淡入；由 code-behind 的 16ms 计时器驱动 -->
+            <Border.RenderTransform>
+                <TranslateTransform x:Name="CardTranslate" Y="-12"/>
+            </Border.RenderTransform>
+
+            <Grid RowDefinitions="Auto,Auto,Auto">
+                <!-- ① 图标 + 标题/副文本 + 关闭 -->
+                <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto">
+                    <Grid x:Name="IconSlot" Grid.Column="0" Width="40" Height="40"
+                          Margin="0,0,12,0" VerticalAlignment="Top">
+                        <Border x:Name="IconOk" CornerRadius="{StaticResource RadiusRow}"
+                                Background="{ThemeResource BrandSuccessSoftBrush}">
+                            <FontIcon Glyph="&#xE73E;" FontSize="{StaticResource IconGlyphMedium}"
+                                      Foreground="{ThemeResource BrandAccentInkBrush}"
+                                      HorizontalAlignment="Center" VerticalAlignment="Center"
+                                      AutomationProperties.AccessibilityView="Raw"/>
+                        </Border>
+                        <Border x:Name="IconFail" CornerRadius="{StaticResource RadiusRow}"
+                                Visibility="Collapsed" Background="{ThemeResource BrandDangerSoftBrush}">
+                            <FontIcon Glyph="&#xE7BA;" FontSize="{StaticResource IconGlyphMedium}"
+                                      Foreground="{ThemeResource BrandDangerBrush}"
+                                      HorizontalAlignment="Center" VerticalAlignment="Center"
+                                      AutomationProperties.AccessibilityView="Raw"/>
+                        </Border>
+                        <Border x:Name="IconInfo" CornerRadius="{StaticResource RadiusRow}"
+                                Visibility="Collapsed" Background="{ThemeResource ChipFillBrush}">
+                            <FontIcon Glyph="&#xE946;" FontSize="{StaticResource IconGlyphMedium}"
+                                      Foreground="{ThemeResource BrandTextDimBrush}"
+                                      HorizontalAlignment="Center" VerticalAlignment="Center"
+                                      AutomationProperties.AccessibilityView="Raw"/>
+                        </Border>
+                    </Grid>
+
+                    <StackPanel Grid.Column="1" Spacing="{StaticResource GapMicro}" VerticalAlignment="Center">
+                        <TextBlock x:Name="TitleText" FontSize="{StaticResource FontH2}" FontWeight="SemiBold"
+                                   Foreground="{ThemeResource BrandTextBrush}"
+                                   TextWrapping="Wrap" MaxLines="2"/>
+                        <TextBlock x:Name="DetailText" FontSize="{StaticResource FontSm}"
+                                   Foreground="{ThemeResource BrandTextDimBrush}"
+                                   TextWrapping="Wrap" MaxLines="2"/>
+                    </StackPanel>
+
+                    <Button x:Name="CloseButton" Grid.Column="2" Width="28" Height="28" Padding="0"
+                            Margin="8,0,0,0" VerticalAlignment="Top"
+                            Background="Transparent" BorderThickness="0"
+                            Click="OnCloseClick"
+                            AutomationProperties.Name="关闭提醒"
+                            ToolTipService.ToolTip="关闭提醒">
+                        <FontIcon Glyph="&#xE711;" FontSize="12"
+                                  Foreground="{ThemeResource BrandTextDimBrush}"
+                                  AutomationProperties.AccessibilityView="Raw"/>
+                    </Button>
+                </Grid>
+
+                <!-- ② 动作按钮行（无动作时整行收起） -->
+                <StackPanel x:Name="ActionRow" Grid.Row="1" Orientation="Horizontal"
+                            Spacing="{StaticResource GapControl}" Margin="0,12,0,0"
+                            Visibility="Collapsed">
+                    <Button x:Name="PrimaryButton" MinHeight="32" Padding="12,4"
+                            CornerRadius="{StaticResource RadiusControl}"
+                            FontSize="{StaticResource FontSm}"
+                            Click="OnPrimaryActionClick"/>
+                    <Button x:Name="SecondaryButton" MinHeight="32" Padding="12,4"
+                            CornerRadius="{StaticResource RadiusControl}"
+                            FontSize="{StaticResource FontSm}"
+                            Click="OnSecondaryActionClick"/>
+                </StackPanel>
+
+                <!-- ③ 2px 自动收起计时线：成功用品牌绿，失败用警示红。
+                     两个 ProgressBar 叠加切换，避免在 C# 里按主题字典取画刷（ThemeResource
+                     不保证能从 Application.Current.Resources 直接索引到）。 -->
+                <Grid Grid.Row="2" Margin="0,12,0,0" Height="2">
+                    <ProgressBar x:Name="TimerBar" Height="2"
+                                 Minimum="0" Maximum="100" Value="100"
+                                 CornerRadius="{StaticResource RadiusXs}"
+                                 Background="Transparent"
+                                 Foreground="{ThemeResource BrandAccentBrush}"
+                                 AutomationProperties.AccessibilityView="Raw"/>
+                    <ProgressBar x:Name="TimerBarFail" Height="2" Visibility="Collapsed"
+                                 Minimum="0" Maximum="100" Value="100"
+                                 CornerRadius="{StaticResource RadiusXs}"
+                                 Background="Transparent"
+                                 Foreground="{ThemeResource BrandDangerBrush}"
+                                 AutomationProperties.AccessibilityView="Raw"/>
+                </Grid>
+            </Grid>
+        </Border>
+    </Grid>
+</UserControl>

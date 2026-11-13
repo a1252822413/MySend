@@ -529,7 +529,7 @@ public partial class App : Application, IRecipient<DeviceDiscoveredMessage>
             var xml = ToastNotificationManager.GetTemplateContent(ToastTemplateType.ToastText02);
             var texts = xml.GetElementsByTagName("text");
             texts[0].AppendChild(xml.CreateTextNode("已最小化到托盘"));
-            texts[1].AppendChild(xml.CreateTextNode("PcDemo 仍在后台接收文件。点右下角托盘图标可重新打开；在托盘图标右键选「退出」才会真正退出。"));
+            texts[1].AppendChild(xml.CreateTextNode("快传仍在后台接收文件。点右下角托盘图标可重新打开；在托盘图标右键选「退出」才会真正退出。"));
             ToastNotificationManager.CreateToastNotifier().Show(new ToastNotification(xml));
         }
         catch (Exception ex)

@@ -56,3 +56,35 @@ dotnet tool install --tool-path build\tools-wix5 wix --version 5.0.2
 > 必须用 WiX **v5**：v7 会报 `WIX7015` 要求接受 OSMF 付费许可，v5 没有这个门槛。
 > 另外构建时**必须带 `-loc installer\zh-CN.wxl -culture zh-CN`**，否则 MSI 数据库的
 > codepage 会是 1252，中文产品名会被写成 0x7F 占位符（装出来乱码）。`build.cmd` 里已包含。
+
+## 构建验证记录（2026-11-13，UI 重构后首次打包）
+
+- 工具链：.NET SDK **11.0.100**（工程仍 target `net8.0-windows10.0.19041.0`，SDK 11 可正常还原并编译）、WindowsAppSDK 1.8、WiX 5.0.2。
+- `dotnet build -c Release -r win-x64 --self-contained true -p:WindowsPackageType=None` → **0 警告 0 错误**。
+  编译期只发现并修掉一处真实错误：`TopToast.xaml.cs` 的 `AutomationLiveSetting` 枚举在
+  `Microsoft.UI.Xaml.Automation.Peers`（不是 `Microsoft.UI.Xaml.Automation`），补 using 即可。
+  首次构建伴随出现的 `WMC9999 / WMC1509` 是 C# 编译失败时 XAML 编译器的连带崩溃，修复后自动消失。
+- 新增的 `TopToast` / `FileProgressRow` / `ClearHistoryDialog` 三个 XAML 都生成了 `.g.cs`，确认参与编译；
+  `PcDemo.pri` 1.4 MB，资源索引完整。
+- 便携目录 **646 个文件 / 284 MB**；MSI **87.6 MB**。MSI 内 GBK(936) 的「快传」出现 4 处
+  （产品名/目录名/快捷方式名），未出现 0x7F 占位符乱码。
+
+### 已知问题：ICE03 Invalid Language Id
+
+全量 `wix msi validate` 会报 **6 error + 2 warning**，全部是 `Table: File, Column: Language`。
+根因是 WindowsAppSDK 自带的 `Microsoft.ui.xaml.dll(.mui)` / `Microsoft.UI.Xaml.Phone.dll(.mui)`
+——约 90 个语言子目录里少数带脚本/变体区域名的 `.mui`，其版本资源里的 Language 不是合法 LANGID
+（多语言列表或超长字符串），WiX v5 的 `<Files Include="**">` 自动采集后写进了 `File.Language`。
+
+WiX v5 的 `<Files>` 只有 `Directory / Include / Subdirectory` 三个属性（子元素仅 `Exclude`），
+无法批量覆盖 Language；试过 `<Files Language="0">`，编译器直接报 `WIX0004 unexpected attribute`。
+
+**影响**：只影响 MSI 规范性校验，不影响安装、卸载、升级。包里配了 `MajorUpgrade`（先卸载旧版），
+不依赖 `File.Language` 做文件版本比较，且这些文件都是纯语言资源。跳过该项后其余 ICE 全部通过：
+
+```cmd
+build\tools-wix5\wix.exe msi validate build\out\KuaiChuan-1.2.1.0-x64.msi -sice ICE03
+```
+
+刻意**不**在 wxs 里写死这 8 个文件的特例：WindowsAppSDK 一升级，语言目录集合就会变，特例会失效。
+也不采用 WiX v3 时代的 `light.exe -sh` 全局抑制文件信息（会丢掉全部 646 个文件的 hash/version）。

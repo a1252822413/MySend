@@ -1,6 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 发送进度对话框：单发=单环进度；群发=每台一行列表。
-     取消需二次确认。PrimaryButton"取消传输" → 二次确认面板（不关闭对话框） -->
+<!--
+  发送进度对话框（design/unified v1.3 FileProgressList）
+  两层口径：总进度按「已传字节 / 总字节」，每个文件一条独立进度条。
+  文件清单放在独立的 ScrollViewer（MaxHeight=240）里，文件再多也只滚列表，
+  总进度区与底部按钮保持固定。单发/群发两种面板共用同一套视觉令牌。
+-->
 <ContentDialog
     x:Class="PcDemo.Views.SendProgressDialog"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
@@ -11,42 +15,65 @@
     SecondaryButtonClick="OnContinueClick">
 
     <Grid MinWidth="480">
-        <!-- 单发面板：单个设备 → 环形进度（中央叠百分比数字） -->
-        <StackPanel x:Name="SinglePanel" Spacing="12" Padding="0,4,0,0">
-            <Border HorizontalAlignment="Center" Padding="8,4" CornerRadius="10"
+        <!-- 单发面板：总进度 + 逐文件进度清单 -->
+        <StackPanel x:Name="SinglePanel" Spacing="{StaticResource GapBlock}" Padding="0,4,0,0">
+            <Border HorizontalAlignment="Left" Padding="{StaticResource SpaceChip}"
+                    CornerRadius="{StaticResource RadiusControl}"
                     Background="{ThemeResource ChipFillBrush}">
-                <TextBlock x:Name="TargetTextBlock" FontSize="12" Opacity="0.85"/>
+                <TextBlock x:Name="TargetTextBlock" FontSize="{StaticResource FontSm}"
+                           Foreground="{ThemeResource BrandTextDimBrush}"/>
             </Border>
-            <Grid Width="112" Height="112" HorizontalAlignment="Center">
-                <!-- Background = 环的轨道。WinUI 默认值是 ControlFillColorTransparentBrush（透明），
-                     所以低进度时只剩一小段弧，看起来像"一个点"。给个可见的中性轨道。 -->
-                <ProgressRing x:Name="ProgressRingControl" Width="112" Height="112"
-                              Foreground="{ThemeResource AccentFillColorDefaultBrush}"
-                              Background="{ThemeResource ControlStrokeColorSecondaryBrush}"/>
-                <!-- 中央百分比：始终显示（等待确认时为 0%，有确定进度后随进度跳动） -->
-                <TextBlock x:Name="RingPercentTextBlock" FontSize="26" FontWeight="SemiBold"
-                           Foreground="{ThemeResource TextFillColorPrimaryBrush}"
-                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
+
+            <!-- 总进度：环形 + 大百分比 + 线性条 + 字节/速度 -->
+            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="{StaticResource GapSection}">
+                <Grid Width="96" Height="96" HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <ProgressRing x:Name="ProgressRingControl" Width="96" Height="96"
+                                  Foreground="{ThemeResource AccentFillColorDefaultBrush}"
+                                  Background="{ThemeResource ControlStrokeColorSecondaryBrush}"/>
+                    <TextBlock x:Name="RingPercentTextBlock" FontSize="{StaticResource FontH1}" FontWeight="SemiBold"
+                               Foreground="{ThemeResource BrandTextBrush}"
+                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                </Grid>
+                <StackPanel Grid.Column="1" Spacing="{StaticResource GapMicro}" VerticalAlignment="Center">
+                    <TextBlock x:Name="StateTextBlock" FontSize="{StaticResource FontH2}" FontWeight="SemiBold"/>
+                    <TextBlock x:Name="FilesTextBlock" FontSize="{StaticResource FontSm}"
+                               Foreground="{ThemeResource BrandTextDimBrush}"/>
+                    <TextBlock x:Name="StatTextBlock" FontSize="{StaticResource FontSm}"
+                               Foreground="{ThemeResource BrandTextDimBrush}"/>
+                    <ProgressBar x:Name="TotalProgressBar" Height="8" Maximum="100" Minimum="0" Value="0"
+                                 CornerRadius="{StaticResource RadiusXs}"
+                                 Foreground="{ThemeResource BrandAccentFillBrush}"
+                                 Background="{ThemeResource BrandSurface3Brush}"
+                                 AutomationProperties.Name="总进度（按字节）"/>
+                </StackPanel>
             </Grid>
-            <StackPanel Spacing="4" HorizontalAlignment="Center">
-                <TextBlock x:Name="StateTextBlock" FontSize="15" FontWeight="SemiBold"
-                           HorizontalAlignment="Center"/>
-                <TextBlock x:Name="FilesTextBlock" FontSize="12" Opacity="0.7"
-                           HorizontalAlignment="Center"/>
-                <TextBlock x:Name="StatTextBlock" FontSize="12" Opacity="0.75"
-                           HorizontalAlignment="Center"/>
-            </StackPanel>
+
+            <!-- 文件进度：每个文件一条独立进度条 -->
+            <Grid ColumnDefinitions="Auto,Auto,*" ColumnSpacing="{StaticResource GapControl}">
+                <TextBlock Text="文件进度" Style="{StaticResource SectionTitleStyle}"/>
+                <Border Padding="{StaticResource SpaceChip}" CornerRadius="{StaticResource RadiusControl}"
+                        Background="{ThemeResource ChipFillBrush}">
+                    <TextBlock x:Name="FileCountTextBlock" Text="0" FontSize="{StaticResource FontLabel}"
+                               Foreground="{ThemeResource BrandTextDimBrush}"/>
+                </Border>
+                <TextBlock Text="按队列顺序传输" Style="{StaticResource CaptionTextStyle}"
+                           HorizontalAlignment="Right" VerticalAlignment="Center"/>
+            </Grid>
+            <ScrollViewer x:Name="FileListScroll" MaxHeight="{StaticResource FileListMaxHeight}"
+                          VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                <StackPanel x:Name="FileListPanel" Spacing="{StaticResource GapControl}"/>
+            </ScrollViewer>
         </StackPanel>
 
         <!-- 群发面板：每台一行（设备名+状态+迷你进度条），顶部汇总 -->
-        <StackPanel x:Name="BatchPanel" Visibility="Collapsed" Spacing="8" Padding="0,4,0,0">
-            <TextBlock x:Name="BatchSummaryTextBlock" FontSize="13" FontWeight="SemiBold"
-                       HorizontalAlignment="Center" Opacity="0.9"/>
+        <StackPanel x:Name="BatchPanel" Visibility="Collapsed" Spacing="{StaticResource GapControl}" Padding="0,4,0,0">
+            <TextBlock x:Name="BatchSummaryTextBlock" FontSize="{StaticResource FontBody}" FontWeight="SemiBold"
+                       HorizontalAlignment="Center" Foreground="{ThemeResource BrandTextBrush}"/>
             <!-- MaxHeight 在 code-behind 按窗口高度动态适配（Opened 时），避免设备多时弹窗超出界面 -->
             <ScrollViewer x:Name="BatchListScroll" MaxHeight="330"
                           VerticalScrollBarVisibility="Auto"
                           HorizontalScrollBarVisibility="Disabled">
-                <StackPanel x:Name="BatchListPanel" Spacing="8"/>
+                <StackPanel x:Name="BatchListPanel" Spacing="{StaticResource GapControl}"/>
             </ScrollViewer>
         </StackPanel>
     </Grid>

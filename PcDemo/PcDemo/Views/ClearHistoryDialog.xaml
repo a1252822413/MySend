@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 统一设计 v1.3 · 弹窗 clear：破坏性操作二次确认。
+     对齐评审板：标题 + 影响说明 + 危险色警示条 + 取消/危险主按钮，
+     默认焦点落在「取消」，避免回车误删。 -->
+<ContentDialog
+    x:Class="PcDemo.Views.ClearHistoryDialog"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d"
+    Title="清空全部历史记录？"
+    DefaultButton="Close"
+    PrimaryButtonText="清空记录"
+    CloseButtonText="取消"
+    PrimaryButtonStyle="{StaticResource DangerButtonStyle}">
+
+    <Grid Width="420">
+        <StackPanel Spacing="{StaticResource GapControl}">
+            <TextBlock x:Name="SubtitleText" TextWrapping="Wrap"
+                       FontSize="{StaticResource FontSm}"
+                       Foreground="{ThemeResource BrandTextDimBrush}"/>
+            <!-- status-line warn：仅靠颜色不足以表达危险，同时给出图标与完整文字 -->
+            <Border Padding="{StaticResource SpaceBlock}"
+                    CornerRadius="{StaticResource RadiusControl}"
+                    Background="{ThemeResource BrandDangerSoftBrush}">
+                <StackPanel Orientation="Horizontal" Spacing="{StaticResource GapControl}">
+                    <FontIcon Glyph="&#xE7BA;" FontSize="{StaticResource FontH2}"
+                              VerticalAlignment="Center"
+                              Foreground="{ThemeResource BrandDangerBrush}"
+                              AutomationProperties.AccessibilityView="Raw"/>
+                    <TextBlock Text="仅删除记录，不删除磁盘上的文件" TextWrapping="Wrap"
+                               VerticalAlignment="Center"
+                               FontSize="{StaticResource FontSm}"
+                               Foreground="{ThemeResource BrandTextBrush}"/>
+                </StackPanel>
+            </Border>
+        </StackPanel>
+    </Grid>
+</ContentDialog>

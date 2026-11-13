@@ -1,0 +1,261 @@
+/* ============================================================
+   快传 · 统一设计令牌 v1.3（唯一视觉源 / single source of truth）
+   适用：PC WinUI 3 + HarmonyOS ArkUI + 设计评审稿
+   依据：docs/harmonyos-app-design.md §6 (226-242)、docs/UI-SPACING.md
+   规则：
+     1) 品牌主色 #16A34A 与 PC 一致，双端两主题共用同一语义角色
+     2) 间距只允许 0/4/8/12/16/24/32
+     3) 圆角 卡片12 / 控件8 / 行10 / 胶囊全圆
+     4) 字阶 22/15/13/12/11（大数字 30）
+     5) 双主题不是反色：亮色压深绿、暗色提亮绿，均需 WCAG AA
+     6) 阴影接近 1px 描边的量级；材质三档（mica / acrylic / solid）
+        是系统状态映射，不作为用户设置项，应用内不提供开关
+     7) 顶部提醒 4 态（接收/发送 × 成功/失败），共用 --danger-soft 图标底
+     8) 进度弹窗双层口径：总进度按字节、每个文件一条独立进度条；
+        等待态用空心描边轨道表达 0%，不靠颜色单独传达状态
+   ============================================================ */
+
+:root {
+  /* 品牌与字体（不随主题变化） */
+  --brand: #16a34a;
+  --font-sans: "HarmonyOS Sans SC", "Microsoft YaHei UI", "Segoe UI Variable", "Noto Sans SC", system-ui, sans-serif;
+  --font-num: "Segoe UI Variable", "HarmonyOS Sans SC", ui-monospace, monospace;
+
+  /* 间距刻度：唯一允许的 7 个值 */
+  --sp-0: 0px;
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 24px;
+  --sp-6: 32px;
+  --sp-7: 48px;
+
+  /* 语义间距（页面/区块/卡片/控件/微距） */
+  --space-page: var(--sp-5);      /* 24 页面四边 */
+  --space-section: var(--sp-4);   /* 16 大区块之间 */
+  --space-block: var(--sp-3);     /* 12 同区块内元素 */
+  --space-card: var(--sp-4);      /* 16 常规卡内边距 */
+  --space-card-compact: var(--sp-3); /* 12 紧凑卡 */
+  --space-control: var(--sp-2);   /* 8 控件之间 */
+  --space-micro: var(--sp-1);     /* 4 徽标/标题与副标题 */
+
+  /* 圆角 */
+  --r-xs: 4px;
+  --r-control: 8px;
+  --r-row: 10px;
+  --r-card: 12px;
+  --r-window: 8px;
+  --r-pill: 999px;
+
+  /* 字阶 */
+  --fs-display: 30px;
+  --fs-h1: 22px;
+  --fs-h2: 15px;
+  --fs-body: 13px;
+  --fs-sm: 12px;
+  --fs-label: 11px;
+  --fw-regular: 400;
+  --fw-medium: 500;
+  --fw-semibold: 600;
+
+  /* 尺寸与交互 */
+  --control-h: 36px;
+  --touch-min: 44px;
+  --icon-block: 40px;
+  --avatar: 56px;
+  --dur-fast: 160ms;
+  --dur-base: 300ms;
+  --ease: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* ---------------- 亮色主题 ---------------- */
+:root,
+[data-theme="light"] {
+  --bg: #f0f3f1;
+  --bg-void: #eaeeec;
+  --surface: #ffffff;
+  --surface-2: #f1f5f3;
+  --surface-3: #e3eae7;
+  --surface-hi: #fbfdfc;
+
+  --text: #0f1614;        /* 18.34:1 on #FFFFFF */
+  --text-dim: #55635c;    /* 6.31:1 */
+  --text-mute: #6b7a72;   /* 4.51:1 */
+
+  /* 三级绿：图形 / 实心按钮底 / 文字 */
+  --accent: #16a34a;      /* 品牌图形、进度、选中态 */
+  --accent-fill: #15803d; /* 实心按钮底，白字 5.02:1 */
+  --accent-ink: #0f7a3c;  /* 亮底上的绿色小字 5.43:1 */
+  --on-accent: #ffffff;
+  --accent-soft: rgba(22, 163, 74, 0.10);
+  --accent-glow: rgba(22, 163, 74, 0.22);
+
+  --line: rgba(16, 22, 19, 0.07);
+  --line-strong: rgba(16, 22, 19, 0.13);
+  --card-border: rgba(16, 22, 19, 0.10);
+
+  /* 阴影：v1.1 减重 —— 只保留 1–3px 的近距投影，悬停靠位移与描边而不是大范围投影 */
+  --card-shadow: 0 1px 1px rgba(16, 22, 19, 0.02), 0 1px 2px rgba(16, 22, 19, 0.025);
+  --card-shadow-hover: 0 1px 2px rgba(16, 22, 19, 0.025), 0 3px 8px rgba(16, 22, 19, 0.045);
+  --shadow-window: 0 1px 2px rgba(16, 22, 19, 0.04), 0 6px 18px rgba(16, 22, 19, 0.06);
+  --shadow-dialog: 0 2px 6px rgba(16, 22, 19, 0.05), 0 12px 32px rgba(16, 22, 19, 0.10);
+
+  --success: #15803d;
+  --warning: #b06f00;
+  --danger: #c0392b;
+  --danger-soft: rgba(192, 57, 43, 0.10);
+  --on-danger: #ffffff;
+
+  --scrim: rgba(15, 22, 19, 0.30);
+  --scrim-strong: rgba(15, 22, 19, 0.42);
+  --focus: #0f7a3c;
+
+  /* 壁纸：仅用于展示 Mica / 亚克力的透出效果，真实运行时由桌面壁纸代替 */
+  --wallpaper:
+    radial-gradient(120% 90% at 16% 8%, rgba(22, 163, 74, 0.26), transparent 62%),
+    radial-gradient(90% 80% at 86% 16%, rgba(56, 189, 248, 0.20), transparent 60%),
+    radial-gradient(100% 90% at 66% 94%, rgba(250, 204, 21, 0.14), transparent 58%),
+    linear-gradient(158deg, #e8f2ec 0%, #e5eef2 46%, #eef1e7 100%);
+}
+
+/* ---------------- 暗色主题 ---------------- */
+[data-theme="dark"] {
+  --bg: #0a0e0c;
+  --bg-void: #070a09;
+  --surface: #151f1b;
+  --surface-2: #1b2622;
+  --surface-3: #24302b;
+  --surface-hi: #1d2823;
+
+  --text: #e9f1ee;        /* 14.70:1 on #151F1B */
+  --text-dim: #9aa8a3;    /* 6.84:1 */
+  --text-mute: #7b8a84;   /* 4.67:1 */
+
+  --accent: #3be49a;      /* 品牌绿的暗色提亮派生，11.79:1 on 暗底 */
+  --accent-fill: #3be49a;
+  --accent-ink: #3be49a;
+  --on-accent: #04110b;   /* 深字 11.70:1 */
+  --accent-soft: rgba(59, 228, 154, 0.13);
+  --accent-glow: rgba(59, 228, 154, 0.28);
+
+  --line: rgba(233, 241, 238, 0.07);
+  --line-strong: rgba(233, 241, 238, 0.13);
+  --card-border: rgba(233, 241, 238, 0.10);
+
+  /* 暗色不用"厚投影"，用内高光 + 极近投影表达层级 */
+  --card-shadow: 0 1px 0 rgba(255, 255, 255, 0.02) inset, 0 1px 2px rgba(0, 0, 0, 0.16);
+  --card-shadow-hover: 0 1px 0 rgba(255, 255, 255, 0.03) inset, 0 3px 8px rgba(0, 0, 0, 0.20);
+  --shadow-window: 0 1px 2px rgba(0, 0, 0, 0.22), 0 8px 22px rgba(0, 0, 0, 0.24);
+  --shadow-dialog: 0 2px 8px rgba(0, 0, 0, 0.26), 0 16px 40px rgba(0, 0, 0, 0.32);
+
+  --success: #3be49a;
+  --warning: #ffb64d;
+  --danger: #ff6b5a;
+  --danger-soft: rgba(255, 107, 90, 0.14);
+  --on-danger: #04110b;
+
+  --scrim: rgba(4, 7, 6, 0.62);
+  --scrim-strong: rgba(4, 7, 6, 0.72);
+  --focus: #3be49a;
+
+  --wallpaper:
+    radial-gradient(120% 90% at 14% 6%, rgba(59, 228, 154, 0.20), transparent 62%),
+    radial-gradient(90% 80% at 88% 20%, rgba(56, 189, 248, 0.15), transparent 60%),
+    radial-gradient(100% 90% at 62% 96%, rgba(139, 92, 246, 0.13), transparent 62%),
+    linear-gradient(158deg, #07110d 0%, #0a1014 50%, #06100c 100%);
+}
+
+/* ============================================================
+   材质（Material）
+   双端同一组语义：window（窗口/页面底） / panel（导航、标题栏、
+   底栏） / card（卡片） / page（内容区）
+   PC  ：MicaBackdrop → SystemBackdrop；DesktopAcrylicBackdrop；不透明
+   鸿蒙：backgroundBlurStyle(BlurStyle.COMPONENT_THICK/REGULAR) + 半透明底色
+   说明：卡片透明度始终 ≥ 0.86，保证文字对比度不被壁纸拉低。
+   ============================================================ */
+[data-material="mica"] {
+  --blur-window: 48px;
+  --blur-panel: 40px;
+  --blur-page: 24px;
+  --blur-card: 12px;
+  --material-saturate: 170%;
+}
+[data-material="acrylic"] {
+  --blur-window: 24px;
+  --blur-panel: 20px;
+  --blur-page: 14px;
+  --blur-card: 8px;
+  --material-saturate: 125%;
+}
+[data-material="solid"] {
+  --blur-window: 0px;
+  --blur-panel: 0px;
+  --blur-page: 0px;
+  --blur-card: 0px;
+  --material-saturate: 100%;
+}
+
+[data-theme="light"][data-material="mica"] {
+  --material-window: rgba(246, 249, 247, 0.74);
+  --material-panel: rgba(248, 251, 249, 0.66);
+  --material-page: rgba(242, 245, 243, 0.72);
+  --material-card: rgba(255, 255, 255, 0.90);
+  --material-stroke: rgba(255, 255, 255, 0.65);
+}
+[data-theme="light"][data-material="acrylic"] {
+  --material-window: rgba(248, 251, 249, 0.88);
+  --material-panel: rgba(250, 252, 251, 0.80);
+  --material-page: rgba(243, 246, 244, 0.82);
+  --material-card: rgba(255, 255, 255, 0.95);
+  --material-stroke: rgba(255, 255, 255, 0.70);
+}
+[data-theme="light"][data-material="solid"] {
+  --material-window: #f0f3f1;
+  --material-panel: #f1f5f3;
+  --material-page: #f0f3f1;
+  --material-card: #ffffff;
+  --material-stroke: rgba(16, 22, 19, 0.10);
+}
+
+[data-theme="dark"][data-material="mica"] {
+  --material-window: rgba(10, 14, 12, 0.72);
+  --material-panel: rgba(21, 31, 27, 0.58);
+  --material-page: rgba(10, 14, 12, 0.62);
+  --material-card: rgba(21, 31, 27, 0.90);
+  --material-stroke: rgba(233, 241, 238, 0.14);
+}
+[data-theme="dark"][data-material="acrylic"] {
+  --material-window: rgba(10, 14, 12, 0.88);
+  --material-panel: rgba(27, 38, 34, 0.78);
+  --material-page: rgba(10, 14, 12, 0.80);
+  --material-card: rgba(21, 31, 27, 0.95);
+  --material-stroke: rgba(233, 241, 238, 0.12);
+}
+[data-theme="dark"][data-material="solid"] {
+  --material-window: #0a0e0c;
+  --material-panel: #151f1b;
+  --material-page: #0a0e0c;
+  --material-card: #151f1b;
+  --material-stroke: rgba(233, 241, 238, 0.10);
+}
+
+/* 系统中开启"减少透明/高对比度"时强制退回不透明 */
+@media (prefers-reduced-transparency: reduce) {
+  [data-material] {
+    --blur-window: 0px; --blur-panel: 0px; --blur-page: 0px; --blur-card: 0px;
+    --material-saturate: 100%;
+  }
+  [data-theme="light"][data-material] {
+    --material-window: #f0f3f1; --material-panel: #f1f5f3;
+    --material-page: #f0f3f1; --material-card: #ffffff;
+  }
+  [data-theme="dark"][data-material] {
+    --material-window: #0a0e0c; --material-panel: #151f1b;
+    --material-page: #0a0e0c; --material-card: #151f1b;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root { --dur-fast: 0ms; --dur-base: 0ms; }
+}

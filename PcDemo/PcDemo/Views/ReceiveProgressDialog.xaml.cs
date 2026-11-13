@@ -5,6 +5,7 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using PcDemo.Converters;
+using PcDemo.Controls;
 using PcDemo.Models;
 
 namespace PcDemo.Views;
@@ -33,6 +34,8 @@ public sealed partial class ReceiveProgressDialog : ContentDialog
         this.InitializeComponent();
         // RingValue 是 P 的计算属性（不触发通知），进度变化时手动刷新；IsCompleted 变化时切换完成态
         P.PropertyChanged += (_, _) => OnProgressChanged();
+        BuildFileRows();
+        DestinationTextBlock.Text = $"保存到 {_session.DestinationDir}";
         RefreshUi();
     }
 
@@ -46,6 +49,9 @@ public sealed partial class ReceiveProgressDialog : ContentDialog
         // 百分比始终显示（旧版在不确定态隐藏 → 等待阶段看不出变化）
         RingPercentTextBlock.Text = $"{RingValue:0}%";
         RingPercentTextBlock.Visibility = Visibility.Visible;
+        // 总进度按字节加权；下面每个文件用各自的 BytesReceived / Size
+        TotalProgressBar.Value = System.Math.Clamp(RingValue, 0, 100);
+        RefreshFileRows();
     }
 
     private void OnProgressChanged()
@@ -82,6 +88,60 @@ public sealed partial class ReceiveProgressDialog : ContentDialog
         var speed = ByteFormatter.FormatSpeed(P.SpeedBytesPerSecond);
         var eta = ByteFormatter.FormatEta(P.EtaSeconds);
         return $"{ByteFormatter.Format(P.ReceivedBytes)} / {ByteFormatter.Format(P.TotalBytes)} · {RingValue:0}%{speed}{eta}";
+    }
+
+    // ---------- v1.3 逐文件进度清单 ----------
+    private readonly List<FileProgressRow> _fileRows = new();
+    private readonly List<ReceiveFile> _files = new();
+
+    private void BuildFileRows()
+    {
+        FileListPanel.Children.Clear();
+        _fileRows.Clear();
+        _files.Clear();
+        foreach (var f in _session.Files.Values)
+        {
+            _files.Add(f);
+            var row = new FileProgressRow();
+            row.Bind(f.Metadata.FileName, ByteFormatter.Format((long)f.Metadata.Size));
+            FileListPanel.Children.Add(row);
+            _fileRows.Add(row);
+        }
+        FileCountTextBlock.Text = _files.Count.ToString();
+    }
+
+    /// <summary>每个文件按自己的 BytesReceived / Metadata.Size 计算，不共用总进度的值。</summary>
+    private void RefreshFileRows()
+    {
+        for (var i = 0; i < _fileRows.Count; i++)
+        {
+            var f = _files[i];
+            var size = (double)f.Metadata.Size;
+            var pct = size <= 0 ? 0 : System.Math.Clamp(f.BytesReceived / size * 100.0, 0, 100);
+            var state = f.Status switch
+            {
+                ReceiveFileStatus.Completed => FileRowState.Done,
+                ReceiveFileStatus.InProgress => FileRowState.Active,
+                ReceiveFileStatus.Failed or ReceiveFileStatus.Canceled => FileRowState.Failed,
+                _ => FileRowState.Wait,
+            };
+            var status = f.Status switch
+            {
+                ReceiveFileStatus.Completed => "已校验",
+                ReceiveFileStatus.InProgress => $"{pct:0}% · 接收中",
+                ReceiveFileStatus.Failed => "写入失败",
+                ReceiveFileStatus.Canceled => "已取消",
+                _ => "等待中 · 0%",
+            };
+            var detail = f.Status switch
+            {
+                ReceiveFileStatus.InProgress =>
+                    $"{ByteFormatter.Format((long)f.BytesReceived)} / {ByteFormatter.Format((long)f.Metadata.Size)}",
+                ReceiveFileStatus.Failed => f.Error ?? "校验或写盘失败",
+                _ => string.Empty,
+            };
+            _fileRows[i].Update(pct, status, state, detail);
+        }
     }
 
     // ---------- 交互：二次确认在底部命令区切换（内容区始终显示进度） ----------

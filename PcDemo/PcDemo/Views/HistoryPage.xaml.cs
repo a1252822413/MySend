@@ -74,16 +74,13 @@ public sealed partial class HistoryPage : Page
     {
         var root = App.MainWindow.Content?.XamlRoot;
         if (root is null) return;
-        var confirm = new ContentDialog
+        // 设计稿 clear 弹窗：独立 XAML 控件，危险色主按钮 + 警示条；
+        // 数量取全部记录（Items），不是筛选后的 FilteredItems。
+        var confirm = new ClearHistoryDialog(ViewModel.Items.Count)
         {
             XamlRoot = root,
             // 弹出层不继承 window.Content.RequestedTheme，需显式套用当前主题
             RequestedTheme = App.CurrentElementTheme,
-            Title = "清空传输历史？",
-            Content = "将删除全部收发记录（不会删除已接收的文件本身）。此操作不可撤销。",
-            PrimaryButtonText = "清空",
-            CloseButtonText = "取消",
-            DefaultButton = ContentDialogButton.Close,
         };
         try
         {

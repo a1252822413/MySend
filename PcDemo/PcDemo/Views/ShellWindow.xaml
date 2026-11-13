@@ -1,5 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 主窗口：顶部标题栏（图标+应用名）+ NavigationView（接收/设置）+ Frame 内容区 -->
+<!--
+  主窗口：自定义标题栏 + NavigationView（接收/发送/设备管理/历史 + 底部设置）+ Frame 内容区。
+  视觉值全部来自 Styles/DesignTokens.xaml；窗口材质由系统 Mica 提供，应用内无材质设置项。
+  顶部悬浮提醒由 code-behind 的 TopToast.AttachTo(RootGrid) 挂在内容区右上角。
+-->
 <Window
     x:Class="PcDemo.Views.ShellWindow"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
@@ -7,9 +11,9 @@
     Title="快传">
 
     <Grid x:Name="RootGrid" RowDefinitions="32,*">
-        <!-- 自定义标题栏：汉堡按钮（收起/展开侧边栏）+ 应用图标 + 名称 -->
+        <!-- 自定义标题栏：汉堡按钮 + 应用图标 + 名称 -->
         <Grid x:Name="AppTitleBar" Grid.Row="0"
-              Background="{ThemeResource LayerFillColorDefaultBrush}"
+              Background="Transparent"
               Padding="4,0,0,0">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto"/>
@@ -17,7 +21,6 @@
                 <ColumnDefinition Width="Auto"/>
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
-            <!-- 侧边栏收起/展开按钮（最左）：32×32，点击区域 = 系统按钮高度 -->
             <Button x:Name="PaneToggleButton" Grid.Column="0"
                     Click="OnPaneToggleClick"
                     AutomationProperties.Name="收起或展开侧边栏"
@@ -31,33 +34,25 @@
             <Image Grid.Column="1" Source="Assets/Square44x44Logo.targetsize-24_altform-unplated.png"
                    AutomationProperties.Name="快传"
                    Width="16" Height="16" Margin="4,0,0,0" VerticalAlignment="Center"/>
-            <TextBlock Grid.Column="2" Text="快传" FontSize="12" FontWeight="SemiBold"
+            <TextBlock Grid.Column="2" Text="快传" FontSize="{StaticResource FontSm}" FontWeight="SemiBold"
                        Margin="8,0,0,0" VerticalAlignment="Center"
-                       Foreground="{ThemeResource TextFillColorPrimaryBrush}"/>
+                       Foreground="{ThemeResource BrandTextBrush}"/>
         </Grid>
 
         <NavigationView
             x:Name="NavView"
             Grid.Row="1"
             PaneDisplayMode="Left"
-            OpenPaneLength="140"
+            OpenPaneLength="168"
             CompactPaneLength="48"
             IsBackButtonVisible="Collapsed"
             IsPaneToggleButtonVisible="False"
             IsSettingsVisible="False"
             SelectionChanged="OnSelectionChanged">
             <NavigationView.Resources>
-                <!-- 侧边栏背景：与标题栏同色，形成一条通到底的色条。
-
-                     两个坑（都已踩过）：
-                     1) 键名必须是 NavigationViewDefaultPaneBackground —— 这是 WinUI 3 模板里
-                        真正被 `Background="{ThemeResource NavigationViewDefaultPaneBackground}"`
-                        消费的那个键（默认值 AcrylicInAppFillColorDefaultBrush）。原来的
-                        NavigationViewPaneBackground 在 generic.xaml 里根本不存在，属于死资源：
-                        里面的 {ThemeResource} 永远不会被解析，所以既不生效也不会报错。
-                     2) 颜色键是 LayerFillColorDefault（没有 Color 后缀）。写成
-                        LayerFillColorDefaultColor 会 KeyNotFound；之前没崩只是因为踩了坑 1，
-                        一旦该画刷被模板消费就会在启动时抛 XamlParseException。 -->
+                <!-- 侧边栏底色：与标题栏形成一条通到底的色带。
+                     键名必须是 NavigationViewDefaultPaneBackground（generic.xaml 真正消费的键）；
+                     NavigationViewPaneBackground 是死资源，写了不会生效也不报错。 -->
                 <SolidColorBrush x:Key="NavigationViewDefaultPaneBackground"
                                  Color="{ThemeResource LayerFillColorDefault}"
                                  Opacity="1.0"/>
@@ -66,20 +61,33 @@
             <NavigationView.MenuItems>
                 <NavigationViewItem Tag="Receive" Icon="Download" Content="接收"/>
                 <NavigationViewItem Tag="Send" Icon="Send" Content="发送"/>
-                <NavigationViewItem Tag="DeviceList" Icon="People" Content="设备管理"/>
                 <NavigationViewItem Tag="History" Icon="Clock" Content="历史记录"/>
+                <NavigationViewItem Tag="DeviceList" Icon="People" Content="设备管理"/>
             </NavigationView.MenuItems>
 
-            <!-- 底部 footer 菜单项（独立于顶部 MenuItems，会贴在侧边栏底部）-->
             <NavigationView.FooterMenuItems>
                 <NavigationViewItem Tag="Settings" Icon="Setting" Content="设置"/>
             </NavigationView.FooterMenuItems>
 
-            <!-- Frame 作为 NavigationView 的隐式 Content（内容区），
-                 用稍不同的 LayerOnMicaBaseAltFillColorTransparentBrush 形成与侧边栏的色差 -->
+            <!-- 常驻服务状态：关窗隐藏到托盘后仍在接收（设计稿 nav-foot）。
+                 注意：PaneFooter 已位于 FooterMenuItems(设置) 之下、紧贴窗底；
+                 内层 StackPanel 绝不能设 VerticalAlignment=Bottom，否则会被窗口底边裁切/与设置项挤叠。 -->
+            <NavigationView.PaneFooter>
+                <StackPanel Orientation="Horizontal" Spacing="{StaticResource GapControl}"
+                            Margin="16,4,16,12">
+                    <Border Width="24" Height="1" Background="{ThemeResource CardStrokeColorDefaultBrush}"
+                            VerticalAlignment="Center" Margin="0,0,0,0"/>
+                    <Ellipse Width="7" Height="7" VerticalAlignment="Center"
+                             Fill="{ThemeResource BrandAccentInkBrush}"/>
+                    <TextBlock Text="后台接收中" FontSize="{StaticResource FontLabel}"
+                               Foreground="{ThemeResource BrandTextDimBrush}"
+                               VerticalAlignment="Center"/>
+                </StackPanel>
+            </NavigationView.PaneFooter>
+
+            <!-- 内容区保持透明，让系统 Mica 壁纸透出；卡片本身不透明 ≥0.90 以保对比度 -->
             <Frame x:Name="ContentFrame"
                    Background="{ThemeResource LayerOnMicaBaseAltFillColorTransparentBrush}">
-                <!-- 页面切换过渡：横向滑入 + 淡入（默认无过渡会生硬跳变） -->
                 <Frame.ContentTransitions>
                     <TransitionCollection>
                         <NavigationThemeTransition>

@@ -571,11 +571,43 @@ public partial class ReceiveViewModel : ViewModelBase,
                 ReceiveSessionStatus.Rejected => "已拒绝",
                 _ => "服务运行中",
             };
-            _messenger.Send(new ShowToastMessage
+            // 传输结果统一走「顶部悬浮提醒 4 态」（design/unified v1.2 §2）：
+            // 成功/失败给出结构化标题、副文本与可点击动作；取消/拒绝仍用通用提示。
+            var totalBytes = session.Files.Values.Sum(f => (long)f.Metadata.Size);
+            if (session.Status == ReceiveSessionStatus.Completed)
             {
-                Kind = kind,
-                Message = $"{title}\n{body}",
-            });
+                _messenger.Send(new TransferResultMessage
+                {
+                    Kind = TransferResultKind.ReceiveSuccess,
+                    Title = $"已接收 {fileCount} 个文件",
+                    Detail = $"{PcDemo.Converters.ByteFormatter.Format(totalBytes)} · 保存到 {dest}",
+                    PrimaryActionText = "打开文件夹",
+                    PrimaryAction = OpenDestinationFolder,
+                    SecondaryActionText = "查看历史",
+                    SecondaryAction = () => _messenger.Send(new NavigateToPageMessage { Tag = "History" }),
+                });
+            }
+            else if (session.Status == ReceiveSessionStatus.Failed)
+            {
+                _messenger.Send(new TransferResultMessage
+                {
+                    Kind = TransferResultKind.ReceiveFailure,
+                    Title = decisionTimeout ? "接收请求已超时" : "接收失败",
+                    Detail = decisionTimeout
+                        ? "60 秒内未做出决策，请求已失效"
+                        : $"{fileCount} 个文件未保存 · 已清理临时文件",
+                    PrimaryActionText = "查看历史",
+                    PrimaryAction = () => _messenger.Send(new NavigateToPageMessage { Tag = "History" }),
+                });
+            }
+            else
+            {
+                _messenger.Send(new ShowToastMessage
+                {
+                    Kind = kind,
+                    Message = $"{title}\n{body}",
+                });
+            }
         });
     }
 }

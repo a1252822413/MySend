@@ -1,6 +1,11 @@
-// ThemeApplier：把 AppSettings.ThemeMode 应用到当前 UI（MSIX Packaged）。
-// - 同时更新 Content.RequestedTheme（前景色/控件主题）
-// - 同时更新 Window.SystemBackdrop（Mica/Acrylic），让 Win11 自动给窗口圆角 + 主题自适应半透明背景
+// ThemeApplier：把 AppSettings.ThemeMode 应用到当前 UI。
+// - Content.RequestedTheme 决定前景/控件主题
+// - Window.SystemBackdrop 决定窗口材质
+//
+// 设计约束（design/unified v1.2 §1）：窗口材质与动画强弱不是产品设置项，
+// 应用内只保留「主题模式」三选。材质一律交给系统：WinUI 的 MicaBackdrop 会按
+// 系统主题、电源状态、减少透明效果与高对比度自动降级为亚克力或纯色，
+// 所以这里不再按"深色→亚克力"做应用侧的人为映射（那等于偷偷做了半个材质开关）。
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Media;
 
@@ -28,15 +33,10 @@ public static class ThemeApplier
                 fe.RequestedTheme = theme;
             }
 
-            // 2) 背景 SystemBackdrop（决定窗口背景色 + 半透明效果 + Win11 自动圆角）
-            //    浅色/跟随系统：Mica（更贴近桌面）；深色：Acrylic（更明显的半透明毛玻璃）
-            window.SystemBackdrop = theme switch
-            {
-                ElementTheme.Dark => new DesktopAcrylicBackdrop(),
-                _ => new MicaBackdrop(),
-            };
+            // 2) 系统材质：跟随系统，应用不提供开关、不按深浅主题改档位
+            window.SystemBackdrop = new MicaBackdrop();
         }
-        catch (Exception ex)
+        catch (System.Exception ex)
         {
             App.LogDiag($"[Theme] Apply failed: {ex.Message}");
         }

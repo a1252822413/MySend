@@ -18,7 +18,7 @@ namespace PcDemo.Views;
 public sealed partial class ShellWindow : Window
 {
     private readonly ShellViewModel _viewModel;
-    private CenteredToast? _toast;
+    private TopToast? _toast;
 
     public ShellWindow(ShellViewModel viewModel)
     {
@@ -33,9 +33,14 @@ public sealed partial class ShellWindow : Window
         // 自定义标题栏区域（图标+应用名）可拖动窗口
         SetTitleBar(AppTitleBar);
 
-        // ---- 全局居中 Toast：挂在 RootGrid 最上层（ZIndex 999），覆盖所有页面/侧边栏 ----
-        _toast = CenteredToast.AttachTo(RootGrid);
+        // ---- 全局顶部悬浮提醒（design/unified v1.2）：内容区右上角，不铺遮罩、不盖页面标题 ----
+        // 挂在 RootGrid 内容行（Row=1）最上层，覆盖所有页面但不拦截未覆盖区域的鼠标操作。
+        _toast = TopToast.AttachTo(RootGrid);
         _toast.EnsureRegistered();
+
+        // 顶部提醒里的「查看历史 / 查看详情」动作 → 切到对应页面
+        WeakReferenceMessenger.Default.Register<NavigateToPageMessage>(this, (_, m) =>
+            DispatcherQueue.TryEnqueue(() => NavigateTo(m.Tag)));
 
         // 默认导航到接收页
         NavView.SelectedItem = NavView.MenuItems[0];
@@ -65,6 +70,27 @@ public sealed partial class ShellWindow : Window
         }
         // 再设置目标设备：SendViewModel 是单例；SetSingleTarget 会更新多选集合并同步卡片高亮
         App.Services.GetRequiredService<SendViewModel>().SetSingleTarget(device);
+    }
+
+    /// <summary>从菜单项或底部菜单项里找到 Tag 对应的项并选中（触发 OnSelectionChanged 导航）。</summary>
+    private void NavigateTo(string tag)
+    {
+        foreach (var item in NavView.MenuItems)
+        {
+            if (item is NavigationViewItem nvi && nvi.Tag?.ToString() == tag)
+            {
+                NavView.SelectedItem = nvi;
+                return;
+            }
+        }
+        foreach (var item in NavView.FooterMenuItems)
+        {
+            if (item is NavigationViewItem nvi && nvi.Tag?.ToString() == tag)
+            {
+                NavView.SelectedItem = nvi;
+                return;
+            }
+        }
     }
 
     // 最小窗口逻辑尺寸（避免布局被压缩破坏）
